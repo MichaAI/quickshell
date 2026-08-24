@@ -1,0 +1,109 @@
+import QtQuick
+import "../.."
+import "../../services"
+import "../../components"
+
+Item {
+    id: root
+
+    implicitWidth: 300
+    implicitHeight: col.implicitHeight + 28
+
+    component KV: Item {
+        property alias key: k.text
+        property alias value: v.text
+        width: parent.width
+        height: 20
+
+        Text {
+            id: k
+            anchors.left: parent.left
+            font.family: Theme.font
+            font.pixelSize: 12
+            color: Theme.overlay1
+        }
+        Text {
+            id: v
+            anchors.right: parent.right
+            font.family: Theme.font
+            font.pixelSize: 12
+            color: Theme.text
+        }
+    }
+
+    Column {
+        id: col
+        anchors.top: parent.top
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.topMargin: 16
+        width: root.implicitWidth - 32
+        spacing: 10
+
+        Row {
+            anchors.horizontalCenter: parent.horizontalCenter
+            spacing: 12
+
+            Text {
+                text: Power.icon
+                font.family: Theme.font
+                font.pixelSize: 34
+                anchors.verticalCenter: parent.verticalCenter
+                color: Power.critical ? Theme.red
+                     : Power.charging ? Theme.green : Theme.text
+            }
+            GradientText {
+                anchors.verticalCenter: parent.verticalCenter
+                pixelSize: 32
+                fontWeight: Font.Bold
+                text: Power.percent + "%"
+            }
+        }
+
+        Column {
+            anchors.horizontalCenter: parent.horizontalCenter
+            spacing: 2
+
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: Power.stateText
+                font.family: Theme.font
+                font.pixelSize: 13
+                color: Theme.subtext1
+            }
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: Power.timeText
+                font.family: Theme.font
+                font.pixelSize: 12
+                color: Theme.overlay1
+                visible: text !== "" && text !== "—"
+            }
+        }
+
+        Rectangle {
+            width: parent.width
+            height: 1
+            gradient: Gradient {
+                orientation: Gradient.Horizontal
+                GradientStop { position: 0; color: Theme.alpha(Theme.gradStart, 0.4) }
+                GradientStop { position: 1; color: Theme.alpha(Theme.gradEnd, 0.4) }
+            }
+        }
+
+        KV {
+            key: "Мощность"
+            value: Power.device ? Math.abs(Power.device.changeRate).toFixed(1) + " Вт" : "—"
+        }
+        KV {
+            visible: Power.device?.healthSupported ?? false
+            key: "Здоровье"
+            value: Power.device ? Math.round(Power.device.healthPercentage) + "%" : "—"
+        }
+        KV {
+            key: "Заряд"
+            value: Power.device
+                ? Power.device.energy.toFixed(1) + " / " + Power.device.energyCapacity.toFixed(1) + " Вт·ч"
+                : "—"
+        }
+    }
+}
