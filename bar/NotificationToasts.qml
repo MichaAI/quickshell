@@ -22,10 +22,12 @@ Scope {
                 : modelData === Quickshell.screens[0]
 
             visible: isTarget && Notifs.popups.length > 0
-            anchors { top: true; right: true }
-            margins { top: 8; right: 8 }
+            // Окно фиксированного размера во всю высоту: ресайз layer-surface
+            // на каждом кадре анимации дёргал всплывашки. Ввод — только по стопке.
+            anchors { top: true; right: true; bottom: true }
+            margins { top: 8; right: 8; bottom: 8 }
             implicitWidth: 380
-            implicitHeight: Math.max(1, stack.implicitHeight)
+            mask: Region { item: stack }
             exclusionMode: ExclusionMode.Normal
             exclusiveZone: 0
             color: "transparent"
@@ -42,10 +44,12 @@ Scope {
                     NotifItem {
                         id: toast
                         required property var modelData
+                        required property int index
 
                         width: stack.width
                         gap: 8
                         notif: modelData
+                        collapse: index < Notifs.popups.length - 1
                         enter: true
                         slide: 1
 

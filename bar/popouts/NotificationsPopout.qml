@@ -161,6 +161,7 @@ Item {
                 width: list.width
                 gap: 6
                 notif: modelData
+                collapse: index < list.count - 1
 
                 Connections {
                     target: Notifs

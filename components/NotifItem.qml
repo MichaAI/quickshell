@@ -10,6 +10,9 @@ Item {
     required property Notification notif
     property real gap: 0                 // отступ снизу — схлопывается вместе с карточкой
     property bool enter: false           // въехать справа при появлении
+    // Схлопывать место после ухода. Последнему в стопке незачем: под ним
+    // никто не подъедет, и схлопывание выглядело бы пустой паузой.
+    property bool collapse: true
     readonly property bool hovered: card.hovered
     readonly property bool critical: card.critical
     readonly property bool leaving: outAnim.running
@@ -48,7 +51,7 @@ Item {
         }
         NumberAnimation {
             target: root; property: "shrink"; to: 0
-            duration: 160; easing.type: Easing.OutCubic
+            duration: root.collapse ? 160 : 0; easing.type: Easing.OutCubic
         }
         ScriptAction {
             script: {
