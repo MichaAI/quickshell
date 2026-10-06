@@ -28,6 +28,7 @@ Singleton {
 
     // «Очистить всё»: карточки сначала разъезжаются (лесенкой), потом удаляем
     signal clearRequested()
+    readonly property bool clearing: clearTimer.running
     readonly property int clearStagger: 40
     readonly property int leaveDuration: 200      // уезд карточки (NotifItem)
     readonly property int collapseDuration: 160   // схлопывание места (NotifItem)
