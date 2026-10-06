@@ -48,6 +48,10 @@ Scope {
             property real popAnchorX: 0
             property bool everHovered: false
 
+            // Пока открыт любой попаут — всплывашки уведомлений молчат
+            onPopoutOpenChanged: Ui.openPopouts += popoutOpen ? 1 : -1
+            Component.onDestruction: if (popoutOpen) Ui.openPopouts--
+
             // Старое меню полностью закрывается, потом открывается новое
             function togglePopout(name, anchor) {
                 if (popoutOpen) {
@@ -104,7 +108,8 @@ Scope {
                 function onPopoutRequested(name) {
                     const anchors = {
                         launcher: logoPill, calendar: timePill, system: sysPill,
-                        music: musicPill, volume: volumePill, battery: batteryPill
+                        music: musicPill, volume: volumePill, battery: batteryPill,
+                        notifications: notifPill
                     }
                     if (anchors[name] !== undefined)
                         win.togglePopout(name, anchors[name])
@@ -362,6 +367,29 @@ Scope {
                             }
                         }
                     }
+
+                    BarPill {
+                        id: notifPill
+                        anchors.verticalCenter: parent.verticalCenter
+                        active: win.shownPopout === "notifications"
+                        onClicked: event => {
+                            if (event.button === Qt.MiddleButton)
+                                Notifs.toggleDnd()
+                            else
+                                win.togglePopout("notifications", notifPill)
+                        }
+
+                        PillText {
+                            text: Notifs.icon
+                            color: Notifs.dnd ? Theme.overlay0
+                                 : Notifs.unread && Notifs.count > 0 ? Theme.peach : Theme.lavender
+                        }
+                        PillText {
+                            text: Notifs.count.toString()
+                            visible: Notifs.count > 0
+                            color: Notifs.dnd ? Theme.overlay0 : Theme.text
+                        }
+                    }
                 }
             }
 
@@ -431,6 +459,7 @@ Scope {
                         case "volume": return volumeComp
                         case "battery": return batteryComp
                         case "tray": return trayComp
+                        case "notifications": return notificationsComp
                         default: return null
                         }
                     }
@@ -482,6 +511,7 @@ Scope {
             Component { id: volumeComp; Popouts.VolumePopout {} }
             Component { id: batteryComp; Popouts.BatteryPopout {} }
             Component { id: trayComp; Popouts.TrayMenuPopout {} }
+            Component { id: notificationsComp; Popouts.NotificationsPopout {} }
         }
 
         // Прозрачный ловец кликов на весь экран: клик мимо меню закрывает его.

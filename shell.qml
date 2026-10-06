@@ -7,6 +7,7 @@ ShellRoot {
     Bar {}
     ScreenCorners {}
     DesktopWidget {}
+    NotificationToasts {}
 
     // niri: `qs ipc call launcher toggle`
     IpcHandler {
@@ -17,12 +18,25 @@ ShellRoot {
         }
     }
 
-    // niri: `qs ipc call popout toggle <calendar|system|music|volume|battery>`
+    // niri: `qs ipc call popout toggle <calendar|system|music|volume|battery|notifications>`
     IpcHandler {
         target: "popout"
 
         function toggle(name: string): void {
             Ui.popoutRequested(name)
+        }
+    }
+
+    // niri: `qs ipc call notifs <toggleDnd|clear>`
+    IpcHandler {
+        target: "notifs"
+
+        function toggleDnd(): void {
+            Notifs.toggleDnd()
+        }
+
+        function clear(): void {
+            Notifs.clearAll()
         }
     }
 }

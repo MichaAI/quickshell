@@ -7,3 +7,4 @@ singleton Audio 1.0 Audio.qml
 singleton Power 1.0 Power.qml
 singleton Players 1.0 Players.qml
 singleton SysStat 1.0 SysStat.qml
+singleton Notifs 1.0 Notifs.qml
