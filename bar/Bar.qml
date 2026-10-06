@@ -48,6 +48,10 @@ Scope {
             property real popAnchorX: 0
             property bool everHovered: false
 
+            // Пока открыт любой попаут — всплывашки уведомлений молчат
+            onPopoutOpenChanged: Ui.openPopouts += popoutOpen ? 1 : -1
+            Component.onDestruction: if (popoutOpen) Ui.openPopouts--
+
             // Старое меню полностью закрывается, потом открывается новое
             function togglePopout(name, anchor) {
                 if (popoutOpen) {

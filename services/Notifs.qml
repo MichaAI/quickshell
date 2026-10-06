@@ -21,6 +21,11 @@ Singleton {
 
     readonly property int popupTimeout: 6000
 
+    // Открыт попаут бара: новые не всплывают, висящие уезжают (но остаются в центре)
+    readonly property bool suppressed: Ui.openPopouts > 0
+    signal hidePopupsRequested()
+    onSuppressedChanged: if (suppressed) hidePopupsRequested()
+
     // «Очистить всё»: карточки сначала разъезжаются (лесенкой), потом удаляем
     signal clearRequested()
     readonly property int clearStagger: 40
@@ -45,6 +50,8 @@ Singleton {
             if (n.lastGeneration)
                 return
             root.unread = true
+            if (root.suppressed)
+                return
             if (!root.dnd || n.urgency === NotificationUrgency.Critical)
                 root.popups = [n, ...root.popups].slice(0, 5)
         }
