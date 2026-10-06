@@ -30,6 +30,8 @@ Singleton {
     signal clearRequested()
     readonly property bool clearing: clearTimer.running
     readonly property int clearStagger: 40
+    readonly property int clearMaxSteps: 30         // дальше лесенка не растёт
+    property real clearStart: 0
     readonly property int leaveDuration: 200      // уезд карточки (NotifItem)
     readonly property int collapseDuration: 160   // схлопывание места (NotifItem)
 
@@ -99,17 +101,26 @@ Singleton {
         if (count === 0 || clearTimer.running)
             return
         unread = false
-        clearRequested()
+        clearStart = Date.now()
         // Ровно когда закончит анимацию последняя карточка волны
-        clearTimer.deadline = Date.now() + Math.min(count - 1, 10) * clearStagger
+        clearTimer.deadline = clearStart + clearDelay(count - 1)
             + leaveDuration + collapseDuration
-        clearTimer.interval = clearTimer.deadline - Date.now()
+        clearTimer.interval = clearTimer.deadline - clearStart
         clearTimer.start()
+        clearRequested()
     }
 
-    // Карточка начала уходить посреди очистки — дождаться конца её анимации
-    function holdClear() {
-        const end = Date.now() + leaveDuration + collapseDuration
+    // Сколько карточке с этим индексом ждать до своего места в волне.
+    // Часы общие для всех: и для созданных сразу, и для ленивых делегатов,
+    // которые появляются позже, — иначе волна рвётся.
+    function clearDelay(index) {
+        const at = clearStart + Math.min(index, clearMaxSteps) * clearStagger
+        return Math.max(0, at - Date.now())
+    }
+
+    // Поздняя карточка уходит с задержкой delay — дождаться конца её анимации
+    function holdClear(delay) {
+        const end = Date.now() + delay + leaveDuration + collapseDuration
         if (!clearTimer.running || end <= clearTimer.deadline)
             return
         clearTimer.deadline = end

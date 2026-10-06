@@ -164,17 +164,14 @@ Item {
                 collapse: index < list.count - 1
 
                 function leaveForClear() {
-                    item.leave(null, Math.min(item.index, 10) * Notifs.clearStagger)
+                    const d = Notifs.clearDelay(item.index)
+                    Notifs.holdClear(d)
+                    item.leave(null, d)
                 }
 
                 // Делегаты ленивые: подъехавшая снизу посреди очистки карточка
-                // не слышала clearRequested — сразу уходит сама
-                Component.onCompleted: {
-                    if (Notifs.clearing) {
-                        Notifs.holdClear()
-                        item.leave(null)
-                    }
-                }
+                // не слышала clearRequested — встаёт в волну на своё место
+                Component.onCompleted: if (Notifs.clearing) leaveForClear()
 
                 Connections {
                     target: Notifs
