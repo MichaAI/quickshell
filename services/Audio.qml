@@ -17,12 +17,18 @@ Singleton {
     readonly property bool micMuted: source?.audio?.muted ?? false
     readonly property string sourceName: source?.description || source?.nickname || source?.name || "—"
 
-    // Аудио-потоки приложений (для микшера)
-    readonly property var streams: Pipewire.nodes.values.filter(n => {
-        if (!n.isStream) return false
-        const mc = n.properties?.["media.class"] ?? ""
-        return mc === "" || mc.startsWith("Stream/Output")
-    })
+    // Аудио-потоки приложений (для микшера).
+    // Фильтруем ТОЛЬКО по n.type: это CONSTANT-свойство, заполняемое при создании
+    // объекта в реестре. Опираться здесь на n.properties нельзя — они существуют
+    // лишь пока нода привязана (bound), а привязкой управляет PwObjectTracker,
+    // подписанный на этот же список. Получается петля биндинга: нода
+    // привязывается -> появляется media.class -> выпадает из фильтра ->
+    // отвязывается -> properties очищаются -> снова попадает в фильтр. Отвязка
+    // при этом происходит прямо внутри обработки pipewire-события, после чего
+    // quickshell дёргает pw_node_enum_params() на уже уничтоженном proxy и падает
+    // с SIGSEGV. Ловилось на Stream/Input/Audio (микрофон в OBS и т.п.).
+    readonly property var streams: Pipewire.nodes.values
+        .filter(n => n.type === PwNodeType.AudioOutStream)
 
     PwObjectTracker {
         objects: [Pipewire.defaultAudioSink, Pipewire.defaultAudioSource]

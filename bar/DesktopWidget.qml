@@ -21,7 +21,7 @@ Scope {
             exclusionMode: ExclusionMode.Ignore
             color: "transparent"
             WlrLayershell.namespace: "quickshell:desktop"
-            WlrLayershell.layer: WlrLayer.Background
+            WlrLayershell.layer: WlrLayer.Bottom
 
             mask: Region {}
 
@@ -46,9 +46,13 @@ Scope {
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
                     text: Time.dateLong + "  ·  " + Time.time
+                    
                     font.family: Theme.font
                     font.pixelSize: 14
                     color: Theme.alpha(Theme.text, 0.75)
+
+                    style: Text.Outline
+                    styleColor: Theme.crust
                 }
             }
         }

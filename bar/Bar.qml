@@ -221,11 +221,11 @@ Scope {
                         active: win.shownPopout === "system"
                         onClicked: win.togglePopout("system", sysPill)
 
-                        PillText { text: "󰻠"; color: Theme.green }
+                        PillText { text: ""; color: Theme.blue }
                         PillText { text: SysStat.cpu.toFixed(0) }
-                        PillText { text: "󰍛"; color: Theme.blue }
+                        PillText { text: ""; color: Theme.blue }
                         PillText { text: SysStat.memPerc.toFixed(0) }
-                        PillText { text: "󰔏"; color: Theme.peach }
+                        PillText { text: "󰔏"; color: Theme.blue }
                         PillText { text: SysStat.temp.toFixed(0) }
                     }
 
