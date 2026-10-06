@@ -21,6 +21,10 @@ Singleton {
 
     readonly property int popupTimeout: 6000
 
+    // «Очистить всё»: карточки сначала разъезжаются (лесенкой), потом удаляем
+    signal clearRequested()
+    readonly property int clearStagger: 40
+
     NotificationServer {
         id: server
 
@@ -82,10 +86,21 @@ Singleton {
     }
 
     function clearAll() {
-        for (const n of [...server.trackedNotifications.values])
-            n.dismiss()
-        popups = []
+        if (count === 0 || clearTimer.running)
+            return
         unread = false
+        clearRequested()
+        clearTimer.interval = 400 + Math.min(count, 10) * clearStagger
+        clearTimer.start()
+    }
+
+    Timer {
+        id: clearTimer
+        onTriggered: {
+            for (const n of [...server.trackedNotifications.values])
+                n.dismiss()
+            root.popups = []
+        }
     }
 
     function toggleDnd() {

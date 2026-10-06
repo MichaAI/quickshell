@@ -328,29 +328,6 @@ Scope {
                     }
 
                     BarPill {
-                        id: notifPill
-                        anchors.verticalCenter: parent.verticalCenter
-                        active: win.shownPopout === "notifications"
-                        onClicked: event => {
-                            if (event.button === Qt.MiddleButton)
-                                Notifs.toggleDnd()
-                            else
-                                win.togglePopout("notifications", notifPill)
-                        }
-
-                        PillText {
-                            text: Notifs.icon
-                            color: Notifs.dnd ? Theme.overlay0
-                                 : Notifs.unread && Notifs.count > 0 ? Theme.peach : Theme.lavender
-                        }
-                        PillText {
-                            text: Notifs.count.toString()
-                            visible: Notifs.count > 0
-                            color: Notifs.dnd ? Theme.overlay0 : Theme.text
-                        }
-                    }
-
-                    BarPill {
                         id: trayPill
                         anchors.verticalCenter: parent.verticalCenter
                         visible: SystemTray.items.values.length > 0
@@ -384,6 +361,29 @@ Scope {
                                     }
                                 }
                             }
+                        }
+                    }
+
+                    BarPill {
+                        id: notifPill
+                        anchors.verticalCenter: parent.verticalCenter
+                        active: win.shownPopout === "notifications"
+                        onClicked: event => {
+                            if (event.button === Qt.MiddleButton)
+                                Notifs.toggleDnd()
+                            else
+                                win.togglePopout("notifications", notifPill)
+                        }
+
+                        PillText {
+                            text: Notifs.icon
+                            color: Notifs.dnd ? Theme.overlay0
+                                 : Notifs.unread && Notifs.count > 0 ? Theme.peach : Theme.lavender
+                        }
+                        PillText {
+                            text: Notifs.count.toString()
+                            visible: Notifs.count > 0
+                            color: Notifs.dnd ? Theme.overlay0 : Theme.text
                         }
                     }
                 }

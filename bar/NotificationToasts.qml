@@ -35,55 +35,30 @@ Scope {
             Column {
                 id: stack
                 width: parent.width
-                spacing: 8
-
-                move: Transition {
-                    NumberAnimation { property: "y"; duration: 200; easing.type: Easing.OutCubic }
-                }
 
                 Repeater {
                     model: ScriptModel { values: Notifs.popups }
 
-                    Item {
+                    NotifItem {
                         id: toast
                         required property var modelData
 
                         width: stack.width
-                        height: card.implicitHeight + 8
-
-                        // Въезд справа
-                        property real slide: 1
-                        Component.onCompleted: slide = 0
-                        Behavior on slide {
-                            NumberAnimation { duration: 250; easing.type: Easing.OutCubic }
-                        }
+                        gap: 8
+                        notif: modelData
+                        enter: true
+                        slide: 1
 
                         Timer {
                             interval: Notifs.popupTimeout
                             // Критичные висят до клика
-                            running: !card.hovered && !card.critical
-                            onTriggered: Notifs.popupExpired(toast.modelData)
+                            running: !toast.hovered && !toast.critical && !toast.leaving
+                            onTriggered: toast.leave(() => Notifs.popupExpired(toast.modelData))
                         }
 
-                        // Подложка в цвет бара — как у попаутов
-                        Rectangle {
-                            width: parent.width
-                            height: parent.height
-                            x: toast.slide * (toast.width + 16)
-                            radius: Settings.popoutRadius
-                            color: Theme.popoutBg
-                            opacity: 1 - toast.slide
-
-                            NotifCard {
-                                id: card
-                                anchors.fill: parent
-                                anchors.margins: 4
-                                notif: toast.modelData
-                                onClosePressed: {
-                                    Notifs.dropPopup(toast.modelData)
-                                    toast.modelData.dismiss()
-                                }
-                            }
+                        Connections {
+                            target: Notifs
+                            function onClearRequested() { toast.leave(null) }
                         }
                     }
                 }

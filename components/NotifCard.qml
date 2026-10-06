@@ -10,7 +10,7 @@ Rectangle {
     id: root
 
     required property Notification notif
-    property color baseColor: Theme.cardBg
+    property color baseColor: Theme.crust
     readonly property bool hovered: hover.hovered
     readonly property bool critical: notif?.urgency === NotificationUrgency.Critical
 
@@ -18,7 +18,9 @@ Rectangle {
 
     implicitHeight: content.implicitHeight + 24
     radius: 12
-    color: cma.containsMouse ? Theme.mix(baseColor, Theme.surface0, 0.5) : baseColor
+    color: cma.containsMouse ? Theme.mix(baseColor, Theme.base, 0.6) : baseColor
+    border.width: 2
+    border.color: Theme.base
     Behavior on color { ColorAnimation { duration: 120 } }
 
     HoverHandler { id: hover }

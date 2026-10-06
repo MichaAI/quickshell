@@ -149,16 +149,25 @@ Item {
             anchors.topMargin: 10
             visible: Notifs.count > 0
             clip: true
-            spacing: 6
+            spacing: 0
             model: ScriptModel { values: Notifs.list }
             boundsBehavior: Flickable.StopAtBounds
             interactive: contentHeight > height
 
-            delegate: NotifCard {
+            delegate: NotifItem {
+                id: item
                 required property var modelData
+                required property int index
                 width: list.width
+                gap: 6
                 notif: modelData
-                onClosePressed: modelData.dismiss()
+
+                Connections {
+                    target: Notifs
+                    function onClearRequested() {
+                        item.leave(null, Math.min(item.index, 10) * Notifs.clearStagger)
+                    }
+                }
             }
         }
     }
