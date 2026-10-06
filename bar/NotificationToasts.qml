@@ -62,7 +62,7 @@ Scope {
 
                         Connections {
                             target: Notifs
-                            function onClearRequested() { toast.leave(null, 0, true) }
+                            function onClearRequested() { toast.leave(null) }
                             function onHidePopupsRequested() {
                                 toast.leave(() => Notifs.popupExpired(toast.modelData))
                             }

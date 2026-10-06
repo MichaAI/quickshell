@@ -166,7 +166,7 @@ Item {
                 Connections {
                     target: Notifs
                     function onClearRequested() {
-                        item.leave(null, Math.min(item.index, 10) * Notifs.clearStagger, true)
+                        item.leave(null, Math.min(item.index, 10) * Notifs.clearStagger)
                     }
                 }
             }

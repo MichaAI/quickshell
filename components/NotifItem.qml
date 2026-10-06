@@ -14,7 +14,6 @@ Item {
     // Схлопывать место после ухода. Последнему в стопке незачем: под ним
     // никто не подъедет, и схлопывание выглядело бы пустой паузой.
     property bool collapse: true
-    property bool collapsing: true       // решение на конкретный уход
     readonly property bool hovered: card.hovered
     readonly property bool critical: card.critical
     readonly property bool leaving: outAnim.running
@@ -26,16 +25,13 @@ Item {
 
     height: (card.implicitHeight + gap) * shrink
 
-    // Уйти с анимацией и затем выполнить cb (если ещё актуально).
-    // keepSpace — не схлопывать место (массовая очистка: все уходят волной,
-    // и нижние карточки не должны подъезжать вверх, пока ждут своей очереди)
-    function leave(cb, delayMs, keepSpace) {
+    // Уйти с анимацией и затем выполнить cb (если ещё актуально)
+    function leave(cb, delayMs) {
         if (outAnim.running)
             return
         inAnim.stop()
         after = cb ?? null
         delay = delayMs ?? 0
-        collapsing = collapse && !keepSpace
         outAnim.start()
     }
 
@@ -56,7 +52,7 @@ Item {
         }
         NumberAnimation {
             target: root; property: "shrink"; to: 0
-            duration: root.collapsing ? 160 : 0; easing.type: Easing.OutCubic
+            duration: root.collapse ? Notifs.collapseDuration : 0; easing.type: Easing.OutCubic
         }
         ScriptAction {
             script: {
