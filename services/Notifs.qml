@@ -88,6 +88,15 @@ Singleton {
         return Qt.formatDateTime(t, "d MMM")
     }
 
+    // Тело для StyledText. Некоторые приложения (KDE Connect и т.п.) шлют
+    // переносы экранированными — "&lt;br/&gt;", и они рисовались буквами.
+    function bodyText(n) {
+        return (n.body ?? "")
+            .replace(/&lt;br\s*\/?&gt;/gi, "<br>")
+            .replace(/<br\s*\/?>/gi, "<br>")
+            .replace(/\r?\n/g, "<br>")
+    }
+
     // Клик по карточке — действие по умолчанию, если есть
     function activate(n) {
         const def = n.actions.find(a => a.identifier === "default")
