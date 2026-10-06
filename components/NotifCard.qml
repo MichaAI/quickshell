@@ -154,7 +154,7 @@ Rectangle {
 
             Text {
                 width: parent.width
-                text: root.notif?.body ?? ""
+                text: root.notif ? Notifs.bodyText(root.notif) : ""
                 visible: text !== ""
                 wrapMode: Text.Wrap
                 maximumLineCount: 4
