@@ -153,9 +153,6 @@ Item {
             model: ScriptModel { values: Notifs.list }
             boundsBehavior: Flickable.StopAtBounds
             interactive: contentHeight > height
-            // Держим все карточки созданными: иначе при «Очистить всё» снизу
-            // подъезжали бы ленивые делегаты, не получившие clearRequested
-            cacheBuffer: 100000
 
             delegate: NotifItem {
                 id: item
@@ -170,8 +167,14 @@ Item {
                     item.leave(null, Math.min(item.index, 10) * Notifs.clearStagger)
                 }
 
-                // Создана уже посреди очистки — уходим сразу, без лесенки
-                Component.onCompleted: if (Notifs.clearing) item.leave(null)
+                // Делегаты ленивые: подъехавшая снизу посреди очистки карточка
+                // не слышала clearRequested — сразу уходит сама
+                Component.onCompleted: {
+                    if (Notifs.clearing) {
+                        Notifs.holdClear()
+                        item.leave(null)
+                    }
+                }
 
                 Connections {
                     target: Notifs

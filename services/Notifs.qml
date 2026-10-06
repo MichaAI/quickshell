@@ -101,13 +101,25 @@ Singleton {
         unread = false
         clearRequested()
         // Ровно когда закончит анимацию последняя карточка волны
-        clearTimer.interval = Math.min(count - 1, 10) * clearStagger
+        clearTimer.deadline = Date.now() + Math.min(count - 1, 10) * clearStagger
             + leaveDuration + collapseDuration
+        clearTimer.interval = clearTimer.deadline - Date.now()
         clearTimer.start()
+    }
+
+    // Карточка начала уходить посреди очистки — дождаться конца её анимации
+    function holdClear() {
+        const end = Date.now() + leaveDuration + collapseDuration
+        if (!clearTimer.running || end <= clearTimer.deadline)
+            return
+        clearTimer.deadline = end
+        clearTimer.interval = end - Date.now()
+        clearTimer.restart()
     }
 
     Timer {
         id: clearTimer
+        property real deadline: 0
         onTriggered: {
             for (const n of [...server.trackedNotifications.values])
                 n.dismiss()
