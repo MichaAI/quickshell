@@ -1,6 +1,7 @@
 import Quickshell.Services.Notifications
 import QtQuick
 import ".."
+import "../services"
 
 // Карточка уведомления с анимацией ухода: уезжает вправо, тает,
 // потом схлопывает своё место, и только после этого вызывается действие.
@@ -13,6 +14,7 @@ Item {
     // Схлопывать место после ухода. Последнему в стопке незачем: под ним
     // никто не подъедет, и схлопывание выглядело бы пустой паузой.
     property bool collapse: true
+    property bool collapsing: true       // решение на конкретный уход
     readonly property bool hovered: card.hovered
     readonly property bool critical: card.critical
     readonly property bool leaving: outAnim.running
@@ -24,13 +26,16 @@ Item {
 
     height: (card.implicitHeight + gap) * shrink
 
-    // Уйти с анимацией и затем выполнить cb (если ещё актуально)
-    function leave(cb, delayMs) {
+    // Уйти с анимацией и затем выполнить cb (если ещё актуально).
+    // keepSpace — не схлопывать место (массовая очистка: все уходят волной,
+    // и нижние карточки не должны подъезжать вверх, пока ждут своей очереди)
+    function leave(cb, delayMs, keepSpace) {
         if (outAnim.running)
             return
         inAnim.stop()
         after = cb ?? null
         delay = delayMs ?? 0
+        collapsing = collapse && !keepSpace
         outAnim.start()
     }
 
@@ -47,11 +52,11 @@ Item {
         PauseAnimation { duration: root.delay }
         NumberAnimation {
             target: root; property: "slide"; to: 1
-            duration: 200; easing.type: Easing.InCubic
+            duration: Notifs.leaveDuration; easing.type: Easing.InCubic
         }
         NumberAnimation {
             target: root; property: "shrink"; to: 0
-            duration: root.collapse ? 160 : 0; easing.type: Easing.OutCubic
+            duration: root.collapsing ? 160 : 0; easing.type: Easing.OutCubic
         }
         ScriptAction {
             script: {

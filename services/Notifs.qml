@@ -29,6 +29,7 @@ Singleton {
     // «Очистить всё»: карточки сначала разъезжаются (лесенкой), потом удаляем
     signal clearRequested()
     readonly property int clearStagger: 40
+    readonly property int leaveDuration: 200    // уезд карточки (NotifItem)
 
     NotificationServer {
         id: server
@@ -97,7 +98,8 @@ Singleton {
             return
         unread = false
         clearRequested()
-        clearTimer.interval = 400 + Math.min(count, 10) * clearStagger
+        // Ровно когда уедет последняя карточка волны
+        clearTimer.interval = Math.min(count - 1, 10) * clearStagger + leaveDuration + 20
         clearTimer.start()
     }
 
