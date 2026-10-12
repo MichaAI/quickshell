@@ -253,10 +253,16 @@ Singleton {
         _lines.push(line)
     }
 
+    readonly property string sandbox: Quickshell.shellPath("assets/launcher/qalc-sandbox.sh")
+
+    // qalc живёт в песочнице bubblewrap: без сети, с пустой домашней папкой
+    // и конфигом только на чтение — даже если что-то в выражении (своя функция
+    // с command() и т.п.) попробует запустить программу, ей некуда дотянуться
     Process {
         id: proc
-        command: ["qalc", "-t",
+        command: ["bash", root.sandbox, "-t",
             "-s", "color 0", "-s", "save mode no", "-s", "save definitions no",
+            "-s", "save config no",
             "-s", "upxrates 0", "-s", "unicode 1",
             // Обычный ответ — всегда десятичный, точный считается отдельно
             "-s", "approx approximate", "-s", "fr 0"]
@@ -282,16 +288,35 @@ Singleton {
     Timer {
         id: restartTimer
         interval: 2000
-        onTriggered: proc.running = true
+        onTriggered: {
+            interval = 2000
+            proc.running = true
+        }
     }
 
-    // Курсы валют: раз в сутки просим сам qalc их скачать
+    // Курсы валют: раз в 3 часа — отдельным коротким qalc, которому песочница
+    // даёт сеть и запись только в каталог данных qalc. Скрипт сам пропускает
+    // скачивание, если курсам меньше 3 часов (код 3). Скачали — перезапускаем
+    // демон, курсы он читает только при старте
+    readonly property int ratesMinutes: 180
+
+    Process {
+        id: rates
+        command: ["bash", root.sandbox, "--rates", String(root.ratesMinutes - 5),
+            "-e", "-t", "-s", "save mode no", "-s", "save config no", "1"]
+        onExited: (code, _status) => {
+            if (code === 0 && proc.running) {
+                restartTimer.interval = 200
+                proc.running = false
+            }
+        }
+    }
     Timer {
-        interval: 24 * 3600 * 1000
-        running: root.ready
+        interval: root.ratesMinutes * 60 * 1000
+        running: true
         repeat: true
         triggeredOnStart: true
-        onTriggered: proc.write("exrates\n")
+        onTriggered: rates.running = true
     }
 
     FileView {
