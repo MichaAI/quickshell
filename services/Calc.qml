@@ -57,6 +57,7 @@ Singleton {
     // Похоже ли на выражение (для подмешивания в обычный поиск)
     function looksLikeMath(s) {
         const t = s.trim()
+        if (/^plot\s*\(/i.test(t)) return true
         if (t === "" || !/\d/.test(t)) return false
         if (/^\d+$/.test(t)) return false
         // Начинается как выражение: число, скобка, функция или переменная с оператором
@@ -154,7 +155,9 @@ Singleton {
             body = body.replace(/\)\s*$/, "")
         const args = _splitArgs(body)
         const f = (args[0] ?? "").trim()
-        let lo = Number(_plainNum(args[1] ?? "-10")), hi = Number(_plainNum(args[2] ?? "10"))
+        // Недописанный предел — по умолчанию, а не 0
+        const num = (a, d) => (a ?? "").trim() === "" ? d : Number(_plainNum(_decimalComma(a)))
+        let lo = num(args[1], -10), hi = num(args[2], 10)
         if (f === "" || hasSideEffects(f) || isNaN(lo) || isNaN(hi) || lo === hi) { callback(null); return }
         if (lo > hi) [lo, hi] = [hi, lo]
         const n = 241
@@ -263,6 +266,10 @@ Singleton {
         command: ["bash", root.sandbox, "-t",
             "-s", "color 0", "-s", "save mode no", "-s", "save definitions no",
             "-s", "save config no",
+            // С русской локалью qalc считает запятую десятичной: max(1,2) → 1,2,
+            // а числа выводит как 0,5 — и график их не разбирает. Внутри всегда
+            // точка, а «0,5» пользователя переводит _decimalComma()
+            "-s", "decimal comma off",
             "-s", "upxrates 0", "-s", "unicode 1",
             // Обычный ответ — всегда десятичный, точный считается отдельно
             "-s", "approx approximate", "-s", "fr 0"]
