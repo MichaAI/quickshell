@@ -418,7 +418,7 @@ Scope {
             Item {
                 id: popoutFrame
 
-                readonly property real contentW: loader.item?.implicitWidth ?? 200
+                readonly property real contentW: Math.ceil(loader.item?.implicitWidth ?? 200)
                 readonly property real contentH: Math.min(
                     loader.item?.implicitHeight ?? 0, Settings.popoutMaxHeight)
                 // фиксируется при открытии, чтобы попаут не скакал при смене контента пилюли
@@ -426,7 +426,8 @@ Scope {
 
                 // Прилипание к краям: у самого края меню сливается с гранью экрана
                 readonly property real snapZone: Settings.screenRadius + Settings.popoutWing + 8
-                readonly property real rawX: win.popAlignRight ? anchorX - contentW : anchorX - contentW / 2
+                // Целые пиксели: иначе между меню и «крылом» светится щель в 1px
+                readonly property real rawX: Math.round(win.popAlignRight ? anchorX - contentW : anchorX - contentW / 2)
                 readonly property bool flushLeft: rawX < snapZone
                 readonly property bool flushRight: rawX + contentW > win.width - snapZone
 
