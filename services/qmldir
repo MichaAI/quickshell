@@ -8,3 +8,6 @@ singleton Power 1.0 Power.qml
 singleton Players 1.0 Players.qml
 singleton SysStat 1.0 SysStat.qml
 singleton Notifs 1.0 Notifs.qml
+singleton Calc 1.0 Calc.qml
+singleton Zsh 1.0 Zsh.qml
+singleton Tools 1.0 Tools.qml
