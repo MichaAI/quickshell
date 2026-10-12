@@ -10,6 +10,41 @@ Singleton {
     // Что открыть в лончере при следующем показе (например, после пипетки)
     property string launcherPreset: ""
 
+    // ===== История запросов лончера (свежие первыми) =====
+
+    readonly property string queriesFile: Quickshell.env("HOME") + "/.cache/quickshell-launcher-queries"
+    readonly property int queriesMax: 500
+    property var queries: []
+
+    function addQuery(q) {
+        if (q.trim() === "") return
+        queries = [q, ...queries.filter(x => x !== q)].slice(0, queriesMax)
+        _saveQueries()
+    }
+
+    function removeQuery(q) {
+        queries = queries.filter(x => x !== q)
+        _saveQueries()
+    }
+
+    function _saveQueries() {
+        queriesView.setText(JSON.stringify(queries) + "\n")
+    }
+
+    FileView {
+        id: queriesView
+        path: root.queriesFile
+        blockLoading: true
+        printErrors: false
+        onLoaded: {
+            try {
+                const v = JSON.parse(text())
+                if (Array.isArray(v))
+                    root.queries = v.filter(x => typeof x === "string")
+            } catch (e) {}
+        }
+    }
+
     function copy(text) {
         Quickshell.execDetached(["wl-copy", "--", text])
     }

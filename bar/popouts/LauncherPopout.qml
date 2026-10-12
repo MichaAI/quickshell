@@ -42,12 +42,14 @@ Item {
         path:    { icon: "", color: Theme.sapphire, hint: "Путь…" },
         glyphs:  { icon: "󰞅", color: Theme.pink,     hint: "Эмодзи и иконки: кот, heart, nf-md-cat…" },
         kill:    { icon: "󰆴", color: Theme.red,      hint: "Процесс…" },
-        picker:  { icon: "󰏘", color: Theme.pink,     hint: "Цвет: #hex, rgb(), hsl()…" }
+        picker:  { icon: "󰏘", color: Theme.pink,     hint: "Цвет: #hex, rgb(), hsl()…" },
+        history: { icon: "󰋚", color: Theme.lavender, hint: "Поиск по истории запросов…" }
     })
 
     readonly property var parsed: {
         const q = query
         if (sub && sub.kind === "picker") return { mode: "picker", arg: q, cut: 0 }
+        if (sub && sub.kind === "history") return { mode: "history", arg: q, cut: 0 }
         if (/^kill\s/.test(q)) return { mode: "kill", arg: q.slice(5).trim(), cut: 5 }
         switch (q.charAt(0)) {
         case "=": return { mode: "calc", arg: q.slice(1), cut: 1 }
@@ -779,6 +781,7 @@ Item {
             }))
         switch (mode) {
         case "picker": return []
+        case "history": return historyItems()
         case "calc": return [...calcItems(), ...calcNameItems()]
         case "vars": return varItems()
         case "shell": return shellItems()
@@ -894,14 +897,84 @@ Item {
         searchInput.forceActiveFocus()
     }
 
+    // ===== История запросов =====
+    // Ctrl+↑/↓ (или ↑ в пустой строке) листают историю; если что-то уже введено —
+    // только запросы, начинающиеся с введённого (как up-line-or-search в zsh).
+    // Ctrl+R — список истории с поиском.
+
+    property int histPos: -1          // -1 — не листаем
+    property string histDraft: ""     // что было введено до начала листания
+    property bool _histSetting: false
+    property bool histArrows: false   // листание начато простой ↑ — тогда и ↓ листает
+
+    // Запрос, который сейчас выполнится — в историю
+    function remember() {
+        if (sub && (sub.kind === "history" || sub.kind === "picker")) return
+        Tools.addQuery(query)
+    }
+
+    function histMatches() {
+        return Tools.queries.filter(q => q.startsWith(histDraft) && q !== histDraft)
+    }
+
+    function histStep(d) {
+        if (histPos === -1) {
+            if (d > 0) return false
+            histDraft = query
+        }
+        const list = histMatches()
+        const next = histPos - d
+        if (next >= list.length) return true
+        histPos = Math.max(-1, next)
+        _histSetting = true
+        setQuery(histPos === -1 ? histDraft : list[histPos])
+        _histSetting = false
+        return true
+    }
+
+    function openHistory() {
+        sub = { kind: "history", back: query }
+        selIdx = 0
+        histPos = -1
+    }
+
+    function modeIcon(q) {
+        if (/^kill\s/.test(q)) return modes.kill
+        const m = { "=": "calc", "$": "vars", ">": "shell", ":": "windows", "!": "actions",
+                    "#": "clip", ";": "glyphs", "/": "path" }[q.charAt(0)]
+        if (m) return modes[m]
+        if (q.charAt(0) === "~") return q.startsWith("~/") ? modes.path : modes.files
+        return Calc.looksLikeMath(q) ? modes.calc : modes.apps
+    }
+
+    function historyItems() {
+        return filterBy(Tools.queries, arg, q => [q]).slice(0, 200).map(q => {
+            const m = modeIcon(q)
+            return {
+                glyph: m.icon,
+                glyphColor: m.color,
+                title: q,
+                badge: "⏎ в строку   ⇧⏎ выполнить   ⇧Del удалить",
+                run: shift => {
+                    sub = null
+                    setQuery(q)
+                    if (shift) Qt.callLater(() => root.runSelected(false))
+                },
+                del: () => Tools.removeQuery(q)
+            }
+        })
+    }
+
     function runSelected(shift) {
         if (sub && sub.kind === "picker") {
             picker.activate()
             if (!shift) Ui.closePopouts()
             return
         }
-        if (selected)
+        if (selected) {
+            remember()
             selected.run(shift)
+        }
     }
 
     // Tab на строке «Выполнить» — как в zsh: общий префикс кандидатов,
@@ -934,7 +1007,7 @@ Item {
 
     function back() {
         if (!sub) return false
-        if (sub.kind === "picker") {
+        if (sub.kind === "picker" || sub.kind === "history") {
             const q = sub.back
             sub = null
             setQuery(q)
@@ -984,6 +1057,8 @@ Item {
 
                 onTextChanged: {
                     root.query = text
+                    if (!root._histSetting)
+                        root.histPos = -1
                     if (root._settingQuery) {
                         root.resetSel()
                         return
@@ -1012,11 +1087,33 @@ Item {
                         break
                     case Qt.Key_Down:
                         if (inPicker && ctrl) picker.nudge(0, 0, -0.03)
+                        else if (!root.sub && (ctrl || root.histPos >= 0 && root.histArrows)) root.histStep(1)
                         else step(1)
                         break
                     case Qt.Key_Up:
                         if (inPicker && ctrl) picker.nudge(0, 0, 0.03)
-                        else step(-1)
+                        else if (!root.sub && ctrl) {
+                            if (root.histPos === -1) root.histArrows = false
+                            root.histStep(-1)
+                        }
+                        // Простая ↑ уходит в историю из пустой строки (как в терминале),
+                        // дальше ↑↓ листают её, пока не начнёшь печатать
+                        else if (!root.sub && root.selIdx === 0
+                                 && (root.query === "" && root.histPos === -1 || root.histPos >= 0 && root.histArrows)) {
+                            if (root.histPos === -1) root.histArrows = true
+                            root.histStep(-1)
+                        } else step(-1)
+                        break
+                    case Qt.Key_P:
+                    case Qt.Key_N:
+                        if (!ctrl || root.sub) { event.accepted = false; return }
+                        if (root.histPos === -1) root.histArrows = false
+                        root.histStep(event.key === Qt.Key_P ? -1 : 1)
+                        break
+                    case Qt.Key_R:
+                        if (!ctrl) { event.accepted = false; return }
+                        if (root.sub?.kind === "history") root.back()
+                        else if (!root.sub) root.openHistory()
                         break
                     case Qt.Key_PageDown:
                         step(8)
@@ -1299,6 +1396,7 @@ Item {
                         cursorShape: Qt.PointingHandCursor
                         onClicked: event => {
                             root.selIdx = row.index
+                            root.remember()
                             row.modelData.run(event.button === Qt.MiddleButton
                                 || (event.modifiers & Qt.ShiftModifier))
                             searchInput.forceActiveFocus()
@@ -1317,9 +1415,14 @@ Item {
                     return "↑↓ формат   ·   ⏎ копировать   ·   Ctrl+←→ оттенок   ·   Ctrl+↑↓ яркость   ·   Esc назад"
                 if (root.sub?.kind === "actions")
                     return "↑↓ навигация   ·   ⏎ запуск   ·   Esc/⇧Tab назад"
+                if (root.sub?.kind === "history")
+                    return "⏎ в строку   ·   ⇧⏎ выполнить   ·   ⇧Del удалить   ·   Esc назад"
+                if (root.histPos >= 0)
+                    return "История " + (root.histPos + 1) + "/" + root.histMatches().length
+                        + "   ·   " + (root.histArrows ? "↑↓" : "Ctrl+↑↓") + " листать   ·   печатай — выйти"
                 const n = root.results.length
                 const hints = {
-                    apps: n + " результатов   ·   ⏎ запуск   ·   Tab действия   ·   → дописать",
+                    apps: n + " результатов   ·   ⏎ запуск   ·   Tab действия   ·   ↑ / Ctrl+R история",
                     calc: root.plotData ? "⏎ открыть в gnuplot   ·   plot(f, от, до)   ·   наведи — значение"
                         : "⏎ копировать   ·   ⇧⏎ в ans   ·   x = 2+2 — переменная   ·   plot(f) — график",
                     shell: "⏎ фон   ·   ⇧⏎ терминал   ·   Tab дополнить   ·   → из истории",
