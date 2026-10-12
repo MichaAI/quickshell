@@ -32,7 +32,7 @@ Item {
 
     readonly property var modes: ({
         apps:    { icon: "󰍉", color: Theme.mauve,    hint: "Поиск приложений…   (= > : ! # ~ ; $ kill)" },
-        calc:    { icon: "󰃬", color: Theme.peach,    hint: "Выражение: 2^10, 10 km to mi, x = 42…" },
+        calc:    { icon: "󰃬", color: Theme.peach,    hint: "Выражение: 2^10, 10 km to mi, x = 42, plot(sin(x))…" },
         vars:    { icon: "󰫧", color: Theme.peach,    hint: "Переменные калькулятора" },
         shell:   { icon: "󰆍", color: Theme.green,    hint: "Команда zsh…" },
         windows: { icon: "", color: Theme.blue,     hint: "Открытые окна…" },
@@ -169,7 +169,7 @@ Item {
 
     // ===== Калькулятор =====
 
-    property var calc: ({ input: "", value: "", assign: "" })
+    property var calc: ({ input: "", value: "", exact: "", assign: "" })
     property int calcToken: 0
 
     function calcExpr() {
@@ -178,12 +178,26 @@ Item {
         return ""
     }
 
+    property var plotData: null
+
     function requestCalc() {
         const e = calcExpr()
         if (e === "") {
-            calc = { input: "", value: "", assign: "" }
+            calc = { input: "", value: "", exact: "", assign: "" }
+            plotData = null
             return
         }
+        // plot(…) — рисуем сами, без отдельного окна gnuplot
+        if (/^plot\s*\(/i.test(e)) {
+            calc = { input: "", value: "", exact: "", assign: "" }
+            const token = ++calcToken
+            Calc.plot(e, d => {
+                if (token !== root.calcToken) return
+                root.plotData = d ? Object.assign({ input: e }, d) : null
+            })
+            return
+        }
+        plotData = null
         const asg = Calc.parseAssign(e)
         const expr = asg ? asg.expr : e
         const token = ++calcToken
@@ -194,13 +208,42 @@ Item {
             root.calc = {
                 input: e,
                 value: (mode === "apps" && same) ? "" : res,
+                exact: "",
                 assign: asg ? asg.name : ""
             }
         })
+        // Точный ответ — вторым запросом, тем же токеном
+        if (!asg)
+            Calc.evaluate(expr, res => {
+                if (token !== root.calcToken || root.calc.input !== e) return
+                root.calc = Object.assign({}, root.calc, { exact: res })
+            }, true)
+    }
+
+    // Точный ответ стоит показывать, только если он отличается от обычного
+    // и в ответе нет единиц/валют — "(78125/12573) mi" никому не нужен
+    function exactDiffers() {
+        const n = x => x.replace(/\s/g, "")
+        const units = calc.value.replace(/\b[a-zA-Z]\s*[=≈]|\bor\b/g, "").replace(/\d[eE][-−+]?\d/g, "0")
+        return calc.exact !== "" && calc.value !== "" && calc.assign === ""
+            && n(calc.exact) !== n(calc.value)
+            && !/[a-zA-Z€$£¥₽°"]/.test(units)
     }
 
     function calcItems() {
         const out = []
+        if (plotData && plotData.input === calcExpr())
+            out.push({
+                plot: plotData,
+                glyph: "󰄧",
+                title: "y = " + plotData.f,
+                sub: "x от " + plotData.min + " до " + plotData.max,
+                badge: "⏎ открыть в gnuplot",
+                run: () => {
+                    Quickshell.execDetached(["qalc", plotData.input])
+                    Ui.closePopouts()
+                }
+            })
         if (calc.value !== "" && calc.input === calcExpr()) {
             const asg = calc.assign
             out.push({
@@ -218,12 +261,27 @@ Item {
                         Calc.setAns(calc.value)
                         searchInput.text = "=ans"
                     } else {
+                        // Копируем в виде, который вставится куда угодно: −5 → -5
                         Calc.setAns(calc.value)
-                        Tools.copy(calc.value)
+                        Tools.copy(Calc.plain(calc.value))
                         Ui.closePopouts()
                     }
                 }
             })
+            if (exactDiffers())
+                out.push({
+                    big: true,
+                    glyph: "√",
+                    glyphColor: Theme.peach,
+                    title: calc.exact,
+                    sub: "Точный ответ   ·   " + Calc.plain(calc.exact),
+                    badge: "⏎ копировать   ⇧⏎ как текст",
+                    run: shift => {
+                        Calc.setAns(calc.value)
+                        Tools.copy(shift ? Calc.plain(calc.exact) : calc.exact)
+                        Ui.closePopouts()
+                    }
+                })
         }
         return out
     }
@@ -1080,18 +1138,37 @@ Item {
 
                     readonly property bool selected: index === root.selIdx
                     readonly property bool big: modelData.big ?? false
+                    readonly property bool hasPlot: modelData.plot !== undefined
 
                     width: list.width
-                    height: big ? 60 : 46
+                    height: hasPlot ? 220 : big ? 60 : 46
                     radius: 10
                     color: selected ? Theme.cardBg
                          : rma.containsMouse ? Theme.alpha(Theme.cardBg, 0.5) : "transparent"
+
+                    // Верхняя строка (у графика под ней ещё сам график)
+                    Item {
+                        id: header
+                        width: parent.width
+                        height: row.hasPlot ? 46 : row.height
+                    }
+
+                    PlotView {
+                        visible: row.hasPlot
+                        anchors.top: header.bottom
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        anchors.margins: 12
+                        anchors.topMargin: 0
+                        plot: row.modelData.plot ?? null
+                    }
 
                     Rectangle {
                         visible: row.selected
                         anchors.left: parent.left
                         anchors.leftMargin: 4
-                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.verticalCenter: header.verticalCenter
                         width: 3
                         height: row.big ? 34 : 24
                         radius: 2
@@ -1106,7 +1183,7 @@ Item {
                         id: iconBox
                         anchors.left: parent.left
                         anchors.leftMargin: 14
-                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.verticalCenter: header.verticalCenter
                         width: row.big ? 36 : 28
                         height: width
 
@@ -1169,9 +1246,9 @@ Item {
                     Column {
                         anchors.left: iconBox.right
                         anchors.leftMargin: 12
-                        anchors.right: badge.left
-                        anchors.rightMargin: 8
-                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.right: parent.right
+                        anchors.rightMargin: badge.shown ? badge.implicitWidth + 20 : 12
+                        anchors.verticalCenter: header.verticalCenter
                         spacing: 1
 
                         GradientText {
@@ -1205,10 +1282,9 @@ Item {
                         id: badge
                         anchors.right: parent.right
                         anchors.rightMargin: 12
-                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.verticalCenter: header.verticalCenter
                         readonly property bool shown: row.selected || rma.containsMouse
-                        width: shown ? implicitWidth : 0
-                        opacity: shown ? 1 : 0
+                        visible: shown
                         text: row.modelData.badge ?? ""
                         font.family: Theme.font
                         font.pixelSize: 10
@@ -1244,7 +1320,8 @@ Item {
                 const n = root.results.length
                 const hints = {
                     apps: n + " результатов   ·   ⏎ запуск   ·   Tab действия   ·   → дописать",
-                    calc: "⏎ копировать   ·   ⇧⏎ в ans   ·   x = 2+2 — переменная   ·   Tab имя",
+                    calc: root.plotData ? "⏎ открыть в gnuplot   ·   plot(f, от, до)   ·   наведи — значение"
+                        : "⏎ копировать   ·   ⇧⏎ в ans   ·   x = 2+2 — переменная   ·   plot(f) — график",
                     shell: "⏎ фон   ·   ⇧⏎ терминал   ·   Tab дополнить   ·   → из истории",
                     path: "⏎ открыть / войти   ·   Tab войти   ·   → дописать",
                     files: "⏎ открыть   ·   ⇧⏎ папку   ·   Tab в путь"

@@ -73,10 +73,32 @@ Singleton {
         return { name: m[1], expr: m[2] }
     }
 
+    // "0,5 + 1" → "0.5 + 1": запятая между цифрами вне скобок — десятичная
+    // (внутри скобок функции это разделитель аргументов: max(1,2))
+    function _decimalComma(e) {
+        let depth = 0, out = ""
+        for (let i = 0; i < e.length; i++) {
+            const c = e[i]
+            if (c === "(" || c === "[") depth++
+            else if (c === ")" || c === "]") depth--
+            out += c === "," && depth === 0 && /\d/.test(e[i - 1] ?? "") && /\d/.test(e[i + 1] ?? "")
+                ? "." : c
+        }
+        return out
+    }
+
+    // Функции с побочными эффектами: command() запускает программы, export()
+    // пишет файлы, plot() открывает gnuplot. Превью считается на каждую букву —
+    // их не трогаем вообще (график рисует сам лончер, см. plot())
+    function hasSideEffects(e) {
+        return /\b(command|export|load|plot|save)\s*\(/i.test(e)
+    }
+
     function _prepare(expr) {
         let e = expr.replace(/[\r\n]+/g, " ").trim()
         // "15% of 200" — qalc его не понимает
         e = e.replace(/(\d+(?:\.\d+)?)\s*%\s*(?:of|от)\s+/gi, "($1/100) * ")
+        e = _decimalComma(e)
         e = e.replace(/\bans\b/g, "(" + (ans !== "" ? ans : "0") + ")")
         // "to mi" → "to -mi": без смешанных единиц (6 mi + 376 yd + …)
         e = e.replace(/(\s(?:to|in|as)\s+)([a-zA-Z]+)\s*$/, (m, pre, unit) =>
@@ -85,10 +107,11 @@ Singleton {
     }
 
     // Посчитать: callback(result) — строка или "" при ошибке. Возвращает id.
-    function evaluate(expr, callback) {
+    // exact — точный ответ: дроби и корни вместо десятичных (2 × √(2), 7/12)
+    function evaluate(expr, callback, exact) {
         const e = _prepare(expr)
         const first = e.split(/[\s(]/)[0]
-        if (e === "" || _commands.includes(first) || e.startsWith('"')) {
+        if (e === "" || _commands.includes(first) || e.startsWith('"') || hasSideEffects(e)) {
             callback("")
             return -1
         }
@@ -98,8 +121,69 @@ Singleton {
         }
         const id = ++_seq
         _pending[id] = callback
-        proc.write(e + '\n"@@' + id + '"\n')
+        // Пустая строка после выражения — «жертва»: долгое вычисление qalc
+        // прерывает по любой введённой строке и съедает её. Пусть съест пустую,
+        // а не маркер. Если вычисление быстрое, пустая строка ничего не делает.
+        if (exact)
+            proc.write("set approx exact\nset fr 2\n" + e + '\n\n"@@' + id + '"\n'
+                + "set approx approximate\nset fr 0\n")
+        else
+            proc.write(e + '\n\n"@@' + id + '"\n')
         return id
+    }
+
+    // Ответ qalc в виде, который поймут другие программы: 2 × √(2) → 2*sqrt(2)
+    function plain(s) {
+        const sup = { "⁰": "0", "¹": "1", "²": "2", "³": "3", "⁴": "4", "⁵": "5",
+                      "⁶": "6", "⁷": "7", "⁸": "8", "⁹": "9", "⁻": "-" }
+        return s
+            .replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹⁻]+/g, m => "^" + m.split("").map(c => sup[c]).join(""))
+            .replace(/√/g, "sqrt").replace(/∛/g, "cbrt").replace(/π/g, "pi")
+            .replace(/\s*[×⋅·]\s*/g, "*").replace(/\s*÷\s*/g, "/").replace(/−/g, "-")
+            .replace(/∞/g, "inf")
+    }
+
+    // График: plot(f, от, до) → точки через genvector, без gnuplot.
+    // callback({f, min, max, xs, ys}) или null
+    function plot(text, callback) {
+        const m = text.trim().match(/^plot\s*\((.*)$/i)
+        if (!m) { callback(null); return }
+        // Закрывающую скобку plot( … ) можно не дописывать
+        let body = m[1]
+        if ((body.match(/\(/g) ?? []).length < (body.match(/\)/g) ?? []).length)
+            body = body.replace(/\)\s*$/, "")
+        const args = _splitArgs(body)
+        const f = (args[0] ?? "").trim()
+        let lo = Number(_plainNum(args[1] ?? "-10")), hi = Number(_plainNum(args[2] ?? "10"))
+        if (f === "" || hasSideEffects(f) || isNaN(lo) || isNaN(hi) || lo === hi) { callback(null); return }
+        if (lo > hi) [lo, hi] = [hi, lo]
+        const n = 241
+        // \x — «неизвестная x» в qalc: иначе переменная x = 42 превратит график в прямую
+        const fx = f.replace(/(^|[^\\\w])x(?!\w)/g, "$1\\x")
+        evaluate("genvector(" + fx + ", " + lo + ", " + hi + ", " + n + ", \\x)", res => {
+            const ys = res.replace(/^\[|\]$/g, "").trim().split(/\s+/).map(v => Number(_plainNum(v)))
+            if (ys.length !== n || ys.every(y => !isFinite(y))) { callback(null); return }
+            const xs = ys.map((_, i) => lo + (hi - lo) * i / (n - 1))
+            callback({ f: f, min: lo, max: hi, xs: xs, ys: ys })
+        })
+    }
+
+    // Аргументы через запятую/точку с запятой — только верхнего уровня скобок
+    function _splitArgs(s) {
+        const out = []
+        let depth = 0, cur = ""
+        for (const c of s) {
+            if (c === "(" || c === "[") depth++
+            else if (c === ")" || c === "]") depth--
+            if ((c === "," || c === ";") && depth === 0) { out.push(cur); cur = "" }
+            else cur += c
+        }
+        out.push(cur)
+        return out
+    }
+
+    function _plainNum(v) {
+        return v.trim().replace(/−/g, "-").replace(/×10\^/g, "e").replace(/E/g, "e")
     }
 
     function setAns(v) {
@@ -140,7 +224,9 @@ Singleton {
 
     function _onLineOne(raw) {
         const line = raw.replace(/\x1b\[[0-9;?]*[@-~]/g, "").replace(/\r/g, "")
-        // Эхо ввода: выражение начинает новый ответ, эхо маркера пропускаем
+        // Эхо ввода: выражение начинает новый ответ, эхо маркера и пустой строки пропускаем
+        if (/^>\s*$/.test(line))
+            return
         if (line.startsWith("> ")) {
             if (!line.startsWith('> "@@'))
                 _lines = []
@@ -151,6 +237,13 @@ Singleton {
             const id = Number(m[1])
             const cb = _pending[id]
             delete _pending[id]
+            // Более ранние без ответа (маркер потерялся) — уже не придут
+            for (const k of Object.keys(_pending))
+                if (Number(k) < id) {
+                    const old = _pending[k]
+                    delete _pending[k]
+                    old("")
+                }
             // Последний непустой кусок до маркера — ответ на выражение
             const res = _lines.filter(l => l.trim() !== "").map(l => l.trim()).join(" ")
             _lines = []
@@ -164,7 +257,9 @@ Singleton {
         id: proc
         command: ["qalc", "-t",
             "-s", "color 0", "-s", "save mode no", "-s", "save definitions no",
-            "-s", "upxrates 0", "-s", "unicode 1"]
+            "-s", "upxrates 0", "-s", "unicode 1",
+            // Обычный ответ — всегда десятичный, точный считается отдельно
+            "-s", "approx approximate", "-s", "fr 0"]
         stdinEnabled: true
         stdout: SplitParser {
             onRead: data => root._onLine(data)
