@@ -4,6 +4,7 @@ import Quickshell.Wayland
 import Quickshell.Widgets
 import Quickshell.Services.SystemTray
 import QtQuick
+import QtQuick.Effects
 import ".."
 import "../services"
 import "../components"
@@ -171,12 +172,162 @@ Scope {
                 }
             }
 
+            // ===== Подложка шелла =====
+            // Все фоны (бар, попаут, крылья, уголки) отдельно от содержимого:
+            // между ними ложится свет обложки, а силуэт подложки его обрезает
+            Item {
+                id: backdrop
+                anchors.fill: parent
+
+                Rectangle {
+                    width: parent.width
+                    height: Settings.barHeight
+                    color: Theme.barBg
+                }
+
+                // Фон попаута повторяет его рамку (та обрезает содержимое)
+                Rectangle {
+                    x: popoutFrame.x
+                    y: popoutFrame.y
+                    width: popoutFrame.width
+                    height: popoutFrame.height
+                    color: Theme.popoutBg
+                    bottomLeftRadius: popoutFrame.flushLeft ? 0 : Settings.popoutRadius
+                    bottomRightRadius: popoutFrame.flushRight ? 0 : Settings.popoutRadius
+                }
+
+                // ===== Внутренние углы к краям монитора =====
+                InnerCorner {
+                    x: 0
+                    y: Settings.barHeight
+                }
+                InnerCorner {
+                    x: win.width - width
+                    y: Settings.barHeight
+                    flipX: true
+                }
+
+                // "Крылья" попаута — бесшовный переход к бару
+                InnerCorner {
+                    visible: !popoutFrame.flushLeft
+                    x: popoutFrame.x - width
+                    y: Settings.barHeight
+                    radius: Settings.popoutWing
+                    flipX: true
+                    opacity: win.popoutOpen && win.shownPopout !== "" ? 1 : 0
+                    Behavior on opacity { NumberAnimation { duration: 120 } }
+                }
+                InnerCorner {
+                    visible: !popoutFrame.flushRight
+                    x: popoutFrame.x + popoutFrame.width
+                    y: Settings.barHeight
+                    radius: Settings.popoutWing
+                    opacity: win.popoutOpen && win.shownPopout !== "" ? 1 : 0
+                    Behavior on opacity { NumberAnimation { duration: 120 } }
+                }
+
+                // Прилипшее к краю меню перетекает внутренним углом в грань экрана
+                InnerCorner {
+                    visible: popoutFrame.flushLeft
+                    x: 0
+                    y: Settings.barHeight + popoutFrame.height
+                    radius: Settings.popoutWing
+                    opacity: win.popoutOpen && win.shownPopout !== "" ? 1 : 0
+                    Behavior on opacity { NumberAnimation { duration: 120 } }
+                }
+                InnerCorner {
+                    visible: popoutFrame.flushRight
+                    x: win.width - width
+                    y: Settings.barHeight + popoutFrame.height
+                    radius: Settings.popoutWing
+                    flipX: true
+                    opacity: win.popoutOpen && win.shownPopout !== "" ? 1 : 0
+                    Behavior on opacity { NumberAnimation { duration: 120 } }
+                }
+            }
+
+            // ===== Свет обложки =====
+            // Размытая обложка из попаута музыки, на весь шелл: под содержимым,
+            // над фоном, по силуэту подложки. Режется только внешним краем шелла
+            Item {
+                id: shellGlow
+                anchors.fill: parent
+
+                readonly property Item src: loader.item?.glowSource ?? null
+                readonly property bool on: src !== null && (loader.item?.glowOn ?? false)
+                    && win.popoutOpen
+
+                opacity: on ? 1 : 0
+                visible: opacity > 0
+                Behavior on opacity { NumberAnimation { duration: 250 } }
+
+                ShaderEffectSource {
+                    id: shellShape
+                    anchors.fill: parent
+                    sourceItem: backdrop
+                    visible: false
+                    live: shellGlow.visible
+                }
+
+                Item {
+                    id: glowLight
+                    anchors.fill: parent
+                    visible: false
+                    layer.enabled: shellGlow.visible
+
+                    MultiEffect {
+                        readonly property point pos: loader.item?.glowPos ?? Qt.point(0, 0)
+                        x: popoutFrame.x + pos.x
+                        y: popoutFrame.y + pos.y
+                        width: shellGlow.src?.width ?? 0
+                        height: shellGlow.src?.height ?? 0
+                        source: shellGlow.src
+                        blurEnabled: true
+                        blur: 1
+                        blurMax: 64
+                        saturation: 0.4
+                        brightness: 0.1
+                        scale: 1.3
+                    }
+                }
+
+                MultiEffect {
+                    id: glowShaped
+                    anchors.fill: parent
+                    source: glowLight
+                    maskEnabled: true
+                    maskSource: shellShape
+                    maskThresholdMin: 0.5
+                    maskSpreadAtMin: 1
+                    layer.enabled: shellGlow.visible
+                }
+
+                // Дизеринг: тайловый шум по альфе света, против полос в градиенте
+                Image {
+                    id: glowNoise
+                    anchors.fill: parent
+                    source: Qt.resolvedUrl("../assets/noise.png")
+                    fillMode: Image.Tile
+                    smooth: false
+                    visible: false
+                }
+                MultiEffect {
+                    anchors.fill: parent
+                    source: glowNoise
+                    maskEnabled: true
+                    maskSource: glowShaped
+                    maskThresholdMin: 0.5
+                    maskSpreadAtMin: 1
+                    opacity: 0.05
+                }
+            }
+
             // ===== Бар =====
             Rectangle {
                 id: barRect
                 width: parent.width
                 height: Settings.barHeight
-                color: Theme.barBg
+                color: "transparent"   // фон — в backdrop
 
                 // --- Левая часть ---
                 Row {
@@ -415,17 +566,6 @@ Scope {
                 }
             }
 
-            // ===== Внутренние углы к краям монитора =====
-            InnerCorner {
-                x: 0
-                y: Settings.barHeight
-            }
-            InnerCorner {
-                x: win.width - width
-                y: Settings.barHeight
-                flipX: true
-            }
-
             // ===== Попаут =====
             Item {
                 id: popoutFrame
@@ -464,13 +604,6 @@ Scope {
                     NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
                 }
 
-                Rectangle {
-                    anchors.fill: parent
-                    color: Theme.popoutBg
-                    bottomLeftRadius: popoutFrame.flushLeft ? 0 : Settings.popoutRadius
-                    bottomRightRadius: popoutFrame.flushRight ? 0 : Settings.popoutRadius
-                }
-
                 Loader {
                     id: loader
                     sourceComponent: {
@@ -487,44 +620,6 @@ Scope {
                         }
                     }
                 }
-            }
-
-            // "Крылья" попаута — бесшовный переход к бару
-            InnerCorner {
-                visible: !popoutFrame.flushLeft
-                x: popoutFrame.x - width
-                y: Settings.barHeight
-                radius: Settings.popoutWing
-                flipX: true
-                opacity: win.popoutOpen && win.shownPopout !== "" ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: 120 } }
-            }
-            InnerCorner {
-                visible: !popoutFrame.flushRight
-                x: popoutFrame.x + popoutFrame.width
-                y: Settings.barHeight
-                radius: Settings.popoutWing
-                opacity: win.popoutOpen && win.shownPopout !== "" ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: 120 } }
-            }
-
-            // Прилипшее к краю меню перетекает внутренним углом в грань экрана
-            InnerCorner {
-                visible: popoutFrame.flushLeft
-                x: 0
-                y: Settings.barHeight + popoutFrame.height
-                radius: Settings.popoutWing
-                opacity: win.popoutOpen && win.shownPopout !== "" ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: 120 } }
-            }
-            InnerCorner {
-                visible: popoutFrame.flushRight
-                x: win.width - width
-                y: Settings.barHeight + popoutFrame.height
-                radius: Settings.popoutWing
-                flipX: true
-                opacity: win.popoutOpen && win.shownPopout !== "" ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: 120 } }
             }
 
             Component { id: launcherComp; Popouts.LauncherPopout {} }

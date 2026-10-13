@@ -16,6 +16,13 @@ Item {
 
     readonly property var player: Players.active
 
+    // Свет обложки рисует бар: он ложится на весь шелл (попаут, бар, уголки)
+    // между фоном и содержимым. Отсюда — только источник и где он лежит.
+    readonly property Item glowSource: glowRounded
+    readonly property bool glowOn: art.visible && glowSrc.status === Image.Ready
+    readonly property point glowPos: Qt.point(col.x + coverRow.x + coverBox.x,
+                                              col.y + coverRow.y + coverBox.y)
+
     readonly property string title: player?.trackTitle || "Ничего не играет"
     readonly property string artist: player?.trackArtist ?? ""
     // У синглов альбом обычно называется как трек — тогда не дублируем
@@ -69,16 +76,18 @@ Item {
 
         // Обложка + инфо
         Row {
+            id: coverRow
             width: parent.width
             spacing: 12
 
             // Нота лежит поверх, а не внутри ClippingRectangle: тот рисует
             // детей через слой, и текст в нём мылится
             Item {
+                id: coverBox
                 width: 64; height: 64
 
-                // Свечение: размытая копия обложки под ней, в её же цветах.
-                // Копия скругляется до размытия — иначе квадратная подложка
+                // Источник света для бара (см. glowSource): скруглённая копия
+                // обложки. Скругление до размытия — иначе квадратный свет
                 // заливает срезанные углы и обложка выглядит квадратной
                 Image {
                     id: glowSrc
@@ -106,52 +115,6 @@ Item {
                     visible: false
                     layer.enabled: true
                 }
-                // Свет и зерно поверх него. Размытие небольшое: обложка в 14px
-                // от верха попаута, больший хвост обрезался бы его краем
-                Item {
-                    id: glow
-                    anchors.fill: parent
-                    anchors.margins: -24
-                    opacity: art.visible && glowSrc.status === Image.Ready ? 1 : 0
-                    Behavior on opacity { NumberAnimation { duration: 250 } }
-
-                    Item {
-                        id: glowLight
-                        anchors.fill: parent
-                        layer.enabled: true
-
-                        MultiEffect {
-                            x: 24; y: 24; width: 64; height: 64
-                            source: glowRounded
-                            blurEnabled: true
-                            blur: 1
-                            blurMax: 16
-                            saturation: 0.4
-                            brightness: 0.1
-                            scale: 1.04
-                        }
-                    }
-
-                    // Дизеринг: тайловый шум по альфе света, против полос в градиенте
-                    Image {
-                        id: glowNoise
-                        anchors.fill: parent
-                        source: Qt.resolvedUrl("../../assets/noise.png")
-                        fillMode: Image.Tile
-                        smooth: false
-                        visible: false
-                    }
-                    MultiEffect {
-                        anchors.fill: parent
-                        source: glowNoise
-                        maskEnabled: true
-                        maskSource: glowLight
-                        maskThresholdMin: 0.5
-                        maskSpreadAtMin: 1
-                        opacity: 0.05
-                    }
-                }
-
                 ClippingRectangle {
                     anchors.fill: parent
                     radius: 10
