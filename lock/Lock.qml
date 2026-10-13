@@ -109,7 +109,10 @@ Scope {
             'for e in glb gltf fbx obj; do [ -f "$1/avatar.$e" ] && { echo "$1/avatar.$e"; break; }; done',
             "qs", root.home]
         stdout: StdioCollector {
-            onStreamFinished: root.avatarModel = this.text.trim()
+            onStreamFinished: {
+                root.avatarModel = this.text.trim()
+                console.info("lock: 3D-ава:", root.avatarModel || "нет ~/avatar.(glb|gltf|fbx|obj)")
+            }
         }
     }
 

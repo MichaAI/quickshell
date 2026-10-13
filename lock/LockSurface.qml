@@ -171,8 +171,12 @@ Item {
                     visible: shown
                     source: "Avatar3D.qml"
                     onLoaded: item.model = Qt.binding(() => "file://" + root.ctx.avatarModel)
-                    onStatusChanged: if (status === Loader.Error)
-                        console.warn("lock: 3D-ава не загрузилась — в quickshell нет модуля QtQuick3D?")
+                    onStatusChanged: {
+                        if (status === Loader.Error)
+                            console.warn("lock: 3D-ава не загрузилась — в quickshell нет модуля QtQuick3D?")
+                        else if (status === Loader.Ready)
+                            console.info("lock: компонент 3D-авы создан")
+                    }
                 }
 
                 ClippingRectangle {
