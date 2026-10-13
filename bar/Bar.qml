@@ -392,16 +392,7 @@ Scope {
                         visible: (Niri.currentLang ?? "") !== ""
                         onClicked: Niri.switchLayout()
 
-                        PillText {
-                            text: {
-                                const l = Niri.currentLang ?? ""
-                                if (l.indexOf("Russian") !== -1 || l.indexOf("рус") !== -1)
-                                    return "RU"
-                                if (l.indexOf("English") !== -1)
-                                    return "EN"
-                                return l.substring(0, 2).toUpperCase()
-                            }
-                        }
+                        PillText { text: Niri.langShort }
                     }
                 }
 

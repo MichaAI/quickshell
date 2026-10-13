@@ -27,6 +27,16 @@ Singleton {
     readonly property string currentLang:
         keyboardLayouts.names[keyboardLayouts.currentIdx] ?? ""
 
+    // Коротко для бара и лока: RU / EN / первые две буквы
+    readonly property string langShort: {
+        const l = currentLang
+        if (l.indexOf("Russian") !== -1 || l.indexOf("рус") !== -1)
+            return "RU"
+        if (l.indexOf("English") !== -1)
+            return "EN"
+        return l.substring(0, 2).toUpperCase()
+    }
+
     
     // {workspaceId: {colIndex: [окна, сортированы по строке]}} — под мини-карту лайаута
     readonly property var columnsByWorkspace: {
