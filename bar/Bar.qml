@@ -12,8 +12,10 @@ import "./popouts" as Popouts
 Scope {
     id: root
 
+    // display: true — Neofolia; иконки (nerd-глифы) остаются на Theme.font
     component PillText: Text {
-        font.family: Theme.font
+        property bool display: false
+        font.family: display ? Theme.displayFont : Theme.font
         font.pixelSize: Theme.fontSize
         color: Theme.text
         anchors.verticalCenter: parent.verticalCenter
@@ -196,7 +198,10 @@ Scope {
                         onClicked: win.togglePopout("calendar", timePill)
 
                         PillText { text: "󰥔"; color: Theme.sapphire }
-                        PillText { text: Time.time }
+                        MonoText {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: Time.time
+                        }
                     }
 
                     BarPill {
@@ -209,6 +214,7 @@ Scope {
                         GradientText {
                             anchors.verticalCenter: parent.verticalCenter
                             pixelSize: Theme.fontSize
+                            display: true
                             maxChars: 40
                             text: Niri.focusedWindow?.title ?? ""
                         }
@@ -227,11 +233,11 @@ Scope {
                         onClicked: win.togglePopout("system", sysPill)
 
                         PillText { text: ""; color: Theme.blue }
-                        PillText { text: SysStat.cpu.toFixed(0) }
+                        PillText { text: SysStat.cpu.toFixed(0); display: true }
                         PillText { text: ""; color: Theme.blue }
-                        PillText { text: SysStat.memPerc.toFixed(0) }
+                        PillText { text: SysStat.memPerc.toFixed(0); display: true }
                         PillText { text: "󰔏"; color: Theme.blue }
-                        PillText { text: SysStat.temp.toFixed(0) }
+                        PillText { text: SysStat.temp.toFixed(0); display: true }
                     }
 
                     BarPill {
@@ -240,6 +246,7 @@ Scope {
                         onClicked: Niri.switchLayout()
 
                         PillText {
+                            display: true
                             text: {
                                 const l = Niri.currentLang ?? ""
                                 if (l.indexOf("Russian") !== -1 || l.indexOf("рус") !== -1)
@@ -275,20 +282,30 @@ Scope {
                             text: Players.playing ? "󰏤" : "󰐊"
                             color: Theme.mauve
                         }
-                        PillText {
-                            text: {
-                                const a = Players.artist
-                                return a.length > 20 ? a.substring(0, 19) + "…" : a
+                        ScrollClip {
+                            id: artistScroll
+                            anchors.verticalCenter: parent.verticalCenter
+                            visible: Players.artist !== ""
+                            maxWidth: 140
+
+                            PillText {
+                                text: Players.artist
+                                color: Theme.subtext1
+                                onTextChanged: artistScroll.reset()
                             }
-                            visible: text !== ""
-                            color: Theme.subtext1
                         }
                         PillText { text: "–"; color: Theme.overlay0; visible: Players.artist !== "" }
-                        GradientText {
+                        ScrollClip {
+                            id: titleScroll
                             anchors.verticalCenter: parent.verticalCenter
-                            pixelSize: Theme.fontSize
-                            maxChars: 20
-                            text: Players.title
+                            maxWidth: 170
+
+                            GradientText {
+                                anchors.verticalCenter: parent.verticalCenter
+                                pixelSize: Theme.fontSize
+                                text: Players.title
+                                onTextChanged: titleScroll.reset()
+                            }
                         }
                         PillText { text: "| " + Players.timeText; color: Theme.overlay1 }
                     }
@@ -311,6 +328,7 @@ Scope {
                             color: Audio.muted ? Theme.overlay0 : Theme.teal
                         }
                         PillText {
+                            display: true
                             text: Audio.muted ? "MUTED" : Math.round(Audio.volume * 100).toString()
                             color: Audio.muted ? Theme.overlay0 : Theme.text
                         }
@@ -323,7 +341,7 @@ Scope {
                         active: win.shownPopout === "battery"
                         onClicked: win.togglePopout("battery", batteryPill)
 
-                        PillText { text: Power.percent.toString() }
+                        PillText { text: Power.percent.toString(); display: true }
                         PillText {
                             text: Power.icon
                             color: Power.critical ? Theme.red
@@ -385,6 +403,7 @@ Scope {
                                  : Notifs.unread && Notifs.count > 0 ? Theme.peach : Theme.lavender
                         }
                         PillText {
+                            display: true
                             text: Notifs.count.toString()
                             visible: Notifs.count > 0
                             color: Notifs.dnd ? Theme.overlay0 : Theme.text
