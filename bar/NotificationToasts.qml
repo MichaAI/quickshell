@@ -26,7 +26,9 @@ Scope {
             // на каждом кадре анимации дёргал всплывашки. Ввод — только по стопке.
             anchors { top: true; right: true; bottom: true }
             margins { top: 8; right: 8; bottom: 8 }
-            implicitWidth: 380
+            // Слева запас: всплывашка влетает на пружине и на перелёте
+            // проскакивает левее своего места — без запаса её обрезало бы
+            implicitWidth: 380 + 32
             mask: Region { item: stack }
             exclusionMode: ExclusionMode.Normal
             exclusiveZone: 0
@@ -36,7 +38,8 @@ Scope {
 
             Column {
                 id: stack
-                width: parent.width
+                anchors.right: parent.right
+                width: 380
 
                 Repeater {
                     model: ScriptModel { values: Notifs.popups }

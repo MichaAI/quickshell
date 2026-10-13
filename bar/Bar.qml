@@ -488,7 +488,12 @@ Scope {
                         visible: Brightness.present
                         onWheeled: delta => Brightness.change(delta / 120 * 0.05)
 
-                        readonly property bool expanded: hovered || brightShow.running
+                        // Тап на сенсоре/тачпаде оставляет «наведение» навсегда —
+                        // после клика ховер не раскрывает, пока курсор не уйдёт
+                        property bool tapped: false
+                        onHoveredChanged: if (!hovered) tapped = false
+                        onClicked: { tapped = true; brightShow.restart() }
+                        readonly property bool expanded: (hovered && !tapped) || brightShow.running
 
                         Timer {
                             id: brightShow
@@ -640,23 +645,73 @@ Scope {
                         win.popoutFullyClosed()
                 }
 
-                // Поэлементное появление (PopoutReveal): элементы — строки
-                // основного столбца попаута. Спускаемся от корня, пока
-                // видимый ребёнок один, — у лончера это Column под режимами
+                // Поэлементное появление (PopoutReveal). Элементы ищем
+                // рекурсивно: контейнер дробится на детей, если они стоят друг
+                // под другом. Если у контейнера свой фон (карточка), фон
+                // открывается краем сразу, а проявляются его строки. Детали
+                // бок о бок и строка списка — один элемент
                 property var revealTargets: []
 
-                function findElements(root) {
-                    let node = root
-                    for (let i = 0; i < 4 && node; i++) {
-                        const kids = Array.from(node.children)
-                            .filter(c => c.visible && c.width > 0 && c.height > 0)
-                        if (kids.length > 1)
-                            return kids
-                        if (kids.length === 0)
-                            break
-                        node = kids[0]
+                function visibleKids(n) {
+                    return Array.from(n.children).filter(c => c.visible && c.width > 0 && c.height > 0)
+                }
+
+                // Ничего не рисует сам: Item/Column/Row или прозрачный Rectangle
+                function isPlain(n) {
+                    if (n.text !== undefined || n.source !== undefined)
+                        return false
+                    if (n.color !== undefined)
+                        return n.color.a === 0 && !(n.border && n.border.width > 0) && !n.gradient
+                    return true
+                }
+
+                function stacked(kids) {
+                    const k = kids.slice().sort((a, b) => a.y - b.y)
+                    for (let i = 1; i < k.length; i++)
+                        if (k[i].y >= k[i - 1].y + k[i - 1].height - 1)
+                            return true
+                    return false
+                }
+
+                function findElements(node, depth) {
+                    depth = depth ?? 0
+                    if (!node)
+                        return []
+                    // Строки списка — целиком
+                    if (node.contentItem && node.model !== undefined && node.flicking !== undefined) {
+                        const rows = visibleKids(node.contentItem)
+                        if (rows.length === 0)
+                            listPending = true
+                        return rows.length > 0 ? rows : [node]
                     }
-                    return root ? [root] : []
+                    const kids = visibleKids(node)
+                    if (depth > 8 || kids.length === 0)
+                        return [node]
+                    if (kids.length === 1)
+                        return findElements(kids[0], depth + 1)
+                    if (!stacked(kids))
+                        return [node]
+                    return kids.reduce((all, k) => all.concat(findElements(k, depth + 1)), [])
+                }
+
+                // Столбцы раскладывают, а списки создают строки не сразу после
+                // загрузки — ждём пару кадров, а до тех пор содержимое прячем
+                property bool listPending: false
+                property int scanTries: 0
+                Timer {
+                    id: revealScan
+                    interval: 40
+                    onTriggered: {
+                        popoutFrame.listPending = false
+                        const found = popoutFrame.findElements(loader.item)
+                        // Список ещё не создал строки — подождём ещё немного
+                        if (popoutFrame.listPending && ++popoutFrame.scanTries < 6) {
+                            restart()
+                            return
+                        }
+                        popoutFrame.revealTargets = found
+                        loader.opacity = 1
+                    }
                 }
 
                 Instantiator {
@@ -675,7 +730,11 @@ Scope {
 
                 Loader {
                     id: loader
-                    onLoaded: Qt.callLater(() => popoutFrame.revealTargets = popoutFrame.findElements(item))
+                    onLoaded: {
+                        opacity = 0
+                        popoutFrame.scanTries = 0
+                        revealScan.restart()
+                    }
                     onItemChanged: if (!item) popoutFrame.revealTargets = []
                     sourceComponent: {
                         switch (win.shownPopout) {
