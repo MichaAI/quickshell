@@ -171,6 +171,8 @@ Item {
                     visible: shown
                     source: "Avatar3D.qml"
                     onLoaded: item.model = Qt.binding(() => "file://" + root.ctx.avatarModel)
+                    onStatusChanged: if (status === Loader.Error)
+                        console.warn("lock: 3D-ава не загрузилась — в quickshell нет модуля QtQuick3D?")
                 }
 
                 ClippingRectangle {
@@ -465,7 +467,7 @@ Item {
                                         running: root.ctx.busy
                                         loops: Animation.Infinite
                                         alwaysRunToEnd: true
-                                        PauseAnimation { duration: dot.index * 40 }
+                                        PauseAnimation { duration: Math.max(0, dot.index) * 40 }  // у удаляемой точки index = -1
                                         NumberAnimation { to: 0.3; duration: 300 }
                                         NumberAnimation { to: 1; duration: 300 }
                                     }

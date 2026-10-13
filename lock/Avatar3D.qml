@@ -48,6 +48,10 @@ Item {
             RuntimeLoader {
                 id: loader
                 source: root.model
+                // Молча падает, если Qt не видит плагин assetimporters
+                // (lib/qt-6/plugins из qtquick3d должен быть в QT_PLUGIN_PATH)
+                onStatusChanged: if (status === RuntimeLoader.Error)
+                    console.warn("lock: модель", source, "не открылась:", errorString)
 
                 readonly property vector3d lo: bounds.minimum
                 readonly property vector3d hi: bounds.maximum
