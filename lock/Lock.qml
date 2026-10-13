@@ -21,6 +21,7 @@ Scope {
     property string avatarModel: ""     // ~/avatar.(glb|gltf|fbx|obj), если есть
 
     readonly property string home: Quickshell.env("HOME")
+    readonly property string user: Quickshell.env("USER") ?? ""
 
     // Перезагрузка конфига при активном локе в quickshell 0.3.2 роняет
     // весь шелл (новый лок пытается занять уже занятые мониторы), поэтому

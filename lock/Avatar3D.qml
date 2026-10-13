@@ -28,12 +28,12 @@ Item {
         }
         DirectionalLight {
             eulerRotation: Qt.vector3d(-30, -35, 0)
-            brightness: 1.4
+            brightness: 1.0
         }
         // Контровой свет сзади — чтобы силуэт не сливался с тенью
         DirectionalLight {
             eulerRotation: Qt.vector3d(15, 150, 0)
-            brightness: 0.6
+            brightness: 0.35
         }
 
         Node {
