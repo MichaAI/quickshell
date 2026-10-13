@@ -97,9 +97,6 @@ Item {
 
     // ===== Приложения =====
 
-    readonly property var apps: DesktopEntries.applications.values
-        .filter(a => !a.noDisplay)
-
     function appScore(app, q) {
         const s = score(app.name, q)
         if (s >= 60) return s
@@ -110,37 +107,15 @@ Item {
         return s
     }
 
-    // Рейтинг: частота запусков (аналог кэша wofi)
-    property var counts: ({})
-    readonly property string histFile: Quickshell.env("HOME") + "/.cache/quickshell-launcher-hist"
-
-    Process {
-        id: histRead
-        command: ["cat", root.histFile]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                const c = {}
-                for (const l of this.text.split("\n"))
-                    if (l !== "") c[l] = (c[l] ?? 0) + 1
-                root.counts = c
-            }
-        }
-    }
-    Process { id: histWrite }
-
     function launchApp(app, action) {
-        histWrite.exec(["sh", "-c", 'printf "%s\\n" "$1" >> "$2"', "qs", app.id, root.histFile])
-        if (action)
-            action.execute()
-        else
-            app.execute()
+        Apps.launch(app, action)
         Ui.closePopouts()
     }
 
     function appItem(app) {
         const hasActions = Array.from(app.actions ?? []).length > 0
         return {
-            icon: Quickshell.iconPath(app.icon, "application-x-executable"),
+            iconName: app.icon,
             title: app.name,
             sub: app.genericName || app.comment || "",
             badge: hasActions ? "Tab  󰁔" : "",
@@ -152,11 +127,11 @@ Item {
 
     function appResults(q) {
         const lq = q.toLowerCase().trim()
-        const freq = a => counts[a.id] ?? 0
+        const freq = a => Apps.freq(a)
         if (lq === "")
-            return [...apps].sort((a, b) =>
+            return [...Apps.list].sort((a, b) =>
                 freq(b) - freq(a) || a.name.localeCompare(b.name)).map(appItem)
-        return apps
+        return Apps.list
             .map(a => [appScore(a, lq), a])
             .filter(x => x[0] > 0)
             .sort((x, y) => (y[0] + freq(y[1]) * 5) - (x[0] + freq(x[1]) * 5)
@@ -463,7 +438,7 @@ Item {
         return filterBy(Niri.windows, arg, w => [w.title ?? "", w.app_id ?? ""]).map(w => {
             const entry = DesktopEntries.heuristicLookup(w.app_id ?? "")
             return {
-                icon: Quickshell.iconPath(entry?.icon ?? w.app_id ?? "", "application-x-executable"),
+                iconName: entry?.icon ?? w.app_id ?? "",
                 title: w.title || w.app_id || "?",
                 sub: (entry?.name ?? w.app_id ?? "") + "   ·   стол " + (ws[w.workspace_id] ?? "?")
                     + (w.is_focused ? "   ·   в фокусе" : ""),
@@ -774,7 +749,7 @@ Item {
     readonly property var results: {
         if (sub && sub.kind === "actions")
             return Array.from(sub.app.actions ?? []).map(a => ({
-                icon: Quickshell.iconPath(a.icon || sub.app.icon, "application-x-executable"),
+                iconName: a.icon || sub.app.icon,
                 title: a.name,
                 sub: sub.app.name,
                 run: () => launchApp(sub.app, a)
@@ -887,7 +862,6 @@ Item {
     }
 
     Component.onCompleted: {
-        histRead.running = true
         const preset = Tools.launcherPreset
         Tools.launcherPreset = ""
         if (preset.startsWith("color:"))
@@ -1284,11 +1258,14 @@ Item {
                         width: row.big ? 36 : 28
                         height: width
 
+                        // Путь к иконке ищем только для строк на экране,
+                        // а не для всех приложений разом
                         IconImage {
                             anchors.fill: parent
-                            visible: (row.modelData.icon ?? "") !== ""
+                            visible: row.modelData.iconName !== undefined
                             implicitSize: parent.width
-                            source: row.modelData.icon ?? ""
+                            source: visible
+                                ? Quickshell.iconPath(row.modelData.iconName, "application-x-executable") : ""
                         }
 
                         Rectangle {

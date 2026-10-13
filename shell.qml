@@ -4,6 +4,9 @@ import "./bar"
 import "./services"
 
 ShellRoot {
+    // Приложения поднимаем сразу, чтобы первый лончер не ждал скан .desktop
+    Component.onCompleted: Apps.list
+
     Bar {}
     ScreenCorners {}
     DesktopWidget {}
