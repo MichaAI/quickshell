@@ -77,7 +77,9 @@ Item {
             Item {
                 width: 64; height: 64
 
-                // Свечение: размытая копия обложки под ней, в её же цветах
+                // Свечение: размытая копия обложки под ней, в её же цветах.
+                // Копия скругляется до размытия — иначе квадратная подложка
+                // заливает срезанные углы и обложка выглядит квадратной
                 Image {
                     id: glowSrc
                     anchors.fill: parent
@@ -86,16 +88,34 @@ Item {
                     fillMode: Image.PreserveAspectCrop
                     visible: false
                 }
+                Rectangle {
+                    id: glowMask
+                    anchors.fill: parent
+                    radius: 16
+                    visible: false
+                    layer.enabled: true
+                }
                 MultiEffect {
+                    id: glowRounded
                     anchors.fill: parent
                     source: glowSrc
+                    maskEnabled: true
+                    maskSource: glowMask
+                    maskThresholdMin: 0.5
+                    maskSpreadAtMin: 1
+                    visible: false
+                    layer.enabled: true
+                }
+                MultiEffect {
+                    anchors.fill: parent
+                    source: glowRounded
                     blurEnabled: true
                     blur: 1
                     blurMax: 32
                     saturation: 0.4
                     brightness: 0.1
-                    scale: 1.15
-                    opacity: art.visible && glowSrc.status === Image.Ready ? 0.7 : 0
+                    scale: 1.1
+                    opacity: art.visible && glowSrc.status === Image.Ready ? 0.85 : 0
                     Behavior on opacity { NumberAnimation { duration: 250 } }
                 }
 
