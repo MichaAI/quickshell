@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Effects
 import Quickshell
 import Quickshell.Io
 import Quickshell.Services.Mpris
@@ -75,6 +76,28 @@ Item {
             // детей через слой, и текст в нём мылится
             Item {
                 width: 64; height: 64
+
+                // Свечение: размытая копия обложки под ней, в её же цветах
+                Image {
+                    id: glowSrc
+                    anchors.fill: parent
+                    source: art.source
+                    sourceSize: Qt.size(48, 48)
+                    fillMode: Image.PreserveAspectCrop
+                    visible: false
+                }
+                MultiEffect {
+                    anchors.fill: parent
+                    source: glowSrc
+                    blurEnabled: true
+                    blur: 1
+                    blurMax: 32
+                    saturation: 0.4
+                    brightness: 0.1
+                    scale: 1.15
+                    opacity: art.visible && glowSrc.status === Image.Ready ? 0.7 : 0
+                    Behavior on opacity { NumberAnimation { duration: 250 } }
+                }
 
                 ClippingRectangle {
                     anchors.fill: parent
