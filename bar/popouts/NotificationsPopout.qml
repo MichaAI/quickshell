@@ -58,8 +58,7 @@ Item {
             GradientText {
                 anchors.verticalCenter: parent.verticalCenter
                 text: "Уведомления"
-                pixelSize: 17
-                display: true
+                pixelSize: 15
             }
             Text {
                 anchors.verticalCenter: parent.verticalCenter

@@ -45,8 +45,7 @@ Item {
             }
             GradientText {
                 id: t
-                pixelSize: 15
-                display: true
+                pixelSize: 13
                 anchors.verticalCenter: parent.verticalCenter
             }
         }
