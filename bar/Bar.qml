@@ -46,11 +46,21 @@ Scope {
             property Item popAnchor: null
             property Item queuedAnchor: null
             property real popAnchorX: 0
+            // Попауты, которые висят от правого края своей пилюли, а не по центру
+            readonly property var rightAligned: ["music"]
+            property bool popAlignRight: false
             property bool everHovered: false
 
             // Пока открыт любой попаут — всплывашки уведомлений молчат
             onPopoutOpenChanged: Ui.openPopouts += popoutOpen ? 1 : -1
             Component.onDestruction: if (popoutOpen) Ui.openPopouts--
+
+            // Точка привязки: центр пилюли или её правый край
+            function placeAt(name, anchor) {
+                popAlignRight = rightAligned.includes(name)
+                popAnchorX = !anchor ? width / 2
+                    : anchor.mapToItem(null, popAlignRight ? anchor.width : anchor.width / 2, 0).x
+            }
 
             // Старое меню полностью закрывается, потом открывается новое
             function togglePopout(name, anchor) {
@@ -70,7 +80,7 @@ Scope {
                 } else {
                     shownPopout = name
                     popAnchor = anchor
-                    popAnchorX = anchor ? anchor.mapToItem(null, anchor.width / 2, 0).x : width / 2
+                    placeAt(name, anchor)
                     everHovered = false
                     popoutOpen = true
                 }
@@ -80,7 +90,7 @@ Scope {
                 if (queuedPopout !== "") {
                     shownPopout = queuedPopout
                     popAnchor = queuedAnchor
-                    popAnchorX = queuedAnchor ? queuedAnchor.mapToItem(null, queuedAnchor.width / 2, 0).x : width / 2
+                    placeAt(queuedPopout, queuedAnchor)
                     queuedPopout = ""
                     queuedAnchor = null
                     everHovered = false
@@ -408,7 +418,7 @@ Scope {
             Item {
                 id: popoutFrame
 
-                readonly property real contentW: loader.item?.implicitWidth ?? 200
+                readonly property real contentW: Math.ceil(loader.item?.implicitWidth ?? 200)
                 readonly property real contentH: Math.min(
                     loader.item?.implicitHeight ?? 0, Settings.popoutMaxHeight)
                 // фиксируется при открытии, чтобы попаут не скакал при смене контента пилюли
@@ -416,7 +426,8 @@ Scope {
 
                 // Прилипание к краям: у самого края меню сливается с гранью экрана
                 readonly property real snapZone: Settings.screenRadius + Settings.popoutWing + 8
-                readonly property real rawX: anchorX - contentW / 2
+                // Целые пиксели: иначе между меню и «крылом» светится щель в 1px
+                readonly property real rawX: Math.round(win.popAlignRight ? anchorX - contentW : anchorX - contentW / 2)
                 readonly property bool flushLeft: rawX < snapZone
                 readonly property bool flushRight: rawX + contentW > win.width - snapZone
 
