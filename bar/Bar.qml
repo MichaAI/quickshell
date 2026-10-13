@@ -16,7 +16,7 @@ Scope {
     component PillText: Text {
         property bool display: false
         font.family: display ? Theme.displayFont : Theme.font
-        font.pixelSize: Theme.fontSize
+        font.pixelSize: display ? Theme.displayBarSize : Theme.fontSize
         color: Theme.text
         anchors.verticalCenter: parent.verticalCenter
     }
@@ -210,6 +210,7 @@ Scope {
                         PillText { text: "󰥔"; color: Theme.sapphire }
                         MonoText {
                             anchors.verticalCenter: parent.verticalCenter
+                            pixelSize: Theme.displayBarSize
                             text: Time.time
                         }
                     }
@@ -223,7 +224,7 @@ Scope {
                         PillText { text: "Window:"; color: Theme.overlay1 }
                         GradientText {
                             anchors.verticalCenter: parent.verticalCenter
-                            pixelSize: Theme.fontSize
+                            pixelSize: Theme.displayBarSize
                             display: true
                             maxChars: 40
                             text: Niri.focusedWindow?.title ?? ""

@@ -50,6 +50,8 @@ QtObject {
         source: Qt.resolvedUrl("assets/fonts/Neofolia-Regular.ttf")
     }
     readonly property int fontSize: 13
+    // У Neofolia низкие заглавные, на 20px она по росту как JetBrains на 13
+    readonly property int displayBarSize: 20
 
     function mix(a, b, t) {
         return Qt.rgba(a.r + (b.r - a.r) * t,
