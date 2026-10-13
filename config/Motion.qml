@@ -13,6 +13,11 @@ QtObject {
     readonly property real calmSpring: 8
     readonly property real calmDamping: 0.6
 
+    // Содержимое попаута: насколько оно тянется за проскочившим краем
+    // (доля перелёта, 0 — стоит на месте) и как быстро проявляется
+    readonly property real contentDrag: 0.5
+    readonly property int contentFadeMs: 220
+
     // Экран блокировки: подпрыгивание значка раскладки и тряска поля при ошибке
     readonly property real kickSpring: 6
     readonly property real kickDamping: 0.18

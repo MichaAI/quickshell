@@ -639,11 +639,14 @@ Scope {
                     Spring { id: heightSpring; bouncy: win.popoutOpen }
                 }
 
-                // Пока меню открывается и закрывается, содержимое едет вместе
-                // с нижним краем и пружинит вместе с ним. Если же меню меняет
-                // размер уже открытым (пришло уведомление и т.п.), содержимое
-                // стоит на месте — иначе его дёргало бы на каждое изменение
+                // Содержимое стоит на своём месте и проявляется, пока край его
+                // открывает. Когда край при открытии проскакивает дальше,
+                // содержимое с отставанием чуть тянется за ним и возвращается.
+                // Если меню меняет размер уже открытым (пришло уведомление
+                // и т.п.), не тянется — иначе его дёргало бы на каждое изменение
                 property bool contentFollows: true
+                readonly property real overshoot: contentFollows && win.popoutOpen
+                    ? Math.max(0, height - contentH) : 0
                 Connections {
                     target: win
                     function onPopoutOpenChanged() { popoutFrame.contentFollows = true }
@@ -659,7 +662,12 @@ Scope {
 
                 Loader {
                     id: loader
-                    y: popoutFrame.contentFollows ? popoutFrame.height - popoutFrame.contentH : 0
+                    y: popoutFrame.overshoot * Motion.contentDrag
+                    Behavior on y { Spring {} }
+                    opacity: win.popoutOpen ? 1 : 0
+                    Behavior on opacity {
+                        NumberAnimation { duration: Motion.contentFadeMs; easing.type: Easing.OutCubic }
+                    }
                     sourceComponent: {
                         switch (win.shownPopout) {
                         case "launcher": return launcherComp
