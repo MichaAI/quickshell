@@ -89,7 +89,8 @@ Item {
 
         GradientText {
             text: "Громкость"
-            pixelSize: 14
+            pixelSize: 17
+            display: true
         }
 
         Rectangle {

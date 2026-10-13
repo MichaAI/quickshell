@@ -3,6 +3,7 @@ import ".."
 
 // Текст с горизонтальным градиентом (посимвольная интерполяция цвета).
 // По умолчанию — italic и градиент #f38ba8 -> #cba6f7.
+// display: true — дисплейный шрифт (Theme.displayFont), прямой и без жирности.
 // outlineWidth > 0 подкладывает под весь текст обводку outlineColor
 // (набор копий символа, смещённых по окружности радиуса outlineWidth).
 Item {
@@ -11,9 +12,10 @@ Item {
     property string text: ""
     property int maxChars: 0            // 0 = без ограничения
     property real pixelSize: Theme.fontSize
-    property string fontFamily: Theme.font
-    property bool italic: true
-    property int fontWeight: Font.DemiBold
+    property bool display: false
+    property string fontFamily: display ? Theme.displayFont : Theme.font
+    property bool italic: !display
+    property int fontWeight: display ? Font.Normal : Font.DemiBold
     property color from: Theme.gradStart
     property color to: Theme.gradEnd
     property real outlineWidth: 0       // 0 = без обводки

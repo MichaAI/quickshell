@@ -33,9 +33,7 @@ Scope {
                 GradientText {
                     anchors.horizontalCenter: parent.horizontalCenter
                     pixelSize: 128
-                    fontFamily: "Neofolia"
-                    fontWeight: Font.Normal
-                    italic: false
+                    display: true
                     outlineWidth: 6
                     outlineColor: Theme.crust
                     text: {

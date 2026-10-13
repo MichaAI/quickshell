@@ -54,7 +54,7 @@ Item {
             GradientText {
                 anchors.verticalCenter: parent.verticalCenter
                 pixelSize: 32
-                fontWeight: Font.Bold
+                display: true
                 text: Power.percent + "%"
             }
         }

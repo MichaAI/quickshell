@@ -82,7 +82,8 @@ Item {
             GradientText {
                 id: monthText
                 anchors.centerIn: parent
-                pixelSize: 15
+                pixelSize: 17
+                display: true
                 text: {
                     const n = Qt.locale().standaloneMonthName(root.month, Locale.LongFormat)
                     return n.charAt(0).toUpperCase() + n.slice(1) + " " + root.year
