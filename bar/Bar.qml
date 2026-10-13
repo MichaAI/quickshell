@@ -481,6 +481,48 @@ Scope {
                         }
                     }
 
+                    // Яркость: только тусклый значок, процент выезжает
+                    // при наведении и когда яркость меняют
+                    BarPill {
+                        id: brightPill
+                        anchors.verticalCenter: parent.verticalCenter
+                        visible: Brightness.present
+                        onWheeled: delta => Brightness.change(delta / 120 * 0.05)
+
+                        readonly property bool expanded: hovered || brightShow.running
+
+                        Timer {
+                            id: brightShow
+                            interval: 1500
+                        }
+                        Connections {
+                            target: Brightness
+                            function onPercentChanged() { brightShow.restart() }
+                        }
+
+                        PillText {
+                            text: Brightness.icon
+                            color: brightPill.expanded ? Theme.yellow : Theme.overlay1
+                            Behavior on color { ColorAnimation { duration: 150 } }
+                        }
+                        Item {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: brightPill.expanded ? brightText.implicitWidth : -6
+                            height: brightText.implicitHeight
+                            clip: true
+                            Behavior on width {
+                                SpringAnimation { spring: 4; damping: 0.3; epsilon: 0.25 }
+                            }
+
+                            PillText {
+                                id: brightText
+                                text: Brightness.percent.toString()
+                                opacity: brightPill.expanded ? 1 : 0
+                                Behavior on opacity { NumberAnimation { duration: 150 } }
+                            }
+                        }
+                    }
+
                     BarPill {
                         id: batteryPill
                         anchors.verticalCenter: parent.verticalCenter
