@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Effects
 import Quickshell
 import Quickshell.Widgets
 import "../config"
@@ -82,13 +83,40 @@ Item {
         }
     }
 
-    // Фон: градиент темы с лёгким зерном
+    // Фон: размытые обои из Settings.lockWallpaper, а без них — градиент
+    // темы. Сверху лёгкое зерно
     Rectangle {
         anchors.fill: parent
         gradient: Gradient {
             GradientStop { position: 0; color: Theme.base }
             GradientStop { position: 1; color: Theme.crust }
         }
+    }
+
+    Image {
+        id: wall
+        readonly property string path: Settings.lockWallpaper.replace(/^~/, root.ctx.home)
+        anchors.fill: parent
+        visible: false
+        source: path !== "" ? "file://" + path : ""
+        fillMode: Image.PreserveAspectCrop
+        asynchronous: true
+        // Всё равно размываем — полное разрешение ни к чему
+        sourceSize: Qt.size(Math.ceil(root.width / 2), Math.ceil(root.height / 2))
+    }
+    MultiEffect {
+        anchors.fill: parent
+        source: wall
+        visible: wall.status === Image.Ready
+        blurEnabled: Settings.lockWallpaperBlur > 0
+        blur: 1
+        blurMax: Settings.lockWallpaperBlur
+    }
+    Rectangle {
+        anchors.fill: parent
+        visible: wall.status === Image.Ready
+        color: Theme.crust
+        opacity: Settings.lockWallpaperDim
     }
     Image {
         anchors.fill: parent

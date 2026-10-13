@@ -24,6 +24,10 @@ QtObject {
     readonly property real glowBrightness: 0.1
 
     // ===== Экран блокировки =====
+    // Обои на фоне; "" — градиент темы. ~ раскрывается в домашнюю папку
+    readonly property string lockWallpaper: ""
+    readonly property int lockWallpaperBlur: 48     // радиус размытия, 0 — без размытия
+    readonly property real lockWallpaperDim: 0.45   // затемнение под плитки, 0…1
     readonly property int lockGap: 12
     readonly property int lockColumn: 340       // ширина колонки; 3D-ава — квадрат этой ширины
     readonly property int lockClockHeight: 200
