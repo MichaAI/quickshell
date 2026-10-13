@@ -290,6 +290,7 @@ Scope {
                             anchors.verticalCenter: parent.verticalCenter
                             visible: Players.artist !== ""
                             maxWidth: 140
+                            fadeColor: musicPill.color
 
                             PillText {
                                 text: Players.artist
@@ -302,6 +303,7 @@ Scope {
                             id: titleScroll
                             anchors.verticalCenter: parent.verticalCenter
                             maxWidth: 170
+                            fadeColor: musicPill.color
 
                             GradientText {
                                 anchors.verticalCenter: parent.verticalCenter
