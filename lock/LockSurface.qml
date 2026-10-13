@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Effects
+import QtQuick.Window
 import Quickshell
 import Quickshell.Widgets
 import "../config"
@@ -118,10 +119,17 @@ Item {
         color: Theme.crust
         opacity: Settings.lockWallpaperDim
     }
+    // Зерно против полос в размытии: одна точка шума — ровно один
+    // физический пиксель, иначе при масштабе экрана оно мылится и крупнеет
     Image {
-        anchors.fill: parent
+        readonly property real dpr: Screen.devicePixelRatio
+        width: parent.width * dpr
+        height: parent.height * dpr
+        scale: 1 / dpr
+        transformOrigin: Item.TopLeft
         source: "../assets/noise.png"
         fillMode: Image.Tile
+        smooth: false
         opacity: Dither.lockNoise
     }
 
