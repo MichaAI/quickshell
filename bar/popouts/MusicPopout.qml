@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Effects
 import Quickshell
-import Quickshell.Io
 import Quickshell.Services.Mpris
 import Quickshell.Widgets
 import "../.."
@@ -31,22 +30,9 @@ Item {
         return a === title ? "" : a
     }
 
-    // ===== Эквалайзер (cava) =====
-    property var eqBars: []
-
-    Process {
-        id: cavaProc
-        command: ["cava", "-p", Qt.resolvedUrl("../../assets/cava.conf").toString().replace("file://", "")]
-        running: true
-
-        stdout: SplitParser {
-            onRead: line => {
-                const vals = line.split(";").filter(s => s !== "").map(Number)
-                if (vals.length > 0)
-                    root.eqBars = vals
-            }
-        }
-    }
+    // Эквалайзер: cava живёт в сервисе и замерзает, пока попаут закрыт
+    Component.onCompleted: Cava.viewers++
+    Component.onDestruction: Cava.viewers--
 
     component CtlBtn: Text {
         property bool on: true
@@ -113,7 +99,8 @@ Item {
                     maskThresholdMin: 0.5
                     maskSpreadAtMin: 1
                     visible: false
-                    layer.enabled: true
+                    // Без обложки источника нет — не гоняем эффект впустую
+                    layer.enabled: glowSrc.status === Image.Ready
                 }
                 ClippingRectangle {
                     anchors.fill: parent
@@ -242,21 +229,21 @@ Item {
             height: 42
             spacing: 3
 
-            readonly property int n: Math.max(1, root.eqBars.length)
+            readonly property int n: Math.max(1, Cava.bars.length)
             readonly property real barW: (width - spacing * (n - 1)) / n
 
             Repeater {
-                model: root.eqBars.length
+                model: Cava.bars.length
 
                 Rectangle {
                     required property int index
                     width: eqRow.barW
-                    height: Math.max(3, (root.eqBars[index] ?? 0) / 100 * eqRow.height)
+                    height: Math.max(3, (Cava.bars[index] ?? 0) / 100 * eqRow.height)
                     anchors.bottom: parent.bottom
                     radius: width / 2.5
                     color: Theme.mix(Theme.gradStart, Theme.gradEnd,
                                      eqRow.n > 1 ? index / (eqRow.n - 1) : 0)
-                    opacity: 0.4 + 0.6 * ((root.eqBars[index] ?? 0) / 100)
+                    opacity: 0.4 + 0.6 * ((Cava.bars[index] ?? 0) / 100)
 
                     Behavior on height {
                         NumberAnimation { duration: 60 }

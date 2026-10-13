@@ -253,64 +253,72 @@ Scope {
                 visible: opacity > 0
                 Behavior on opacity { NumberAnimation { duration: 250 } }
 
-                ShaderEffectSource {
-                    id: shellShape
+                // Эффекты живут, только пока свет виден: без обложки им
+                // нечего рисовать, а пустые эффекты сыпят предупреждениями
+                Loader {
                     anchors.fill: parent
-                    sourceItem: backdrop
-                    visible: false
-                    live: shellGlow.visible
-                }
+                    active: shellGlow.visible
+                    sourceComponent: Item {
+                        ShaderEffectSource {
+                            id: shellShape
+                            anchors.fill: parent
+                            sourceItem: backdrop
+                            visible: false
+                            live: shellGlow.visible
+                        }
 
-                Item {
-                    id: glowLight
-                    anchors.fill: parent
-                    visible: false
-                    layer.enabled: shellGlow.visible
+                        Item {
+                            id: glowLight
+                            anchors.fill: parent
+                            visible: false
+                            layer.enabled: shellGlow.visible
 
-                    MultiEffect {
-                        readonly property point pos: loader.item?.glowPos ?? Qt.point(0, 0)
-                        x: popoutFrame.x + pos.x
-                        y: popoutFrame.y + pos.y
-                        width: shellGlow.src?.width ?? 0
-                        height: shellGlow.src?.height ?? 0
-                        source: shellGlow.src
-                        blurEnabled: true
-                        blur: 1
-                        blurMax: 64
-                        saturation: 0.4
-                        brightness: 0.1
-                        scale: 1.3
+                            MultiEffect {
+                                readonly property point pos: loader.item?.glowPos ?? Qt.point(0, 0)
+                                x: popoutFrame.x + pos.x
+                                y: popoutFrame.y + pos.y
+                                width: shellGlow.src?.width ?? 0
+                                height: shellGlow.src?.height ?? 0
+                                source: shellGlow.src
+                                blurEnabled: true
+                                blur: 1
+                                blurMax: 64
+                                saturation: 0.4
+                                brightness: 0.1
+                                scale: 1.3
+                            }
+                        }
+
+                        MultiEffect {
+                            id: glowShaped
+                            anchors.fill: parent
+                            source: glowLight
+                            maskEnabled: true
+                            maskSource: shellShape
+                            maskThresholdMin: 0.5
+                            maskSpreadAtMin: 1
+                            layer.enabled: shellGlow.visible
+                        }
+
+                        // Дизеринг: тайловый шум по альфе света, против полос в градиенте
+                        Image {
+                            id: glowNoise
+                            anchors.fill: parent
+                            source: Qt.resolvedUrl("../assets/noise.png")
+                            fillMode: Image.Tile
+                            smooth: false
+                            visible: false
+                        }
+                        MultiEffect {
+                            anchors.fill: parent
+                            source: glowNoise
+                            maskEnabled: true
+                            maskSource: glowShaped
+                            maskThresholdMin: 0.5
+                            maskSpreadAtMin: 1
+                            opacity: 0.05
+                        }
                     }
-                }
-
-                MultiEffect {
-                    id: glowShaped
-                    anchors.fill: parent
-                    source: glowLight
-                    maskEnabled: true
-                    maskSource: shellShape
-                    maskThresholdMin: 0.5
-                    maskSpreadAtMin: 1
-                    layer.enabled: shellGlow.visible
-                }
-
-                // Дизеринг: тайловый шум по альфе света, против полос в градиенте
-                Image {
-                    id: glowNoise
-                    anchors.fill: parent
-                    source: Qt.resolvedUrl("../assets/noise.png")
-                    fillMode: Image.Tile
-                    smooth: false
-                    visible: false
-                }
-                MultiEffect {
-                    anchors.fill: parent
-                    source: glowNoise
-                    maskEnabled: true
-                    maskSource: glowShaped
-                    maskThresholdMin: 0.5
-                    maskSpreadAtMin: 1
-                    opacity: 0.05
                 }
             }
 
