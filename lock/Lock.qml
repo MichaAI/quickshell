@@ -4,6 +4,7 @@ import Quickshell.Io
 import Quickshell.Wayland
 import Quickshell.Services.Pam
 import "../config"
+import "../services"
 
 // Экран блокировки: `qs ipc call lock lock`.
 // Экран держит закрытым протокол ext-session-lock: если шелл упадёт,
@@ -127,6 +128,13 @@ Scope {
         repeat: true
         triggeredOnStart: true
         onTriggered: capsProbe.running = true
+    }
+
+    Connections {
+        target: Ui
+        function onLockRequested() {
+            persist.locked = true
+        }
     }
 
     IpcHandler {
