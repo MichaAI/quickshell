@@ -106,17 +106,50 @@ Item {
                     visible: false
                     layer.enabled: true
                 }
-                MultiEffect {
+                // Свет и зерно поверх него. Размытие небольшое: обложка в 14px
+                // от верха попаута, больший хвост обрезался бы его краем
+                Item {
+                    id: glow
                     anchors.fill: parent
-                    source: glowRounded
-                    blurEnabled: true
-                    blur: 1
-                    blurMax: 32
-                    saturation: 0.4
-                    brightness: 0.1
-                    scale: 1.1
-                    opacity: art.visible && glowSrc.status === Image.Ready ? 0.85 : 0
+                    anchors.margins: -24
+                    opacity: art.visible && glowSrc.status === Image.Ready ? 1 : 0
                     Behavior on opacity { NumberAnimation { duration: 250 } }
+
+                    Item {
+                        id: glowLight
+                        anchors.fill: parent
+                        layer.enabled: true
+
+                        MultiEffect {
+                            x: 24; y: 24; width: 64; height: 64
+                            source: glowRounded
+                            blurEnabled: true
+                            blur: 1
+                            blurMax: 16
+                            saturation: 0.4
+                            brightness: 0.1
+                            scale: 1.04
+                        }
+                    }
+
+                    // Дизеринг: тайловый шум по альфе света, против полос в градиенте
+                    Image {
+                        id: glowNoise
+                        anchors.fill: parent
+                        source: Qt.resolvedUrl("../../assets/noise.png")
+                        fillMode: Image.Tile
+                        smooth: false
+                        visible: false
+                    }
+                    MultiEffect {
+                        anchors.fill: parent
+                        source: glowNoise
+                        maskEnabled: true
+                        maskSource: glowLight
+                        maskThresholdMin: 0.5
+                        maskSpreadAtMin: 1
+                        opacity: 0.05
+                    }
                 }
 
                 ClippingRectangle {
