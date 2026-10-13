@@ -183,7 +183,7 @@ Item {
                         if (status === Loader.Error)
                             console.warn("lock: 3D-ава не загрузилась — в quickshell нет модуля QtQuick3D?")
                         else if (status === Loader.Ready)
-                            console.info("lock: компонент 3D-авы создан")
+                            console.warn("lock: компонент 3D-авы создан")
                     }
                 }
 

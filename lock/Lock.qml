@@ -111,7 +111,7 @@ Scope {
         stdout: StdioCollector {
             onStreamFinished: {
                 root.avatarModel = this.text.trim()
-                console.info("lock: 3D-ава:", root.avatarModel || "нет ~/avatar.(glb|gltf|fbx|obj)")
+                console.warn("lock: 3D-ава:", root.avatarModel || "нет ~/avatar.(glb|gltf|fbx|obj)")
             }
         }
     }
