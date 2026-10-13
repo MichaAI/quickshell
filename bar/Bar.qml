@@ -629,32 +629,61 @@ Scope {
                  : flushRight ? win.width - contentW
                  : rawX
 
-                onHeightChanged: {
-                    if (height === 0 && !win.popoutOpen)
-                        win.popoutFullyClosed()
-                }
 
                 // Открытие пружинит, закрытие — без перелёта (высота не уходит в минус)
                 Behavior on height {
                     Spring { id: heightSpring; bouncy: win.popoutOpen }
                 }
 
-                // Содержимое стоит на своём месте и проявляется, пока край его
-                // открывает. Когда край при открытии проскакивает дальше,
-                // содержимое с отставанием чуть тянется за ним и возвращается.
-                // Если меню меняет размер уже открытым (пришло уведомление
-                // и т.п.), не тянется — иначе его дёргало бы на каждое изменение
-                property bool contentFollows: true
-                readonly property real overshoot: contentFollows && win.popoutOpen
-                    ? Math.max(0, height - contentH) : 0
+                // Содержимое стоит на своём месте и невидимо, пока край растёт.
+                // Как только край проехал его низ — начинает проявляться, а на
+                // Motion.contentTugAt проявления край дёргает его за собой
+                // вниз, и оно пружинит обратно
+                property bool revealed: false
+                property real tug: 0
+                onHeightChanged: {
+                    if (height === 0 && !win.popoutOpen)
+                        win.popoutFullyClosed()
+                    if (win.popoutOpen && !revealed && contentH > 0 && height >= contentH - 0.5) {
+                        revealed = true
+                        reveal.restart()
+                    }
+                }
                 Connections {
                     target: win
-                    function onPopoutOpenChanged() { popoutFrame.contentFollows = true }
+                    function onPopoutOpenChanged() {
+                        if (win.popoutOpen)
+                            return
+                        popoutFrame.revealed = false
+                        reveal.stop()
+                        hide.restart()
+                    }
                 }
-                onContentHChanged: {
-                    if (win.popoutOpen && height > 0 && !heightSpring.running)
-                        contentFollows = false
+
+                ParallelAnimation {
+                    id: reveal
+                    NumberAnimation {
+                        target: loader; property: "opacity"; to: 1
+                        duration: Motion.contentFadeMs; easing.type: Easing.OutCubic
+                    }
+                    // Рывок: цель уходит вниз и сразу возвращается, а пружина на y
+                    // сама тянет содержимое туда и обратно
+                    SequentialAnimation {
+                        PauseAnimation { duration: Motion.contentFadeMs * Motion.contentTugAt }
+                        PropertyAction { target: popoutFrame; property: "tug"; value: Motion.contentTug }
+                        PauseAnimation { duration: 110 }
+                        PropertyAction { target: popoutFrame; property: "tug"; value: 0 }
+                    }
                 }
+                ParallelAnimation {
+                    id: hide
+                    NumberAnimation {
+                        target: loader; property: "opacity"; to: 0
+                        duration: Motion.contentFadeMs / 2; easing.type: Easing.InCubic
+                    }
+                    PropertyAction { target: popoutFrame; property: "tug"; value: 0 }
+                }
+
                 Behavior on x {
                     enabled: win.popoutOpen && popoutFrame.height > 0
                     Spring {}
@@ -662,12 +691,9 @@ Scope {
 
                 Loader {
                     id: loader
-                    y: popoutFrame.overshoot * Motion.contentDrag
-                    Behavior on y { Spring {} }
-                    opacity: win.popoutOpen ? 1 : 0
-                    Behavior on opacity {
-                        NumberAnimation { duration: Motion.contentFadeMs; easing.type: Easing.OutCubic }
-                    }
+                    opacity: 0
+                    y: popoutFrame.tug
+                    Behavior on y { Spring { epsilon: 0.05 } }
                     sourceComponent: {
                         switch (win.shownPopout) {
                         case "launcher": return launcherComp
