@@ -175,4 +175,8 @@ Singleton {
     function switchLayout() {
         actionProc.exec(["niri", "msg", "action", "switch-layout", "next"])
     }
+
+    function toggleOverview() {
+        actionProc.exec(["niri", "msg", "action", "toggle-overview"])
+    }
 }

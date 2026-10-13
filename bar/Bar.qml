@@ -355,8 +355,8 @@ Scope {
                     BarPill {
                         id: windowPill
                         anchors.verticalCenter: parent.verticalCenter
-                        interactive: false
                         visible: Niri.focusedWindow !== null
+                        onClicked: Niri.toggleOverview()
 
                         PillText { text: "Window:"; color: Theme.overlay1 }
                         GradientText {
