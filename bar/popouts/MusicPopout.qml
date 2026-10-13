@@ -76,6 +76,46 @@ Item {
                 radius: 10
                 color: Theme.cardBg
 
+                // Яркость обложки там, где нота: центр видимого (после кропа)
+                // квадрата. Только считает, на экран не рисуется.
+                Canvas {
+                    id: artProbe
+                    width: 12; height: 12
+                    visible: false
+
+                    readonly property string src: art.status === Image.Ready ? art.source.toString() : ""
+                    property string loaded: ""
+                    property real luma: -1
+
+                    onSrcChanged: {
+                        luma = -1
+                        if (loaded !== "")
+                            unloadImage(loaded)
+                        loaded = src
+                        if (src !== "") {
+                            loadImage(src)
+                            if (isImageLoaded(src))
+                                requestPaint()
+                        }
+                    }
+                    onImageLoaded: requestPaint()
+
+                    onPaint: {
+                        if (src === "" || !isImageLoaded(src))
+                            return
+                        const ctx = getContext("2d")
+                        const w = art.implicitWidth, h = art.implicitHeight
+                        const c = Math.min(w, h) * 0.4
+                        ctx.clearRect(0, 0, width, height)
+                        ctx.drawImage(src, (w - c) / 2, (h - c) / 2, c, c, 0, 0, width, height)
+                        const d = ctx.getImageData(0, 0, width, height).data
+                        let sum = 0
+                        for (let i = 0; i < d.length; i += 4)
+                            sum += 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]
+                        luma = sum / (d.length / 4) / 255
+                    }
+                }
+
                 Image {
                     id: art
                     anchors.fill: parent
@@ -84,30 +124,13 @@ Item {
                     visible: status === Image.Ready
                 }
 
-                // Средняя яркость обложки: на светлой нота тёмная, на тёмной — светлая
-                ColorQuantizer {
-                    id: artColors
-                    source: art.status === Image.Ready ? art.source : ""
-                    depth: 3
-                    rescaleSize: 32
-                }
-                readonly property real artLuma: {
-                    const cs = artColors.colors
-                    if (!art.visible || !cs || cs.length === 0)
-                        return -1
-                    let sum = 0
-                    for (const c of cs)
-                        sum += 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b
-                    return sum / cs.length
-                }
-
                 Text {
                     anchors.centerIn: parent
                     text: "󰝚"
                     font.family: Theme.font
                     font.pixelSize: 24
-                    color: parent.artLuma < 0 ? Theme.surface2
-                         : parent.artLuma > 0.55 ? Theme.alpha(Theme.crust, 0.7)
+                    color: !art.visible || artProbe.luma < 0 ? Theme.surface2
+                         : artProbe.luma > 0.5 ? Theme.alpha(Theme.crust, 0.75)
                          : Theme.alpha(Theme.text, 0.85)
                     Behavior on color { ColorAnimation { duration: 200 } }
                 }
