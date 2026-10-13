@@ -43,6 +43,20 @@ Scope {
         property bool locked: false
     }
 
+    // Все пути к блокировке идут сюда. Не полагаемся на сигнал смены
+    // состояния WlSessionLock: на настоящем niri он приходил не всегда
+    function lock() {
+        if (persist.locked)
+            return
+        text = ""
+        error = ""
+        modelProbe.running = true
+        persist.locked = true
+    }
+
+    // Модель ищем и при старте — в логе сразу видно, нашлась ли она
+    Component.onCompleted: modelProbe.running = true
+
     function submit() {
         if (busy || text === "")
             return
@@ -84,14 +98,6 @@ Scope {
     WlSessionLock {
         id: sessionLock
         locked: persist.locked
-
-        onLockedChanged: {
-            if (!locked)
-                return
-            root.text = ""
-            root.error = ""
-            modelProbe.running = true
-        }
 
         WlSessionLockSurface {
             color: Theme.crust
@@ -136,7 +142,7 @@ Scope {
     Connections {
         target: Ui
         function onLockRequested() {
-            persist.locked = true
+            root.lock()
         }
     }
 
@@ -144,7 +150,7 @@ Scope {
         target: "lock"
 
         function lock(): void {
-            persist.locked = true
+            root.lock()
         }
     }
 }
