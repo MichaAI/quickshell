@@ -13,6 +13,7 @@ Item {
     required property Item modelData        // сам элемент
     property Item container                 // в чьих координатах edge
     property real edge: 0
+    property real full: 0                   // высота полностью открытого попаута
     property bool open: false
 
     readonly property Item target: modelData
@@ -49,7 +50,9 @@ Item {
             return
         // Позиции считаем на лету: столбцы раскладывают детей не сразу
         const top = target.mapToItem(container, 0, 0).y
-        if (open && !shown && edge >= top + 1) {
+        // Полностью открыт — проявляем и то, до чего край не доедет
+        // никогда: строки списка ниже видимой части, запас прокрутки
+        if (open && !shown && (edge >= top + 1 || edge >= full - 1)) {
             shown = true
             hideAnim.stop()
             showAnim.restart()

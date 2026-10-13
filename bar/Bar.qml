@@ -719,6 +719,7 @@ Scope {
                     delegate: PopoutReveal {
                         container: loader.item
                         edge: popoutFrame.height
+                        full: popoutFrame.contentH
                         open: win.popoutOpen
                     }
                 }
