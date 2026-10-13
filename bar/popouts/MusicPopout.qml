@@ -71,57 +71,63 @@ Item {
             width: parent.width
             spacing: 12
 
-            ClippingRectangle {
+            // Нота лежит поверх, а не внутри ClippingRectangle: тот рисует
+            // детей через слой, и текст в нём мылится
+            Item {
                 width: 64; height: 64
-                radius: 10
-                color: Theme.cardBg
 
-                // Яркость обложки там, где нота: центр видимого (после кропа)
-                // квадрата. Только считает, на экран не рисуется.
-                Canvas {
-                    id: artProbe
-                    width: 12; height: 12
-                    visible: false
+                ClippingRectangle {
+                    anchors.fill: parent
+                    radius: 10
+                    color: Theme.cardBg
 
-                    readonly property string src: art.status === Image.Ready ? art.source.toString() : ""
-                    property string loaded: ""
-                    property real luma: -1
+                    // Яркость обложки там, где нота: центр видимого (после кропа)
+                    // квадрата. Только считает, на экран не рисуется.
+                    Canvas {
+                        id: artProbe
+                        width: 12; height: 12
+                        visible: false
 
-                    onSrcChanged: {
-                        luma = -1
-                        if (loaded !== "")
-                            unloadImage(loaded)
-                        loaded = src
-                        if (src !== "") {
-                            loadImage(src)
-                            if (isImageLoaded(src))
-                                requestPaint()
+                        readonly property string src: art.status === Image.Ready ? art.source.toString() : ""
+                        property string loaded: ""
+                        property real luma: -1
+
+                        onSrcChanged: {
+                            luma = -1
+                            if (loaded !== "")
+                                unloadImage(loaded)
+                            loaded = src
+                            if (src !== "") {
+                                loadImage(src)
+                                if (isImageLoaded(src))
+                                    requestPaint()
+                            }
+                        }
+                        onImageLoaded: requestPaint()
+
+                        onPaint: {
+                            if (src === "" || !isImageLoaded(src))
+                                return
+                            const ctx = getContext("2d")
+                            const w = art.implicitWidth, h = art.implicitHeight
+                            const c = Math.min(w, h) * 0.4
+                            ctx.clearRect(0, 0, width, height)
+                            ctx.drawImage(src, (w - c) / 2, (h - c) / 2, c, c, 0, 0, width, height)
+                            const d = ctx.getImageData(0, 0, width, height).data
+                            let sum = 0
+                            for (let i = 0; i < d.length; i += 4)
+                                sum += 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]
+                            luma = sum / (d.length / 4) / 255
                         }
                     }
-                    onImageLoaded: requestPaint()
 
-                    onPaint: {
-                        if (src === "" || !isImageLoaded(src))
-                            return
-                        const ctx = getContext("2d")
-                        const w = art.implicitWidth, h = art.implicitHeight
-                        const c = Math.min(w, h) * 0.4
-                        ctx.clearRect(0, 0, width, height)
-                        ctx.drawImage(src, (w - c) / 2, (h - c) / 2, c, c, 0, 0, width, height)
-                        const d = ctx.getImageData(0, 0, width, height).data
-                        let sum = 0
-                        for (let i = 0; i < d.length; i += 4)
-                            sum += 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]
-                        luma = sum / (d.length / 4) / 255
+                    Image {
+                        id: art
+                        anchors.fill: parent
+                        source: root.player?.trackArtUrl ?? ""
+                        fillMode: Image.PreserveAspectCrop
+                        visible: status === Image.Ready
                     }
-                }
-
-                Image {
-                    id: art
-                    anchors.fill: parent
-                    source: root.player?.trackArtUrl ?? ""
-                    fillMode: Image.PreserveAspectCrop
-                    visible: status === Image.Ready
                 }
 
                 Text {
@@ -130,8 +136,8 @@ Item {
                     font.family: Theme.font
                     font.pixelSize: 24
                     color: !art.visible || artProbe.luma < 0 ? Theme.surface2
-                         : artProbe.luma > 0.5 ? Theme.alpha(Theme.crust, 0.75)
-                         : Theme.alpha(Theme.text, 0.85)
+                         : artProbe.luma > 0.5 ? Theme.crust
+                         : Theme.text
                     Behavior on color { ColorAnimation { duration: 200 } }
                 }
             }
