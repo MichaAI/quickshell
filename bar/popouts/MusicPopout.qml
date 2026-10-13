@@ -334,7 +334,7 @@ Item {
                         GradientStop { position: 1; color: Theme.gradEnd }
                     }
                     scale: pma.containsMouse ? 1.08 : 1
-                    Behavior on scale { NumberAnimation { duration: 100 } }
+                    Behavior on scale { Spring { epsilon: 0.002 } }
 
                     Text {
                         anchors.centerIn: parent

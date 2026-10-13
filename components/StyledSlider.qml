@@ -45,7 +45,7 @@ Item {
         border.color: Theme.crust
         border.width: 2
         scale: mouse.containsMouse || mouse.pressed ? 1.2 : 1
-        Behavior on scale { NumberAnimation { duration: 100 } }
+        Behavior on scale { Spring { epsilon: 0.002 } }
     }
 
     MouseArea {

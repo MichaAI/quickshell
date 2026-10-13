@@ -511,7 +511,7 @@ Scope {
                             height: brightText.implicitHeight
                             clip: true
                             Behavior on width {
-                                SpringAnimation { spring: 4; damping: 0.3; epsilon: 0.25 }
+                                Spring {}
                             }
 
                             PillText {
@@ -635,12 +635,13 @@ Scope {
                         win.popoutFullyClosed()
                 }
 
+                // Открытие пружинит, закрытие — без перелёта (высота не уходит в минус)
                 Behavior on height {
-                    NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
+                    Spring { bouncy: win.popoutOpen }
                 }
                 Behavior on x {
                     enabled: win.popoutOpen && popoutFrame.height > 0
-                    NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
+                    Spring {}
                 }
 
                 Loader {

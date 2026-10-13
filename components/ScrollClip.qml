@@ -47,7 +47,7 @@ Item {
         spacing: 6
 
         Behavior on x {
-            NumberAnimation { duration: 120; easing.type: Easing.OutCubic }
+            Spring { bouncy: false }
         }
     }
 
