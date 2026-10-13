@@ -276,7 +276,7 @@ Scope {
                             MultiEffect {
                                 readonly property point pos: loader.item?.glowPos ?? Qt.point(0, 0)
                                 x: popoutFrame.x + pos.x
-                                y: popoutFrame.y + loader.y + pos.y
+                                y: popoutFrame.y + pos.y
                                 width: shellGlow.src?.width ?? 0
                                 height: shellGlow.src?.height ?? 0
                                 source: shellGlow.src
@@ -635,53 +635,37 @@ Scope {
                     Spring { id: heightSpring; bouncy: win.popoutOpen }
                 }
 
-                // Содержимое стоит на своём месте и невидимо, пока край растёт.
-                // Как только край проехал его низ — начинает проявляться, а на
-                // Motion.contentTugAt проявления край дёргает его за собой
-                // вниз, и оно пружинит обратно
-                property bool revealed: false
-                property real tug: 0
                 onHeightChanged: {
                     if (height === 0 && !win.popoutOpen)
                         win.popoutFullyClosed()
-                    if (win.popoutOpen && !revealed && contentH > 0 && height >= contentH - 0.5) {
-                        revealed = true
-                        reveal.restart()
-                    }
-                }
-                Connections {
-                    target: win
-                    function onPopoutOpenChanged() {
-                        if (win.popoutOpen)
-                            return
-                        popoutFrame.revealed = false
-                        reveal.stop()
-                        hide.restart()
-                    }
                 }
 
-                ParallelAnimation {
-                    id: reveal
-                    NumberAnimation {
-                        target: loader; property: "opacity"; to: 1
-                        duration: Motion.contentFadeMs; easing.type: Easing.OutCubic
+                // Поэлементное появление (PopoutReveal): элементы — строки
+                // основного столбца попаута. Спускаемся от корня, пока
+                // видимый ребёнок один, — у лончера это Column под режимами
+                property var revealTargets: []
+
+                function findElements(root) {
+                    let node = root
+                    for (let i = 0; i < 4 && node; i++) {
+                        const kids = Array.from(node.children)
+                            .filter(c => c.visible && c.width > 0 && c.height > 0)
+                        if (kids.length > 1)
+                            return kids
+                        if (kids.length === 0)
+                            break
+                        node = kids[0]
                     }
-                    // Рывок: цель уходит вниз и сразу возвращается, а пружина на y
-                    // сама тянет содержимое туда и обратно
-                    SequentialAnimation {
-                        PauseAnimation { duration: Motion.contentFadeMs * Motion.contentTugAt }
-                        PropertyAction { target: popoutFrame; property: "tug"; value: Motion.contentTug }
-                        PauseAnimation { duration: 110 }
-                        PropertyAction { target: popoutFrame; property: "tug"; value: 0 }
-                    }
+                    return root ? [root] : []
                 }
-                ParallelAnimation {
-                    id: hide
-                    NumberAnimation {
-                        target: loader; property: "opacity"; to: 0
-                        duration: Motion.contentFadeMs / 2; easing.type: Easing.InCubic
+
+                Instantiator {
+                    model: popoutFrame.revealTargets
+                    delegate: PopoutReveal {
+                        container: loader.item
+                        edge: popoutFrame.height
+                        open: win.popoutOpen
                     }
-                    PropertyAction { target: popoutFrame; property: "tug"; value: 0 }
                 }
 
                 Behavior on x {
@@ -691,9 +675,8 @@ Scope {
 
                 Loader {
                     id: loader
-                    opacity: 0
-                    y: popoutFrame.tug
-                    Behavior on y { Spring { epsilon: 0.05 } }
+                    onLoaded: Qt.callLater(() => popoutFrame.revealTargets = popoutFrame.findElements(item))
+                    onItemChanged: if (!item) popoutFrame.revealTargets = []
                     sourceComponent: {
                         switch (win.shownPopout) {
                         case "launcher": return launcherComp
