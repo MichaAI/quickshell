@@ -13,11 +13,11 @@ QtObject {
     readonly property real calmSpring: 8
     readonly property real calmDamping: 0.6
 
-    // Содержимое попаута: проявляется, когда край проехал его низ.
-    // На contentTugAt проявления край дёргает его вниз на contentTug px,
-    // и оно пружинит обратно (0 — без рывка)
+    // Содержимое попаута, поэлементно (bar/PopoutReveal.qml): элемент
+    // проявляется за contentFadeMs, как только край доехал до его верха,
+    // а когда край проходит через его низ — дёргается вниз на contentTug px
+    // и пружинит обратно (0 — без рывка)
     readonly property int contentFadeMs: 260
-    readonly property real contentTugAt: 0.6
     readonly property real contentTug: 10
 
     // Экран блокировки: подпрыгивание значка раскладки и тряска поля при ошибке

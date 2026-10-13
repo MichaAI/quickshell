@@ -4,8 +4,8 @@ import "../components"
 
 // Поэлементное появление содержимого попаута, как в MD3 Expressive.
 // Один такой объект на элемент: как только нижний край попаута (edge)
-// доезжает до верха элемента, тот начинает проявляться, а на
-// Motion.contentTugAt проявления край дёргает его вниз, и он пружинит
+// доезжает до верха элемента, тот начинает проявляться, а когда край
+// проходит через его низ — дёргает элемент за собой вниз, и тот пружинит
 // обратно. При закрытии гаснет, когда край уходит выше его середины.
 Item {
     id: ctl
@@ -17,6 +17,7 @@ Item {
 
     readonly property Item target: modelData
     property bool shown: false
+    property bool tugged: false
 
     // Рывок: цель уходит вниз и возвращается, пружина тянет следом
     property real tugTarget: 0
@@ -52,26 +53,32 @@ Item {
             shown = true
             hideAnim.stop()
             showAnim.restart()
-        } else if (!open && shown && edge < top + target.height / 2) {
+        }
+        if (open && shown && !tugged && edge >= top + target.height) {
+            tugged = true
+            tugAnim.restart()
+        }
+        if (!open && shown && edge < top + target.height / 2) {
             shown = false
+            tugged = false
             showAnim.stop()
+            tugAnim.stop()
             tugTarget = 0
             hideAnim.restart()
         }
     }
 
-    ParallelAnimation {
+    NumberAnimation {
         id: showAnim
-        NumberAnimation {
-            target: ctl.target; property: "opacity"; to: 1
-            duration: Motion.contentFadeMs; easing.type: Easing.OutCubic
-        }
-        SequentialAnimation {
-            PauseAnimation { duration: Motion.contentFadeMs * Motion.contentTugAt }
-            PropertyAction { target: ctl; property: "tugTarget"; value: Motion.contentTug }
-            PauseAnimation { duration: 110 }
-            PropertyAction { target: ctl; property: "tugTarget"; value: 0 }
-        }
+        target: ctl.target; property: "opacity"; to: 1
+        duration: Motion.contentFadeMs; easing.type: Easing.OutCubic
+    }
+
+    SequentialAnimation {
+        id: tugAnim
+        PropertyAction { target: ctl; property: "tugTarget"; value: Motion.contentTug }
+        PauseAnimation { duration: 110 }
+        PropertyAction { target: ctl; property: "tugTarget"; value: 0 }
     }
 
     NumberAnimation {
