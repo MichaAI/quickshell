@@ -276,7 +276,7 @@ Scope {
                             MultiEffect {
                                 readonly property point pos: loader.item?.glowPos ?? Qt.point(0, 0)
                                 x: popoutFrame.x + pos.x
-                                y: popoutFrame.y + pos.y
+                                y: popoutFrame.y + loader.y + pos.y
                                 width: shellGlow.src?.width ?? 0
                                 height: shellGlow.src?.height ?? 0
                                 source: shellGlow.src
@@ -636,7 +636,21 @@ Scope {
 
                 // Открытие пружинит, закрытие — без перелёта (высота не уходит в минус)
                 Behavior on height {
-                    Spring { bouncy: win.popoutOpen }
+                    Spring { id: heightSpring; bouncy: win.popoutOpen }
+                }
+
+                // Пока меню открывается и закрывается, содержимое едет вместе
+                // с нижним краем и пружинит вместе с ним. Если же меню меняет
+                // размер уже открытым (пришло уведомление и т.п.), содержимое
+                // стоит на месте — иначе его дёргало бы на каждое изменение
+                property bool contentFollows: true
+                Connections {
+                    target: win
+                    function onPopoutOpenChanged() { popoutFrame.contentFollows = true }
+                }
+                onContentHChanged: {
+                    if (win.popoutOpen && height > 0 && !heightSpring.running)
+                        contentFollows = false
                 }
                 Behavior on x {
                     enabled: win.popoutOpen && popoutFrame.height > 0
@@ -645,6 +659,7 @@ Scope {
 
                 Loader {
                     id: loader
+                    y: popoutFrame.contentFollows ? popoutFrame.height - popoutFrame.contentH : 0
                     sourceComponent: {
                         switch (win.shownPopout) {
                         case "launcher": return launcherComp
