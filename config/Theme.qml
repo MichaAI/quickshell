@@ -47,7 +47,7 @@ QtObject {
     // Мельче ~15px читается плохо — для обычного текста только `font`.
     readonly property string displayFont: neofolia.status === FontLoader.Ready ? neofolia.name : "Neofolia"
     readonly property FontLoader neofolia: FontLoader {
-        source: Qt.resolvedUrl("assets/fonts/Neofolia-Regular.ttf")
+        source: Qt.resolvedUrl("../assets/fonts/Neofolia-Regular.ttf")
     }
     readonly property int fontSize: 13
 

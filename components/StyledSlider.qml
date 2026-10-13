@@ -1,5 +1,5 @@
 import QtQuick
-import ".."
+import "../config"
 
 // Слайдер в едином стиле: градиентная полоса, круглая ручка, drag + wheel.
 Item {

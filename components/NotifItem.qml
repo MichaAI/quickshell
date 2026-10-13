@@ -1,6 +1,6 @@
 import Quickshell.Services.Notifications
 import QtQuick
-import ".."
+import "../config"
 import "../services"
 
 // Карточка уведомления с анимацией ухода: уезжает вправо, тает,

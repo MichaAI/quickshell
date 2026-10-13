@@ -1,7 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Widgets
-import ".."
+import "../config"
 import "../services"
 import "../components"
 
@@ -14,10 +14,10 @@ Item {
 
     required property var ctx
 
-    readonly property int gap: 12
-    readonly property int colW: 340
-    readonly property int clockH: 200
-    readonly property int musicH: 100
+    readonly property int gap: Settings.lockGap
+    readonly property int colW: Settings.lockColumn
+    readonly property int clockH: Settings.lockClockHeight
+    readonly property int musicH: Settings.lockMusicHeight
     // Обе колонки одной высоты: квадрат + музыка = часы + пароль
     readonly property int totalH: colW + gap + musicH
 
@@ -94,7 +94,7 @@ Item {
         anchors.fill: parent
         source: "../assets/noise.png"
         fillMode: Image.Tile
-        opacity: 0.03
+        opacity: Dither.lockNoise
     }
 
     // Невидимый ввод пароля: точки рисуем сами
@@ -218,20 +218,31 @@ Item {
                         width: root.colW - 16 - 64 - 12 - (Players.active ? controls.width + 12 : 0) - 16
                         spacing: 3
 
-                        GradientText {
-                            width: parent.width
-                            pixelSize: 14
-                            maxChars: 22
-                            text: Players.title
+                        // Длинное — колесом, как в попауте музыки
+                        ScrollClip {
+                            id: lockTitle
+                            maxWidth: parent.width
+                            fadeColor: Theme.crust
+
+                            GradientText {
+                                pixelSize: 14
+                                text: Players.title
+                                onTextChanged: lockTitle.reset()
+                            }
                         }
-                        Text {
-                            width: parent.width
-                            elide: Text.ElideRight
-                            text: Players.artist
-                            visible: text !== ""
-                            font.family: Theme.font
-                            font.pixelSize: 11
-                            color: Theme.subtext1
+                        ScrollClip {
+                            id: lockArtist
+                            visible: Players.artist !== ""
+                            maxWidth: parent.width
+                            fadeColor: Theme.crust
+
+                            Text {
+                                text: Players.artist
+                                font.family: Theme.font
+                                font.pixelSize: 11
+                                color: Theme.subtext1
+                                onTextChanged: lockArtist.reset()
+                            }
                         }
                     }
 
@@ -316,7 +327,7 @@ Item {
                     SpringAnimation {
                         id: kickAnim
                         target: langBadge; property: "kick"; to: 0
-                        spring: 6; damping: 0.18; epsilon: 0.05
+                        spring: Motion.kickSpring; damping: Motion.kickDamping; epsilon: 0.05
                     }
                     Connections {
                         target: Niri
@@ -364,12 +375,12 @@ Item {
                         SpringAnimation {
                             id: shakeAnim
                             target: field; property: "shake"; to: 0
-                            spring: 14; damping: 0.12; epsilon: 0.2
+                            spring: Motion.shakeSpring; damping: Motion.shakeDamping; epsilon: 0.2
                         }
                         Connections {
                             target: root.ctx
                             function onFailsChanged() {
-                                field.shake = 18
+                                field.shake = Motion.shakeDistance
                                 shakeAnim.restart()
                             }
                         }

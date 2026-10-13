@@ -3,7 +3,7 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Widgets
 import QtQuick
-import "../.."
+import "../../config"
 import "../../services"
 import "../../components"
 import "../../components/Colors.js" as Colors

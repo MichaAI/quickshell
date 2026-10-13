@@ -5,7 +5,7 @@ import Quickshell.Widgets
 import Quickshell.Services.SystemTray
 import QtQuick
 import QtQuick.Effects
-import ".."
+import "../config"
 import "../services"
 import "../components"
 import "./popouts" as Popouts
@@ -282,10 +282,10 @@ Scope {
                                 source: shellGlow.src
                                 blurEnabled: true
                                 blur: 1
-                                blurMax: 64
-                                saturation: 0.4
-                                brightness: 0.1
-                                scale: 1.3
+                                blurMax: Settings.glowBlur
+                                saturation: Settings.glowSaturation
+                                brightness: Settings.glowBrightness
+                                scale: Settings.glowScale
                             }
                         }
 
@@ -316,7 +316,7 @@ Scope {
                             maskSource: glowShaped
                             maskThresholdMin: 0.5
                             maskSpreadAtMin: 1
-                            opacity: 0.05
+                            opacity: Dither.glowNoise
                         }
                     }
                 }

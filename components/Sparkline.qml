@@ -1,5 +1,5 @@
 import QtQuick
-import ".."
+import "../config"
 
 // Мини-график истории значений (0..1).
 Canvas {

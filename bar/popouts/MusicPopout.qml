@@ -3,7 +3,7 @@ import QtQuick.Effects
 import Quickshell
 import Quickshell.Services.Mpris
 import Quickshell.Widgets
-import "../.."
+import "../../config"
 import "../../services"
 import "../../components"
 

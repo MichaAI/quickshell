@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick3D
 import QtQuick3D.AssetUtils
-import ".."
+import "../config"
 
 // Крутящаяся 3D-модель вместо аватарки, перекрашенная крупным дизерингом
 // в цвета темы. Грузится Loader'ом: если в quickshell нет QtQuick3D,
@@ -39,7 +39,7 @@ Item {
         Node {
             NumberAnimation on eulerRotation.y {
                 from: 0; to: 360
-                duration: 14000
+                duration: Settings.lockSpinMs
                 loops: Animation.Infinite
             }
 
@@ -52,7 +52,7 @@ Item {
                 readonly property vector3d lo: bounds.minimum
                 readonly property vector3d hi: bounds.maximum
                 readonly property real extent: Math.max(hi.x - lo.x, hi.y - lo.y, hi.z - lo.z, 0.0001)
-                readonly property real k: 190 / extent
+                readonly property real k: Settings.lockModelSize / extent
 
                 scale: Qt.vector3d(k, k, k)
                 position: Qt.vector3d(-(lo.x + hi.x) / 2 * k, -(lo.y + hi.y) / 2 * k, -(lo.z + hi.z) / 2 * k)
@@ -63,11 +63,11 @@ Item {
         layer.effect: ShaderEffect {
             fragmentShader: "../assets/shaders/dither.frag.qsb"
             property vector2d size: Qt.vector2d(width, height)
-            property real pixel: 4
-            property color c0: Theme.surface1
-            property color c1: Theme.mauve
-            property color c2: Theme.pink
-            property color c3: Theme.rosewater
+            property real pixel: Dither.avatarPixel
+            property color c0: Dither.avatarDark
+            property color c1: Dither.avatarMid
+            property color c2: Dither.avatarLight
+            property color c3: Dither.avatarBright
         }
     }
 }

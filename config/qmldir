@@ -1,0 +1,6 @@
+module MichaAIShell.Config
+
+singleton Settings 1.0 Settings.qml
+singleton Theme 1.0 Theme.qml
+singleton Dither 1.0 Dither.qml
+singleton Motion 1.0 Motion.qml

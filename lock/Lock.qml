@@ -3,7 +3,7 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
 import Quickshell.Services.Pam
-import ".."
+import "../config"
 
 // Экран блокировки: `qs ipc call lock lock`.
 // Экран держит закрытым протокол ext-session-lock: если шелл упадёт,

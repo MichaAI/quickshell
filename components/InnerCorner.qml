@@ -1,6 +1,6 @@
 import QtQuick
 import QtQuick.Shapes
-import ".."
+import "../config"
 
 // Вогнутый ("внутренний") угол. Базовая ориентация — примыкает к верхнему
 // и левому краям; right/bottom зеркалируют.

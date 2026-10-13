@@ -1,4 +1,5 @@
 import QtQuick
+import "../config"
 
 // Пружина в духе MD3 Expressive — вместо кривой с длительностью.
 // bouncy: лёгкий перелёт (~5%) и успокоение за ~0.3 с — для появления и
@@ -7,7 +8,7 @@ import QtQuick
 // остановится раньше времени.
 SpringAnimation {
     property bool bouncy: true
-    spring: bouncy ? 5 : 8
-    damping: bouncy ? 0.35 : 0.6
+    spring: bouncy ? Motion.bouncySpring : Motion.calmSpring
+    damping: bouncy ? Motion.bouncyDamping : Motion.calmDamping
     epsilon: 0.25
 }
