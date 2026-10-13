@@ -395,12 +395,30 @@ Item {
                             color: root.ctx.error !== "" ? Theme.red : Theme.overlay0
                         }
 
-                        // Точки: каждая выпрыгивает пружиной
+                        // Точки: каждая выпрыгивает пружиной. Модель меняем по
+                        // одной точке — целочисленная модель Repeater'а
+                        // пересоздавала бы все точки на каждое нажатие
+                        ListModel { id: dots }
+
+                        function syncDots() {
+                            const n = Math.min(root.ctx.text.length, 20)
+                            while (dots.count < n) dots.append({})
+                            while (dots.count > n) dots.remove(dots.count - 1)
+                        }
+                        Component.onCompleted: syncDots()
+                        Connections {
+                            target: root.ctx
+                            function onTextChanged() { field.syncDots() }
+                        }
+
                         Row {
                             anchors.centerIn: parent
                             spacing: 7
+                            // Остальные точки плавно отъезжают, давая место новой
+                            move: Transition { Spring { properties: "x"; bouncy: false } }
+
                             Repeater {
-                                model: Math.min(root.ctx.text.length, 20)
+                                model: dots
 
                                 Rectangle {
                                     id: dot
@@ -408,7 +426,8 @@ Item {
                                     width: 9; height: 9
                                     radius: 4.5
                                     color: Theme.mix(Theme.gradStart, Theme.gradEnd,
-                                                     root.ctx.text.length > 1 ? index / (Math.min(root.ctx.text.length, 20) - 1) : 0)
+                                                     dots.count > 1 ? index / (dots.count - 1) : 0)
+                                    Behavior on color { ColorAnimation { duration: 150 } }
                                     scale: 0
                                     Component.onCompleted: scale = 1
                                     Behavior on scale { Spring { epsilon: 0.002 } }
