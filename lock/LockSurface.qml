@@ -144,6 +144,10 @@ Item {
         Keys.onReturnPressed: root.ctx.submit()
         Keys.onEnterPressed: root.ctx.submit()
         Keys.onEscapePressed: text = ""
+        Keys.onPressed: event => {
+            root.ctx.noteKey(event)
+            event.accepted = false      // сам текст пусть вводит TextInput
+        }
 
         Connections {
             target: root.ctx

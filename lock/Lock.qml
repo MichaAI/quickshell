@@ -18,7 +18,28 @@ Scope {
     property bool busy: false
     property string error: ""
     property int fails: 0               // растёт на каждую ошибку — для тряски поля
-    property bool caps: false
+    // Caps Lock: по набранным буквам (надёжно при любой раскладке), а пока
+    // ничего не набрано — по светодиоду. Светодиод бывает мёртвым: его может
+    // не обновлять композитор или его нет на клавиатуре
+    property bool capsLed: false
+    property var capsTyped: null        // null — ещё не понятно по вводу
+    readonly property bool caps: capsTyped !== null ? capsTyped : capsLed
+    // Светодиод ожил и переключился — значит, ему можно верить
+    onCapsLedChanged: capsTyped = null
+
+    // Вызывается на каждое нажатие в поле пароля
+    function noteKey(event) {
+        if (event.key === Qt.Key_CapsLock) {
+            if (capsTyped !== null)
+                capsTyped = !capsTyped
+            return
+        }
+        const t = event.text
+        if (t.length !== 1 || t.toLowerCase() === t.toUpperCase())
+            return      // не буква
+        const shift = (event.modifiers & Qt.ShiftModifier) !== 0
+        capsTyped = (t === t.toUpperCase()) !== shift
+    }
     property string avatarModel: ""     // ~/avatar.(glb|gltf|fbx|obj), если есть
 
     readonly property string home: Quickshell.env("HOME")
@@ -127,7 +148,7 @@ Scope {
         id: capsProbe
         command: ["sh", "-c", "cat /sys/class/leds/*::capslock/brightness 2>/dev/null"]
         stdout: StdioCollector {
-            onStreamFinished: root.caps = this.text.split("\n").some(s => parseInt(s) > 0)
+            onStreamFinished: root.capsLed = this.text.split("\n").some(s => parseInt(s) > 0)
         }
     }
 
