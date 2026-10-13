@@ -192,8 +192,8 @@ Scope {
                     width: popoutFrame.width
                     height: popoutFrame.height
                     color: Theme.popoutBg
-                    bottomLeftRadius: popoutFrame.flushLeft ? 0 : Settings.popoutRadius
-                    bottomRightRadius: popoutFrame.flushRight ? 0 : Settings.popoutRadius
+                    bottomLeftRadius: popoutFrame.flushLeft ? 0 : popoutFrame.corner
+                    bottomRightRadius: popoutFrame.flushRight ? 0 : popoutFrame.corner
                 }
 
                 // ===== Внутренние углы к краям монитора =====
@@ -212,18 +212,14 @@ Scope {
                     visible: !popoutFrame.flushLeft
                     x: popoutFrame.x - width
                     y: Settings.barHeight
-                    radius: Settings.popoutWing
+                    radius: popoutFrame.wing
                     flipX: true
-                    opacity: win.popoutOpen && win.shownPopout !== "" ? 1 : 0
-                    Behavior on opacity { NumberAnimation { duration: 120 } }
                 }
                 InnerCorner {
                     visible: !popoutFrame.flushRight
                     x: popoutFrame.x + popoutFrame.width
                     y: Settings.barHeight
-                    radius: Settings.popoutWing
-                    opacity: win.popoutOpen && win.shownPopout !== "" ? 1 : 0
-                    Behavior on opacity { NumberAnimation { duration: 120 } }
+                    radius: popoutFrame.wing
                 }
 
                 // Прилипшее к краю меню перетекает внутренним углом в грань экрана
@@ -231,18 +227,14 @@ Scope {
                     visible: popoutFrame.flushLeft
                     x: 0
                     y: Settings.barHeight + popoutFrame.height
-                    radius: Settings.popoutWing
-                    opacity: win.popoutOpen && win.shownPopout !== "" ? 1 : 0
-                    Behavior on opacity { NumberAnimation { duration: 120 } }
+                    radius: popoutFrame.wing
                 }
                 InnerCorner {
                     visible: popoutFrame.flushRight
                     x: win.width - width
                     y: Settings.barHeight + popoutFrame.height
-                    radius: Settings.popoutWing
+                    radius: popoutFrame.wing
                     flipX: true
-                    opacity: win.popoutOpen && win.shownPopout !== "" ? 1 : 0
-                    Behavior on opacity { NumberAnimation { duration: 120 } }
                 }
             }
 
@@ -582,6 +574,11 @@ Scope {
                 readonly property real rawX: Math.round(win.popAlignRight ? anchorX - contentW : anchorX - contentW / 2)
                 readonly property bool flushLeft: rawX < snapZone
                 readonly property bool flushRight: rawX + contentW > win.width - snapZone
+
+                // Пока меню низкое, углы и крылья растут/тают вместе с высотой:
+                // открывается и закрывается капля, а не прямоугольная полоска
+                readonly property real wing: Math.min(Settings.popoutWing, height)
+                readonly property real corner: Math.min(Settings.popoutRadius, height / 2)
 
                 y: Settings.barHeight
                 width: contentW
