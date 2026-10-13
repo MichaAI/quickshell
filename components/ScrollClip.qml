@@ -3,7 +3,8 @@ import QtQuick
 // Обрезает содержимое по maxWidth и прокручивает его по горизонтали
 // колесом/тачпадом. Сам не едет. Края, за которыми есть скрытый текст,
 // растворяются в fadeColor (цвет фона под нами). Без слоёв и эффектов,
-// чтобы текст рисовался нативно и не мылился. Клики и ховер проходят насквозь.
+// чтобы текст рисовался нативно и не мылился. Клики и ховер проходят насквозь,
+// пока не включён clickable.
 Item {
     id: root
 
@@ -12,6 +13,9 @@ Item {
     property real fadeWidth: 24
     property color fadeColor: "black"
     property real offset: 0
+    property bool clickable: false
+
+    signal clicked()
 
     readonly property real overflow: Math.max(0, Math.ceil(inner.implicitWidth - maxWidth))
 
@@ -23,6 +27,17 @@ Item {
 
     function reset() {
         offset = 0
+    }
+
+    // Короткая вспышка — отклик на клик (например, «скопировано»)
+    function flash() {
+        flashAnim.restart()
+    }
+
+    SequentialAnimation {
+        id: flashAnim
+        NumberAnimation { target: inner; property: "opacity"; to: 0.35; duration: 90 }
+        NumberAnimation { target: inner; property: "opacity"; to: 1; duration: 220 }
     }
 
     Row {
@@ -62,6 +77,14 @@ Item {
             GradientStop { position: 0; color: Qt.alpha(root.fadeColor, 0) }
             GradientStop { position: 1; color: root.fadeColor }
         }
+    }
+
+    // Отдельно от колеса: выключенная не трогает курсор и клики таблетки
+    MouseArea {
+        anchors.fill: parent
+        visible: root.clickable
+        cursorShape: Qt.PointingHandCursor
+        onClicked: root.clicked()
     }
 
     // Только колесо: кнопки не принимает, ховер не перехватывает

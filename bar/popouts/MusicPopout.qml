@@ -1,4 +1,5 @@
 import QtQuick
+import Quickshell
 import Quickshell.Io
 import Quickshell.Services.Mpris
 import Quickshell.Widgets
@@ -13,6 +14,14 @@ Item {
     implicitHeight: col.implicitHeight + 28
 
     readonly property var player: Players.active
+
+    readonly property string title: player?.trackTitle || "Ничего не играет"
+    readonly property string artist: player?.trackArtist ?? ""
+    // У синглов альбом обычно называется как трек — тогда не дублируем
+    readonly property string album: {
+        const a = player?.trackAlbum ?? ""
+        return a === title ? "" : a
+    }
 
     // ===== Эквалайзер (cava) =====
     property var eqBars: []
@@ -68,17 +77,39 @@ Item {
                 color: Theme.cardBg
 
                 Image {
+                    id: art
                     anchors.fill: parent
                     source: root.player?.trackArtUrl ?? ""
                     fillMode: Image.PreserveAspectCrop
                     visible: status === Image.Ready
                 }
+
+                // Средняя яркость обложки: на светлой нота тёмная, на тёмной — светлая
+                ColorQuantizer {
+                    id: artColors
+                    source: art.status === Image.Ready ? art.source : ""
+                    depth: 3
+                    rescaleSize: 32
+                }
+                readonly property real artLuma: {
+                    const cs = artColors.colors
+                    if (!art.visible || !cs || cs.length === 0)
+                        return -1
+                    let sum = 0
+                    for (const c of cs)
+                        sum += 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b
+                    return sum / cs.length
+                }
+
                 Text {
                     anchors.centerIn: parent
                     text: "󰝚"
                     font.family: Theme.font
                     font.pixelSize: 24
-                    color: Theme.surface2
+                    color: parent.artLuma < 0 ? Theme.surface2
+                         : parent.artLuma > 0.55 ? Theme.alpha(Theme.crust, 0.7)
+                         : Theme.alpha(Theme.text, 0.85)
+                    Behavior on color { ColorAnimation { duration: 200 } }
                 }
             }
 
@@ -87,26 +118,51 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 3
 
-                GradientText {
-                    pixelSize: 15
-                    maxChars: 24
-                    text: root.player?.trackTitle || "Ничего не играет"
+                // Клик копирует, колесо прокручивает длинное
+                ScrollClip {
+                    id: titleClip
+                    maxWidth: parent.width
+                    fadeColor: Theme.popoutBg
+                    clickable: !!root.player
+                    onClicked: { Tools.copy(root.title); titleClip.flash() }
+
+                    GradientText {
+                        pixelSize: 15
+                        text: root.title
+                        onTextChanged: titleClip.reset()
+                    }
                 }
-                Text {
-                    width: parent.width
-                    text: root.player?.trackArtist ?? ""
-                    elide: Text.ElideRight
-                    font.family: Theme.font
-                    font.pixelSize: 12
-                    color: Theme.subtext1
+                ScrollClip {
+                    id: artistClip
+                    visible: root.artist !== ""
+                    maxWidth: parent.width
+                    fadeColor: Theme.popoutBg
+                    clickable: true
+                    onClicked: { Tools.copy(root.artist); artistClip.flash() }
+
+                    Text {
+                        text: root.artist
+                        font.family: Theme.font
+                        font.pixelSize: 12
+                        color: Theme.subtext1
+                        onTextChanged: artistClip.reset()
+                    }
                 }
-                Text {
-                    width: parent.width
-                    text: root.player?.trackAlbum ?? ""
-                    elide: Text.ElideRight
-                    font.family: Theme.font
-                    font.pixelSize: 11
-                    color: Theme.overlay1
+                ScrollClip {
+                    id: albumClip
+                    visible: root.album !== ""
+                    maxWidth: parent.width
+                    fadeColor: Theme.popoutBg
+                    clickable: true
+                    onClicked: { Tools.copy(root.album); albumClip.flash() }
+
+                    Text {
+                        text: root.album
+                        font.family: Theme.font
+                        font.pixelSize: 11
+                        color: Theme.overlay1
+                        onTextChanged: albumClip.reset()
+                    }
                 }
             }
         }
