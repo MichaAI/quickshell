@@ -4,7 +4,8 @@ import Quickshell.Wayland
 import Quickshell.Widgets
 import Quickshell.Services.SystemTray
 import QtQuick
-import ".."
+import QtQuick.Effects
+import "../config"
 import "../services"
 import "../components"
 import "./popouts" as Popouts
@@ -171,12 +172,162 @@ Scope {
                 }
             }
 
+            // ===== Подложка шелла =====
+            // Все фоны (бар, попаут, крылья, уголки) отдельно от содержимого:
+            // между ними ложится свет обложки, а силуэт подложки его обрезает
+            Item {
+                id: backdrop
+                anchors.fill: parent
+
+                Rectangle {
+                    width: parent.width
+                    height: Settings.barHeight
+                    color: Theme.barBg
+                }
+
+                // Фон попаута повторяет его рамку (та обрезает содержимое)
+                Rectangle {
+                    x: popoutFrame.x
+                    y: popoutFrame.y
+                    width: popoutFrame.width
+                    height: popoutFrame.height
+                    color: Theme.popoutBg
+                    bottomLeftRadius: popoutFrame.flushLeft ? 0 : popoutFrame.corner
+                    bottomRightRadius: popoutFrame.flushRight ? 0 : popoutFrame.corner
+                }
+
+                // ===== Внутренние углы к краям монитора =====
+                InnerCorner {
+                    x: 0
+                    y: Settings.barHeight
+                }
+                InnerCorner {
+                    x: win.width - width
+                    y: Settings.barHeight
+                    flipX: true
+                }
+
+                // "Крылья" попаута — бесшовный переход к бару
+                InnerCorner {
+                    visible: !popoutFrame.flushLeft
+                    x: popoutFrame.x - width
+                    y: Settings.barHeight
+                    radius: popoutFrame.wing
+                    flipX: true
+                }
+                InnerCorner {
+                    visible: !popoutFrame.flushRight
+                    x: popoutFrame.x + popoutFrame.width
+                    y: Settings.barHeight
+                    radius: popoutFrame.wing
+                }
+
+                // Прилипшее к краю меню перетекает внутренним углом в грань экрана
+                InnerCorner {
+                    visible: popoutFrame.flushLeft
+                    x: 0
+                    y: Settings.barHeight + popoutFrame.height
+                    radius: popoutFrame.wing
+                }
+                InnerCorner {
+                    visible: popoutFrame.flushRight
+                    x: win.width - width
+                    y: Settings.barHeight + popoutFrame.height
+                    radius: popoutFrame.wing
+                    flipX: true
+                }
+            }
+
+            // ===== Свет обложки =====
+            // Размытая обложка из попаута музыки, на весь шелл: под содержимым,
+            // над фоном, по силуэту подложки. Режется только внешним краем шелла
+            Item {
+                id: shellGlow
+                anchors.fill: parent
+
+                readonly property Item src: loader.item?.glowSource ?? null
+                readonly property bool on: src !== null && (loader.item?.glowOn ?? false)
+                    && win.popoutOpen
+
+                opacity: on ? 1 : 0
+                visible: opacity > 0
+                Behavior on opacity { NumberAnimation { duration: 250 } }
+
+                // Эффекты живут, только пока свет виден: без обложки им
+                // нечего рисовать, а пустые эффекты сыпят предупреждениями
+                Loader {
+                    anchors.fill: parent
+                    active: shellGlow.visible
+                    sourceComponent: Item {
+                        ShaderEffectSource {
+                            id: shellShape
+                            anchors.fill: parent
+                            sourceItem: backdrop
+                            visible: false
+                            live: shellGlow.visible
+                        }
+
+                        Item {
+                            id: glowLight
+                            anchors.fill: parent
+                            visible: false
+                            layer.enabled: shellGlow.visible
+
+                            MultiEffect {
+                                readonly property point pos: loader.item?.glowPos ?? Qt.point(0, 0)
+                                x: popoutFrame.x + pos.x
+                                y: popoutFrame.y + pos.y
+                                width: shellGlow.src?.width ?? 0
+                                height: shellGlow.src?.height ?? 0
+                                source: shellGlow.src
+                                blurEnabled: true
+                                blur: 1
+                                blurMax: Settings.glowBlur
+                                saturation: Settings.glowSaturation
+                                brightness: Settings.glowBrightness
+                                scale: Settings.glowScale
+                            }
+                        }
+
+                        MultiEffect {
+                            id: glowShaped
+                            anchors.fill: parent
+                            source: glowLight
+                            maskEnabled: true
+                            maskSource: shellShape
+                            maskThresholdMin: 0.5
+                            maskSpreadAtMin: 1
+                            layer.enabled: shellGlow.visible
+                        }
+
+                        // Дизеринг: тайловый шум по альфе света, против полос в градиенте
+                        Image {
+                            id: glowNoise
+                            anchors.fill: parent
+                            source: Qt.resolvedUrl("../assets/noise.png")
+                            fillMode: Image.Tile
+                            smooth: false
+                            visible: false
+                        }
+                        MultiEffect {
+                            anchors.fill: parent
+                            source: glowNoise
+                            maskEnabled: true
+                            maskSource: glowShaped
+                            maskThresholdMin: 0.5
+                            maskSpreadAtMin: 1
+                            opacity: Dither.glowNoise
+                        }
+                    }
+                }
+            }
+
             // ===== Бар =====
             Rectangle {
                 id: barRect
                 width: parent.width
                 height: Settings.barHeight
-                color: Theme.barBg
+                color: "transparent"   // фон — в backdrop
 
                 // --- Левая часть ---
                 Row {
@@ -212,8 +363,8 @@ Scope {
                     BarPill {
                         id: windowPill
                         anchors.verticalCenter: parent.verticalCenter
-                        interactive: false
                         visible: Niri.focusedWindow !== null
+                        onClicked: Niri.toggleOverview()
 
                         PillText { text: "Window:"; color: Theme.overlay1 }
                         GradientText {
@@ -249,16 +400,7 @@ Scope {
                         visible: (Niri.currentLang ?? "") !== ""
                         onClicked: Niri.switchLayout()
 
-                        PillText {
-                            text: {
-                                const l = Niri.currentLang ?? ""
-                                if (l.indexOf("Russian") !== -1 || l.indexOf("рус") !== -1)
-                                    return "RU"
-                                if (l.indexOf("English") !== -1)
-                                    return "EN"
-                                return l.substring(0, 2).toUpperCase()
-                            }
-                        }
+                        PillText { text: Niri.langShort }
                     }
                 }
 
@@ -285,20 +427,32 @@ Scope {
                             text: Players.playing ? "󰏤" : "󰐊"
                             color: Theme.mauve
                         }
-                        PillText {
-                            text: {
-                                const a = Players.artist
-                                return a.length > 20 ? a.substring(0, 19) + "…" : a
+                        ScrollClip {
+                            id: artistScroll
+                            anchors.verticalCenter: parent.verticalCenter
+                            visible: Players.artist !== ""
+                            maxWidth: 140
+                            fadeColor: musicPill.color
+
+                            PillText {
+                                text: Players.artist
+                                color: Theme.subtext1
+                                onTextChanged: artistScroll.reset()
                             }
-                            visible: text !== ""
-                            color: Theme.subtext1
                         }
                         PillText { text: "–"; color: Theme.overlay0; visible: Players.artist !== "" }
-                        GradientText {
+                        ScrollClip {
+                            id: titleScroll
                             anchors.verticalCenter: parent.verticalCenter
-                            pixelSize: Theme.fontSize
-                            maxChars: 20
-                            text: Players.title
+                            maxWidth: 170
+                            fadeColor: musicPill.color
+
+                            GradientText {
+                                anchors.verticalCenter: parent.verticalCenter
+                                pixelSize: Theme.fontSize
+                                text: Players.title
+                                onTextChanged: titleScroll.reset()
+                            }
                         }
                         PillText { text: "| " + Players.timeText; color: Theme.overlay1 }
                     }
@@ -323,6 +477,53 @@ Scope {
                         PillText {
                             text: Audio.muted ? "MUTED" : Math.round(Audio.volume * 100).toString()
                             color: Audio.muted ? Theme.overlay0 : Theme.text
+                        }
+                    }
+
+                    // Яркость: только тусклый значок, процент выезжает
+                    // при наведении и когда яркость меняют
+                    BarPill {
+                        id: brightPill
+                        anchors.verticalCenter: parent.verticalCenter
+                        visible: Brightness.present
+                        onWheeled: delta => Brightness.change(delta / 120 * 0.05)
+
+                        // Тап на сенсоре/тачпаде оставляет «наведение» навсегда —
+                        // после клика ховер не раскрывает, пока курсор не уйдёт
+                        property bool tapped: false
+                        onHoveredChanged: if (!hovered) tapped = false
+                        onClicked: { tapped = true; brightShow.restart() }
+                        readonly property bool expanded: (hovered && !tapped) || brightShow.running
+
+                        Timer {
+                            id: brightShow
+                            interval: 1500
+                        }
+                        Connections {
+                            target: Brightness
+                            function onPercentChanged() { brightShow.restart() }
+                        }
+
+                        PillText {
+                            text: Brightness.icon
+                            color: brightPill.expanded ? Theme.yellow : Theme.overlay1
+                            Behavior on color { ColorAnimation { duration: 150 } }
+                        }
+                        Item {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: brightPill.expanded ? brightText.implicitWidth : -6
+                            height: brightText.implicitHeight
+                            clip: true
+                            Behavior on width {
+                                Spring {}
+                            }
+
+                            PillText {
+                                id: brightText
+                                text: Brightness.percent.toString()
+                                opacity: brightPill.expanded ? 1 : 0
+                                Behavior on opacity { NumberAnimation { duration: 150 } }
+                            }
                         }
                     }
 
@@ -403,17 +604,6 @@ Scope {
                 }
             }
 
-            // ===== Внутренние углы к краям монитора =====
-            InnerCorner {
-                x: 0
-                y: Settings.barHeight
-            }
-            InnerCorner {
-                x: win.width - width
-                y: Settings.barHeight
-                flipX: true
-            }
-
             // ===== Попаут =====
             Item {
                 id: popoutFrame
@@ -431,6 +621,11 @@ Scope {
                 readonly property bool flushLeft: rawX < snapZone
                 readonly property bool flushRight: rawX + contentW > win.width - snapZone
 
+                // Пока меню низкое, углы и крылья растут/тают вместе с высотой:
+                // открывается и закрывается капля, а не прямоугольная полоска
+                readonly property real wing: Math.min(Settings.popoutWing, height)
+                readonly property real corner: Math.min(Settings.popoutRadius, height / 2)
+
                 y: Settings.barHeight
                 width: contentW
                 height: win.popoutOpen ? contentH : 0
@@ -439,28 +634,109 @@ Scope {
                  : flushRight ? win.width - contentW
                  : rawX
 
+
+                // Открытие пружинит, закрытие — без перелёта (высота не уходит в минус)
+                Behavior on height {
+                    Spring { id: heightSpring; bouncy: win.popoutOpen }
+                }
+
                 onHeightChanged: {
                     if (height === 0 && !win.popoutOpen)
                         win.popoutFullyClosed()
                 }
 
-                Behavior on height {
-                    NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
-                }
-                Behavior on x {
-                    enabled: win.popoutOpen && popoutFrame.height > 0
-                    NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
+                // Поэлементное появление (PopoutReveal). Элементы ищем
+                // рекурсивно: контейнер дробится на детей, если они стоят друг
+                // под другом. Если у контейнера свой фон (карточка), фон
+                // открывается краем сразу, а проявляются его строки. Детали
+                // бок о бок и строка списка — один элемент
+                property var revealTargets: []
+
+                function visibleKids(n) {
+                    return Array.from(n.children).filter(c => c.visible && c.width > 0 && c.height > 0)
                 }
 
-                Rectangle {
-                    anchors.fill: parent
-                    color: Theme.popoutBg
-                    bottomLeftRadius: popoutFrame.flushLeft ? 0 : Settings.popoutRadius
-                    bottomRightRadius: popoutFrame.flushRight ? 0 : Settings.popoutRadius
+                // Ничего не рисует сам: Item/Column/Row или прозрачный Rectangle
+                function isPlain(n) {
+                    if (n.text !== undefined || n.source !== undefined)
+                        return false
+                    if (n.color !== undefined)
+                        return n.color.a === 0 && !(n.border && n.border.width > 0) && !n.gradient
+                    return true
+                }
+
+                function stacked(kids) {
+                    const k = kids.slice().sort((a, b) => a.y - b.y)
+                    for (let i = 1; i < k.length; i++)
+                        if (k[i].y >= k[i - 1].y + k[i - 1].height - 1)
+                            return true
+                    return false
+                }
+
+                function findElements(node, depth) {
+                    depth = depth ?? 0
+                    if (!node)
+                        return []
+                    // Строки списка — целиком
+                    if (node.contentItem && node.model !== undefined && node.flicking !== undefined) {
+                        const rows = visibleKids(node.contentItem)
+                        if (rows.length === 0)
+                            listPending = true
+                        return rows.length > 0 ? rows : [node]
+                    }
+                    const kids = visibleKids(node)
+                    if (depth > 8 || kids.length === 0)
+                        return [node]
+                    if (kids.length === 1)
+                        return findElements(kids[0], depth + 1)
+                    if (!stacked(kids))
+                        return [node]
+                    return kids.reduce((all, k) => all.concat(findElements(k, depth + 1)), [])
+                }
+
+                // Столбцы раскладывают, а списки создают строки не сразу после
+                // загрузки — ждём пару кадров, а до тех пор содержимое прячем
+                property bool listPending: false
+                property int scanTries: 0
+                Timer {
+                    id: revealScan
+                    interval: 40
+                    onTriggered: {
+                        popoutFrame.listPending = false
+                        const found = popoutFrame.findElements(loader.item)
+                        // Список ещё не создал строки — подождём ещё немного
+                        if (popoutFrame.listPending && ++popoutFrame.scanTries < 6) {
+                            restart()
+                            return
+                        }
+                        popoutFrame.revealTargets = found
+                        loader.opacity = 1
+                    }
+                }
+
+                Instantiator {
+                    model: popoutFrame.revealTargets
+                    delegate: PopoutReveal {
+                        container: loader.item
+                        edge: popoutFrame.height
+                        full: popoutFrame.contentH
+                        open: win.popoutOpen
+                    }
+                }
+
+                Behavior on x {
+                    enabled: win.popoutOpen && popoutFrame.height > 0
+                    Spring {}
                 }
 
                 Loader {
                     id: loader
+                    onLoaded: {
+                        opacity = 0
+                        popoutFrame.scanTries = 0
+                        revealScan.restart()
+                    }
+                    onItemChanged: if (!item) popoutFrame.revealTargets = []
                     sourceComponent: {
                         switch (win.shownPopout) {
                         case "launcher": return launcherComp
@@ -475,44 +751,6 @@ Scope {
                         }
                     }
                 }
-            }
-
-            // "Крылья" попаута — бесшовный переход к бару
-            InnerCorner {
-                visible: !popoutFrame.flushLeft
-                x: popoutFrame.x - width
-                y: Settings.barHeight
-                radius: Settings.popoutWing
-                flipX: true
-                opacity: win.popoutOpen && win.shownPopout !== "" ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: 120 } }
-            }
-            InnerCorner {
-                visible: !popoutFrame.flushRight
-                x: popoutFrame.x + popoutFrame.width
-                y: Settings.barHeight
-                radius: Settings.popoutWing
-                opacity: win.popoutOpen && win.shownPopout !== "" ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: 120 } }
-            }
-
-            // Прилипшее к краю меню перетекает внутренним углом в грань экрана
-            InnerCorner {
-                visible: popoutFrame.flushLeft
-                x: 0
-                y: Settings.barHeight + popoutFrame.height
-                radius: Settings.popoutWing
-                opacity: win.popoutOpen && win.shownPopout !== "" ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: 120 } }
-            }
-            InnerCorner {
-                visible: popoutFrame.flushRight
-                x: win.width - width
-                y: Settings.barHeight + popoutFrame.height
-                radius: Settings.popoutWing
-                flipX: true
-                opacity: win.popoutOpen && win.shownPopout !== "" ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: 120 } }
             }
 
             Component { id: launcherComp; Popouts.LauncherPopout {} }

@@ -1,5 +1,5 @@
 import QtQuick
-import "../.."
+import "../../config"
 import "../../services"
 import "../../components"
 
@@ -77,7 +77,7 @@ Item {
                 GradientStop { position: 0; color: Theme.gradStart }
                 GradientStop { position: 1; color: Theme.gradEnd }
             }
-            Behavior on width { NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
+            Behavior on width { Spring {} }
         }
     }
 

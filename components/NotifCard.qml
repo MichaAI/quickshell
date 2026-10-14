@@ -2,7 +2,7 @@ import Quickshell
 import Quickshell.Widgets
 import Quickshell.Services.Notifications
 import QtQuick
-import ".."
+import "../config"
 import "../services"
 
 // Карточка уведомления — общая для центра и всплывашек.

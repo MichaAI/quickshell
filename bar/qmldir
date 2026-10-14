@@ -4,3 +4,4 @@ Bar 1.0 Bar.qml
 ScreenCorners 1.0 ScreenCorners.qml
 DesktopWidget 1.0 DesktopWidget.qml
 NotificationToasts 1.0 NotificationToasts.qml
+PopoutReveal 1.0 PopoutReveal.qml

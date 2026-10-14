@@ -1,5 +1,5 @@
 import QtQuick
-import ".."
+import "../config"
 
 // Ползунок с произвольной градиентной полосой (яркость, прозрачность…).
 Item {
@@ -85,7 +85,7 @@ Item {
             border.color: Theme.crust
             border.width: 3
             scale: mouse.containsMouse || mouse.pressed ? 1.15 : 1
-            Behavior on scale { NumberAnimation { duration: 100 } }
+            Behavior on scale { Spring { epsilon: 0.002 } }
         }
     }
 

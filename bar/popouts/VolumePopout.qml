@@ -1,6 +1,6 @@
 import QtQuick
 import Quickshell.Services.Pipewire
-import "../.."
+import "../../config"
 import "../../services"
 import "../../components"
 
@@ -89,7 +89,8 @@ Item {
 
         GradientText {
             text: "Громкость"
-            pixelSize: 14
+            pixelSize: 17
+            display: true
         }
 
         Rectangle {

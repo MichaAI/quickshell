@@ -2,7 +2,7 @@ pragma Singleton
 import Quickshell
 import Quickshell.Io
 import QtQuick
-import ".."
+import "../config"
 
 // Шелл для лончера:
 //  • автодополнение — живой zsh в zpty с твоим .zshrc (assets/launcher/zsh-complete.zsh);

@@ -1,6 +1,6 @@
 import Quickshell.Services.Notifications
 import QtQuick
-import ".."
+import "../config"
 import "../services"
 
 // Карточка уведомления с анимацией ухода: уезжает вправо, тает,
@@ -37,10 +37,10 @@ Item {
 
     Component.onCompleted: if (enter) inAnim.start()
 
-    NumberAnimation {
+    Spring {
         id: inAnim
         target: root; property: "slide"; from: 1; to: 0
-        duration: 250; easing.type: Easing.OutCubic
+        epsilon: 0.002
     }
 
     SequentialAnimation {

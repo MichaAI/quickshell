@@ -1,6 +1,6 @@
 import QtQuick
 import Quickshell
-import "../.."
+import "../../config"
 import "../../services"
 import "../../components"
 

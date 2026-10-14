@@ -1,7 +1,7 @@
 import Quickshell
 import Quickshell.Wayland
 import QtQuick
-import ".."
+import "../config"
 import "../components"
 
 // Нижние внутренние углы монитора: не занимают место и прозрачны для мыши.

@@ -1,6 +1,6 @@
 import QtQuick
 import QtQuick.Shapes
-import ".."
+import "../config"
 import "Colors.js" as Colors
 
 // Полноценный выбор цвета: колесо оттенок/насыщенность, яркость, прозрачность,

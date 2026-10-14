@@ -1,13 +1,19 @@
+import QtQuick
 import Quickshell
 import Quickshell.Io
 import "./bar"
 import "./services"
+import "./lock"
 
 ShellRoot {
+    // Приложения поднимаем сразу, чтобы первый лончер не ждал скан .desktop
+    Component.onCompleted: Apps.list
+
     Bar {}
     ScreenCorners {}
     DesktopWidget {}
     NotificationToasts {}
+    Lock {}
 
     // niri: `qs ipc call launcher toggle`
     IpcHandler {
