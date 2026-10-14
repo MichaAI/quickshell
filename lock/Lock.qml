@@ -15,6 +15,10 @@ Scope {
 
     // Общее состояние для всех мониторов: печатать можно на любом
     property string text: ""
+    // Сколько точек рисовать. Не text.length: пароль стираем сразу после
+    // отправки в PAM, а точки должны пульсировать, пока он думает
+    property int length: 0
+    onTextChanged: if (!busy) length = text.length
     property bool busy: false
     property string error: ""
     property int fails: 0               // растёт на каждую ошибку — для тряски поля
@@ -109,14 +113,26 @@ Scope {
         configDirectory: Quickshell.shellPath("lock/pam")
         config: "password.conf"
 
+        // Пароль живёт в памяти шелла как можно меньше: стираем его сразу
+        // после отправки, а потом просим сборщик мусора убрать старые
+        // строки. Затереть память нулями из QML нельзя — строки в JS
+        // неизменяемые, так что это гигиена, а не шред
         onPamMessage: {
-            if (this.responseRequired)
+            if (this.responseRequired) {
                 this.respond(root.text)
+                root.text = ""
+            }
+        }
+
+        function finish() {
+            root.busy = false
+            root.text = ""
+            root.length = 0
+            Qt.callLater(gc)
         }
 
         onCompleted: result => {
-            root.busy = false
-            root.text = ""
+            pam.finish()
             if (result === PamResult.Success) {
                 root.error = ""
                 persist.locked = false
@@ -127,8 +143,7 @@ Scope {
         }
 
         onError: {
-            root.busy = false
-            root.text = ""
+            pam.finish()
             root.error = "PAM не отвечает"
             root.fails++
         }

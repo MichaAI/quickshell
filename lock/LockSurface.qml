@@ -436,7 +436,7 @@ Item {
 
                         Text {
                             anchors.centerIn: parent
-                            visible: root.ctx.text === "" && !root.ctx.busy
+                            visible: root.ctx.length === 0 && !root.ctx.busy
                             text: root.ctx.error !== "" ? root.ctx.error : "Пароль"
                             font.family: Theme.font
                             font.pixelSize: 13
@@ -449,46 +449,29 @@ Item {
                         // пересоздавала бы все точки на каждое нажатие
                         ListModel { id: dots }
 
-                        // Сколько точек влезает между скруглениями поля
-                        readonly property int dotSize: 9
-                        readonly property int dotSpacing: 7
-                        readonly property int maxDots: Math.max(1, Math.floor(
-                            (width - height + dotSpacing) / (dotSize + dotSpacing)))
-                        property int typed: 0       // длина пароля на прошлой синхронизации
-                        onMaxDotsChanged: syncDots()
-
-                        // Когда точки упёрлись в край, каждое нажатие сдвигает
-                        // ряд: новая точка справа, крайняя левая уходит, а
-                        // стирание — наоборот. Так видно каждое нажатие
                         function syncDots() {
-                            const len = root.ctx.text.length
-                            const shifts = Math.min(maxDots,
-                                Math.max(0, Math.max(len, typed) - Math.max(Math.min(len, typed), maxDots)))
-                            for (let i = 0; i < shifts && dots.count > 0; i++) {
-                                if (len > typed) {
-                                    dots.remove(0)
-                                    dots.append({})
-                                } else {
-                                    dots.remove(dots.count - 1)
-                                    dots.insert(0, {})
-                                }
-                            }
-                            typed = len
-                            const n = Math.min(len, maxDots)
+                            const n = Math.min(root.ctx.length, 256)
                             while (dots.count < n) dots.append({})
                             while (dots.count > n) dots.remove(dots.count - 1)
                         }
                         Component.onCompleted: syncDots()
                         Connections {
                             target: root.ctx
-                            function onTextChanged() { field.syncDots() }
+                            function onLengthChanged() { field.syncDots() }
                         }
 
-                        Row {
+                        // Не влезающие точки уезжают влево за край, как текст в
+                        // обычном поле ввода; назад — колесом
+                        ScrollClip {
+                            id: dotsClip
                             anchors.centerIn: parent
-                            spacing: field.dotSpacing
+                            maxWidth: field.width - 2 * field.radius
+                            fadeColor: field.color
+                            spacing: 7
                             // Остальные точки плавно отъезжают, давая место новой
                             move: Transition { Spring { properties: "x"; bouncy: false } }
+                            // Набор и стирание всегда возвращают к последней точке
+                            onOverflowChanged: offset = overflow
 
                             Repeater {
                                 model: dots
@@ -496,8 +479,8 @@ Item {
                                 Rectangle {
                                     id: dot
                                     required property int index
-                                    width: field.dotSize; height: field.dotSize
-                                    radius: field.dotSize / 2
+                                    width: 9; height: 9
+                                    radius: 4.5
                                     color: Theme.mix(Theme.gradStart, Theme.gradEnd,
                                                      dots.count > 1 ? index / (dots.count - 1) : 0)
                                     Behavior on color { ColorAnimation { duration: 150 } }

@@ -14,6 +14,8 @@ Item {
     property color fadeColor: "black"
     property real offset: 0
     property bool clickable: false
+    property alias spacing: inner.spacing
+    property alias move: inner.move
 
     signal clicked()
 
