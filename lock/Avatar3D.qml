@@ -154,9 +154,6 @@ Item {
                 Loader3D {
                     id: sceneLoader
                     source: root.scene
-                    // Сцена balsam'а с ключевыми кадрами в QML бывает огромной —
-                    // разбираем её, не замораживая экран блокировки
-                    asynchronous: true
                     onLoaded: {
                         const out = []
                         root.walk(item, out)
