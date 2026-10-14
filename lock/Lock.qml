@@ -145,10 +145,13 @@ Scope {
             echo "$src"
             command -v balsam >/dev/null || { echo; exit 0; }
             cache="\${XDG_CACHE_HOME:-$1/.cache}/quickshell/lock-avatar"
-            if [ "$(cat "$cache/source" 2>/dev/null)" != "$src" ] || [ "$src" -nt "$cache/source" ]; then
+            # Настоящий путь: ~/avatar.glb бывает ссылкой в /nix/store, и
+            # новая модель — это новая цель ссылки, а не новое время файла
+            real=$(readlink -f "$src")
+            if [ "$(cat "$cache/source" 2>/dev/null)" != "$real" ] || [ "$real" -nt "$cache/source" ]; then
                 rm -rf "$cache" && mkdir -p "$cache"
                 QT_QPA_PLATFORM=offscreen balsam --manualAnimations -o "$cache" "$src" >&2 \
-                    && echo "$src" > "$cache/source"
+                    && echo "$real" > "$cache/source"
             fi
             [ -f "$cache/source" ] && ls "$cache"/*.qml 2>/dev/null | head -n 1
             echo`,
