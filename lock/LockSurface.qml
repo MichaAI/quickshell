@@ -101,9 +101,8 @@ Item {
         source: root.ctx.wallUrl
         fillMode: Image.PreserveAspectCrop
         asynchronous: true
-        // Всё равно размываем — полное разрешение ни к чему. Размер должен
-        // совпадать с предзагрузкой в Lock.qml, иначе кеш не сработает
-        sourceSize: Qt.size(Math.ceil(root.width / 2), Math.ceil(root.height / 2))
+        // Без sourceSize: так картинка берётся из кеша, куда её заранее
+        // загрузил Lock.qml, и не мигает при блокировке
     }
     MultiEffect {
         anchors.fill: parent
