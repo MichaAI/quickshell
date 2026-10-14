@@ -175,11 +175,16 @@ Item {
                 width: root.colW
                 height: root.colW
 
+                // Асинхронно: niri считает экран заблокированным только после
+                // первого кадра на каждом мониторе. Синхронная загрузка тащила
+                // в этот кадр разбор модели и сцены balsam'а — лок ждал аву.
+                // Теперь сначала показываем ~/.face, а ава подменяет её, когда готова
                 Loader {
                     id: model3d
                     anchors.fill: parent
                     readonly property bool shown: status === Loader.Ready && item.ready
                     active: root.ctx.avatarModel !== ""
+                    asynchronous: true
                     visible: shown
                     source: "Avatar3D.qml"
                     onLoaded: {
