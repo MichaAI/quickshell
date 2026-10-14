@@ -17,6 +17,7 @@ let
           ../flake.lock
           ../nix
           ../.claude
+          ../tests
           ../.qmlls.ini
           ../README.md
         ]

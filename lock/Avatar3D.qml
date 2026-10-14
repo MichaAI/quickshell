@@ -31,7 +31,10 @@ Item {
     property vector3d lo: Qt.vector3d(0, 0, 0)
     property vector3d hi: Qt.vector3d(0, 0, 0)
     readonly property real extent: Math.max(hi.x - lo.x, hi.y - lo.y, hi.z - lo.z, 0)
-    readonly property real k: root.modelSize / Math.max(extent, 0.0001)
+    // Пока габаритов нет — модель исчезающе мала, но рисуется: габариты
+    // сцены Qt Quick 3D узнаёт, только отрисовав её. Спрятанный вид
+    // (visible: false) не рисуется, и ава так и не становилась готовой
+    readonly property real k: extent > 0.0001 ? root.modelSize / extent : 0.000001
 
     property var models: []         // все Model сцены — для габаритов
     property var timeline: null     // выбранная анимация
@@ -154,12 +157,22 @@ Item {
                 Loader3D {
                     id: sceneLoader
                     source: root.scene
+                    // Сцена balsam'а с ключевыми кадрами в QML бывает огромной:
+                    // на холодном кеше QML синхронный разбор держал лок ~секунду
+                    asynchronous: true
                     onLoaded: {
                         const out = []
                         root.walk(item, out)
                         root.models = out
-                        for (const m of out)
+                        for (const m of out) {
                             m.boundsChanged.connect(root.measure)
+                            // При асинхронной загрузке меш иногда назначается
+                            // модели раньше, чем она попала в сцену, и Qt
+                            // так и не считает её габариты. Переназначаем
+                            const src = m.source
+                            m.source = ""
+                            m.source = src
+                        }
                         root.measure()
                         root.pickAnimation()
                     }

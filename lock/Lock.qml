@@ -94,7 +94,23 @@ Scope {
         text = ""
         error = ""
         modelProbe.running = true
+        lockStarted = Date.now()
         persist.locked = true
+    }
+
+    // Композитор подтвердил блокировку: экран уже закрыт. Тяжёлое (3D-аву)
+    // грузим только после этого, чтобы оно не задерживало первый кадр лока
+    readonly property bool secure: sessionLock.secure
+
+    // Сколько экран закрывался: от вызова до подтверждения композитором.
+    // niri подтверждает, когда каждый монитор нарисовал первый кадр лока
+    property real lockStarted: 0
+    Connections {
+        target: sessionLock
+        function onSecureChanged() {
+            if (root.secure && root.lockStarted > 0)
+                console.warn("lock: экран закрыт за", Date.now() - root.lockStarted, "мс")
+        }
     }
 
     // Модель ищем и при старте — в логе сразу видно, нашлась ли она

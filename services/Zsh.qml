@@ -128,7 +128,7 @@ Singleton {
 
     // В терминале — для всего интерактивного
     function runInTerminal(cmd) {
-        Quickshell.execDetached([...Settings.terminal, "zsh", "-ic", cmd + "; exec zsh"])
+        Tools.launch([...Settings.terminal, "zsh", "-ic", cmd + "; exec zsh"])
     }
 
     function kill(job, force) {

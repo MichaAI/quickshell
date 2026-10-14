@@ -23,10 +23,8 @@ Singleton {
     function launch(app, action) {
         histWrite.exec(["sh", "-c", 'printf "%s\\n" "$1" >> "$2"', "qs", app.id, root.histFile])
         counts = Object.assign({}, root.counts, { [app.id]: root.freq(app) + 1 })
-        if (action)
-            action.execute()
-        else
-            app.execute()
+        // Не app.execute(): так приложение осталось бы в cgroup шелла
+        Tools.launch((action ?? app).command, app.id, app.workingDirectory)
     }
 
     FileView {
