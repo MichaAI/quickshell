@@ -46,6 +46,24 @@ Scope {
     readonly property string home: Quickshell.env("HOME")
     readonly property string user: Quickshell.env("USER") ?? ""
 
+    readonly property string wallPath: Settings.lockWallpaper.replace(/^~/, home)
+    readonly property string wallUrl: wallPath !== "" ? "file://" + wallPath : ""
+    // Обои декодируются заранее, в фоне при старте шелла, а не в момент
+    // блокировки. Картинки держат декодированное изображение в кеше Qt,
+    // и обои на экране блокировки берут его оттуда сразу. Ключ кеша —
+    // путь и sourceSize, поэтому размер тот же, что в LockSurface
+    Variants {
+        model: root.wallUrl !== "" ? Quickshell.screens : []
+
+        Image {
+            required property ShellScreen modelData
+            visible: false
+            source: root.wallUrl
+            asynchronous: true
+            sourceSize: Qt.size(Math.ceil(modelData.width / 2), Math.ceil(modelData.height / 2))
+        }
+    }
+
     // Перезагрузка конфига при активном локе в quickshell 0.3.2 роняет
     // весь шелл (новый лок пытается занять уже занятые мониторы), поэтому
     // пока экран закрыт, правки файлов не подхватываем.

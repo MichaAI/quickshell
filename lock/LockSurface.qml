@@ -96,13 +96,13 @@ Item {
 
     Image {
         id: wall
-        readonly property string path: Settings.lockWallpaper.replace(/^~/, root.ctx.home)
         anchors.fill: parent
         visible: false
-        source: path !== "" ? "file://" + path : ""
+        source: root.ctx.wallUrl
         fillMode: Image.PreserveAspectCrop
         asynchronous: true
-        // Всё равно размываем — полное разрешение ни к чему
+        // Всё равно размываем — полное разрешение ни к чему. Размер должен
+        // совпадать с предзагрузкой в Lock.qml, иначе кеш не сработает
         sourceSize: Qt.size(Math.ceil(root.width / 2), Math.ceil(root.height / 2))
     }
     MultiEffect {
