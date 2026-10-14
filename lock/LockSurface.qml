@@ -175,21 +175,26 @@ Item {
                 width: root.colW
                 height: root.colW
 
-                // Асинхронно: niri считает экран заблокированным только после
-                // первого кадра на каждом мониторе. Синхронная загрузка тащила
-                // в этот кадр разбор модели и сцены balsam'а — лок ждал аву.
-                // Теперь сначала показываем ~/.face, а ава подменяет её, когда готова
+                // niri считает экран заблокированным только после первого кадра
+                // на каждом мониторе. Ава в этом кадре (разбор модели, сцены
+                // balsam'а, шейдеры Quick3D) держала лок до секунды. Поэтому
+                // сначала ~/.face, а ава грузится, когда экран уже закрыт,
+                // и подменяет её, когда готова
                 Loader {
                     id: model3d
                     anchors.fill: parent
                     readonly property bool shown: status === Loader.Ready && item.ready
-                    active: root.ctx.avatarModel !== ""
+                    active: root.ctx.avatarModel !== "" && root.ctx.secure
                     asynchronous: true
-                    visible: shown
+                    // Не shown: неготовая ава должна рисоваться (см. Avatar3D.k),
+                    // а пока она не готова, её не видно — модель крошечная
+                    visible: status === Loader.Ready
                     source: "Avatar3D.qml"
                     onLoaded: {
-                        item.model = Qt.binding(() => "file://" + root.ctx.avatarModel)
+                        // Сцену — раньше модели: иначе RuntimeLoader успеет
+                        // зря разобрать файл модели, пока сцены ещё нет
                         item.scene = Qt.binding(() => root.ctx.avatarScene !== "" ? "file://" + root.ctx.avatarScene : "")
+                        item.model = Qt.binding(() => "file://" + root.ctx.avatarModel)
                     }
                     onStatusChanged: {
                         if (status === Loader.Error)
