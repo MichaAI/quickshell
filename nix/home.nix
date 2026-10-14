@@ -127,7 +127,10 @@ in
       if cfg.liveSource != null then config.lib.file.mkOutOfStoreSymlink cfg.liveSource else configDir;
 
     home.file = lib.mkIf (cfg.avatar != null) {
-      "avatar.${lib.last (lib.splitString "." (baseNameOf cfg.avatar))}".source = cfg.avatar;
+      # Имя файла не может ссылаться на стор, а у модели из fetchurl или
+      # "${inputs.…}/…" ссылка есть — от расширения берём только текст
+      "avatar.${lib.last (lib.splitString "." (builtins.unsafeDiscardStringContext (baseNameOf cfg.avatar)))}".source =
+        cfg.avatar;
     };
 
     systemd.user.services.quickshell = lib.mkIf cfg.systemd.enable {
