@@ -15,6 +15,10 @@ Scope {
 
     // Общее состояние для всех мониторов: печатать можно на любом
     property string text: ""
+    // Сколько точек рисовать. Не text.length: пароль стираем сразу после
+    // отправки в PAM, а точки должны пульсировать, пока он думает
+    property int length: 0
+    onTextChanged: if (!busy) length = text.length
     property bool busy: false
     property string error: ""
     property int fails: 0               // растёт на каждую ошибку — для тряски поля
@@ -45,6 +49,23 @@ Scope {
 
     readonly property string home: Quickshell.env("HOME")
     readonly property string user: Quickshell.env("USER") ?? ""
+
+    readonly property string wallPath: Settings.lockWallpaper.replace(/^~/, home)
+    readonly property string wallUrl: wallPath !== "" ? "file://" + wallPath : ""
+    // Обои декодируются заранее, в фоне при старте шелла, а не в момент
+    // блокировки: эта картинка держит декодированное изображение в кеше
+    // Qt, и обои на экране блокировки берут его оттуда сразу. Ключ кеша —
+    // путь и sourceSize, умноженный на масштаб окна. У невидимой картинки
+    // окна нет, а у поверхности блокировки масштаб дробный и становится
+    // известен не сразу — с sourceSize ключи не совпадают, поэтому обе
+    // картинки грузят обои в исходном размере. fillMode тоже входит в
+    // ключ (PreserveAspectCrop/Fit), так что он тот же, что в LockSurface
+    Image {
+        visible: false
+        source: root.wallUrl
+        asynchronous: true
+        fillMode: Image.PreserveAspectCrop
+    }
 
     // Перезагрузка конфига при активном локе в quickshell 0.3.2 роняет
     // весь шелл (новый лок пытается занять уже занятые мониторы), поэтому
@@ -92,14 +113,26 @@ Scope {
         configDirectory: Quickshell.shellPath("lock/pam")
         config: "password.conf"
 
+        // Пароль живёт в памяти шелла как можно меньше: стираем его сразу
+        // после отправки, а потом просим сборщик мусора убрать старые
+        // строки. Затереть память нулями из QML нельзя — строки в JS
+        // неизменяемые, так что это гигиена, а не шред
         onPamMessage: {
-            if (this.responseRequired)
+            if (this.responseRequired) {
                 this.respond(root.text)
+                root.text = ""
+            }
+        }
+
+        function finish() {
+            root.busy = false
+            root.text = ""
+            root.length = 0
+            Qt.callLater(gc)
         }
 
         onCompleted: result => {
-            root.busy = false
-            root.text = ""
+            pam.finish()
             if (result === PamResult.Success) {
                 root.error = ""
                 persist.locked = false
@@ -110,8 +143,7 @@ Scope {
         }
 
         onError: {
-            root.busy = false
-            root.text = ""
+            pam.finish()
             root.error = "PAM не отвечает"
             root.fails++
         }
