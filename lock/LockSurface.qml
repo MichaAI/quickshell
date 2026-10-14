@@ -183,7 +183,7 @@ Item {
                 Loader {
                     id: model3d
                     anchors.fill: parent
-                    readonly property bool shown: status === Loader.Ready && item.ready
+                    readonly property bool shown: status === Loader.Ready && (item?.ready ?? false)
                     active: root.ctx.avatarModel !== "" && root.ctx.secure
                     asynchronous: true
                     // Не shown: неготовая ава должна рисоваться (см. Avatar3D.k),

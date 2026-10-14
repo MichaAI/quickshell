@@ -1,5 +1,4 @@
 import QtQuick
-import Quickshell
 import "../../../config"
 import "../../../services"
 import "Match.js" as Match
