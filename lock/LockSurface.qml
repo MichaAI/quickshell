@@ -182,7 +182,10 @@ Item {
                     active: root.ctx.avatarModel !== ""
                     visible: shown
                     source: "Avatar3D.qml"
-                    onLoaded: item.model = Qt.binding(() => "file://" + root.ctx.avatarModel)
+                    onLoaded: {
+                        item.model = Qt.binding(() => "file://" + root.ctx.avatarModel)
+                        item.scene = Qt.binding(() => root.ctx.avatarScene !== "" ? "file://" + root.ctx.avatarScene : "")
+                    }
                     onStatusChanged: {
                         if (status === Loader.Error)
                             console.warn("lock: 3D-ава не загрузилась — в quickshell нет модуля QtQuick3D?")

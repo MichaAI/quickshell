@@ -41,6 +41,7 @@ Scope {
         capsTyped = (t === t.toUpperCase()) !== shift
     }
     property string avatarModel: ""     // ~/avatar.(glb|gltf|fbx|obj), если есть
+    property string avatarScene: ""     // она же после balsam — с анимациями
 
     readonly property string home: Quickshell.env("HOME")
     readonly property string user: Quickshell.env("USER") ?? ""
@@ -130,15 +131,37 @@ Scope {
         }
     }
 
+    // Ищем ~/avatar.* и, если есть balsam, один раз переводим модель в
+    // QML-сцену в кеше: RuntimeLoader анимации не проигрывает, а сцена —
+    // да. Кеш пересобирается, когда модель меняется. Вывод — две строки:
+    // модель и сцена (пустая, если balsam'а нет или он не справился)
     Process {
         id: modelProbe
-        command: ["sh", "-c",
-            'for e in glb gltf fbx obj; do [ -f "$1/avatar.$e" ] && { echo "$1/avatar.$e"; break; }; done',
+        command: ["sh", "-c", `
+            for e in glb gltf fbx obj; do
+                [ -f "$1/avatar.$e" ] && { src="$1/avatar.$e"; break; }
+            done
+            [ -n "\${src:-}" ] || exit 0
+            echo "$src"
+            command -v balsam >/dev/null || { echo; exit 0; }
+            cache="\${XDG_CACHE_HOME:-$1/.cache}/quickshell/lock-avatar"
+            if [ "$(cat "$cache/source" 2>/dev/null)" != "$src" ] || [ "$src" -nt "$cache/source" ]; then
+                rm -rf "$cache" && mkdir -p "$cache"
+                QT_QPA_PLATFORM=offscreen balsam --manualAnimations -o "$cache" "$src" >&2 \
+                    && echo "$src" > "$cache/source"
+            fi
+            [ -f "$cache/source" ] && ls "$cache"/*.qml 2>/dev/null | head -n 1
+            echo`,
             "qs", root.home]
         stdout: StdioCollector {
             onStreamFinished: {
-                root.avatarModel = this.text.trim()
-                console.warn("lock: 3D-ава:", root.avatarModel || "нет ~/avatar.(glb|gltf|fbx|obj)")
+                const [model, scene] = this.text.split("\n")
+                root.avatarModel = model ?? ""
+                root.avatarScene = scene ?? ""
+                console.warn("lock: 3D-ава:", root.avatarModel || "нет ~/avatar.(glb|gltf|fbx|obj)",
+                             root.avatarModel === "" ? ""
+                             : root.avatarScene !== "" ? "→ сцена " + root.avatarScene
+                             : "без анимаций (balsam нет или он не справился)")
             }
         }
     }

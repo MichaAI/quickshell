@@ -33,5 +33,9 @@ QtObject {
     readonly property int lockClockHeight: 200
     readonly property int lockMusicHeight: 100
     readonly property real lockModelSize: 190   // в него вписывается модель ~/avatar.*
-    readonly property int lockSpinMs: 14000     // полный оборот модели
+    readonly property int lockSpinMs: 14000     // полный оборот модели, 0 — не крутить
+    // Анимация модели по имени; "" — стоять. Список пишется в лог при
+    // старте (нужен balsam из qtquick3d и модуль QtQuick.Timeline)
+    readonly property string lockAnimation: ""
+    readonly property real lockAnimationSpeed: 1  // 1 — как в модели
 }
