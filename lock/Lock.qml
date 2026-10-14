@@ -54,11 +54,13 @@ Scope {
     // путь и sourceSize, умноженный на масштаб окна. У невидимой картинки
     // окна нет, а у поверхности блокировки масштаб дробный и становится
     // известен не сразу — с sourceSize ключи не совпадают, поэтому обе
-    // картинки грузят обои в исходном размере
+    // картинки грузят обои в исходном размере. fillMode тоже входит в
+    // ключ (PreserveAspectCrop/Fit), так что он тот же, что в LockSurface
     Image {
         visible: false
         source: root.wallUrl
         asynchronous: true
+        fillMode: Image.PreserveAspectCrop
     }
 
     // Перезагрузка конфига при активном локе в quickshell 0.3.2 роняет

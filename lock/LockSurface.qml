@@ -101,8 +101,9 @@ Item {
         source: root.ctx.wallUrl
         fillMode: Image.PreserveAspectCrop
         asynchronous: true
-        // Без sourceSize: так картинка берётся из кеша, куда её заранее
-        // загрузил Lock.qml, и не мигает при блокировке
+        // Без sourceSize и с тем же fillMode, что в Lock.qml: так картинка
+        // берётся из кеша, куда её заранее загрузил Lock.qml, и не мигает
+        // при блокировке
     }
     MultiEffect {
         anchors.fill: parent
