@@ -148,11 +148,13 @@ Scope {
             # Ключ кеша — настоящие пути модели и balsam'а: ~/avatar.glb
             # бывает ссылкой в /nix/store, и новая модель — это новая цель
             # ссылки, а не новое время файла. А после обновления Qt старая
-            # сцена не читается новым QtQuick.Timeline — пересобираем
-            key="$(readlink -f "$src") $(readlink -f "$(command -v balsam)")"
+            # сцена может не прочитаться — пересобираем. Ключевые кадры
+            # пишем прямо в QML: двоичные .qad читает не всякий Timeline
+            key="v2 $(readlink -f "$src") $(readlink -f "$(command -v balsam)")"
             if [ "$(cat "$cache/source" 2>/dev/null)" != "$key" ] || [ "$src" -nt "$cache/source" ]; then
                 rm -rf "$cache" && mkdir -p "$cache"
-                QT_QPA_PLATFORM=offscreen balsam --manualAnimations -o "$cache" "$src" >&2 \
+                QT_QPA_PLATFORM=offscreen balsam --manualAnimations --disable-useBinaryKeyframes \
+                    -o "$cache" "$src" >&2 \
                     && echo "$key" > "$cache/source"
             fi
             [ -f "$cache/source" ] && ls "$cache"/*.qml 2>/dev/null | head -n 1
