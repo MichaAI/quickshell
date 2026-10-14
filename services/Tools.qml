@@ -45,12 +45,38 @@ Singleton {
         }
     }
 
+    // ===== Запуск того, что должно пережить шелл =====
+    // Сервис systemd quickshell при остановке убивает всю свою cgroup, а в
+    // ней — всё, что шелл запустил: рестарт шелла забирал с собой браузер.
+    // systemd-run --scope выносит процесс в свою scope в app.slice, как
+    // делают лончеры окружений рабочего стола. Дети процесса (вкладки
+    // браузера и прочее) рождаются в той же scope и живут вместе с ней.
+    // Без пользовательского systemd просто запускаем как есть
+    readonly property string scopeScript: `
+        name=$1; shift
+        if command -v systemd-run >/dev/null && systemctl --user show-environment >/dev/null 2>&1; then
+            exec systemd-run --user --scope --quiet --collect --slice=app.slice \
+                --unit="app-quickshell-$(systemd-escape -- "$name")-$$.scope" -- "$@"
+        fi
+        exec "$@"`
+
+    // name — для имени scope (id приложения), по умолчанию — сама программа
+    function launch(command, name, workingDirectory) {
+        Quickshell.execDetached({
+            command: ["sh", "-c", root.scopeScript, "qs",
+                      name || command[0].split("/").pop(), ...command],
+            workingDirectory: workingDirectory ?? ""
+        })
+    }
+
+    // wl-copy остаётся жить и раздаёт буфер обмена — тоже в свою scope,
+    // иначе рестарт шелла стирал бы скопированное
     function copy(text) {
-        Quickshell.execDetached(["wl-copy", "--", text])
+        launch(["wl-copy", "--", text])
     }
 
     function open(path) {
-        Quickshell.execDetached(["xdg-open", path])
+        launch(["xdg-open", path])
     }
 
     // Пипетка niri: курсор-прицел по всему экрану, потом снова лончер

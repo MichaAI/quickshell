@@ -45,7 +45,7 @@ Item {
                 sub: img ? preview.replace(/^\[\[ binary data /, "").replace(/ \]\]$/, "") : "",
                 badge: "⏎ копировать   ⇧Del удалить",
                 run: () => {
-                    Quickshell.execDetached(["sh", "-c", 'printf "%s" "$1" | cliphist decode | wl-copy', "qs", line])
+                    Tools.launch(["sh", "-c", 'printf "%s" "$1" | cliphist decode | wl-copy', "qs", line], "wl-copy")
                     Ui.closePopouts()
                 },
                 del: () => {

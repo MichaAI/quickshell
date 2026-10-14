@@ -92,7 +92,7 @@ Item {
                 sub: "x от " + plotData.min + " до " + plotData.max,
                 badge: "⏎ открыть в gnuplot",
                 run: () => {
-                    Quickshell.execDetached(["qalc", plotData.input])
+                    Tools.launch(["qalc", plotData.input])
                     Ui.closePopouts()
                 }
             })
