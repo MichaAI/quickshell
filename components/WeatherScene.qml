@@ -255,25 +255,74 @@ Item {
         }
     }
 
-    // ===== Дождь: косые капли =====
+    // ===== Дождь: косые капли разбиваются о низ карточки =====
+    // Капля летит, пока не коснётся низа, а потом брызгает: две капельки
+    // по дуге в стороны и короткая черта лужицы. Всё плоское
+    readonly property int splashMs: 420
     Repeater {
         model: root.kind === "drizzle" ? 30 : (root.kind === "rain" ? 70 : (root.kind === "thunder" ? 90 : 0))
-        delegate: Rectangle {
+        delegate: Item {
             id: drop
             required property int index
             property real t
-            readonly property real p: (t + root.rnd(drop.index, 14)) % 1
+            readonly property real phase: (t + root.rnd(drop.index, 14)) % 1
+            readonly property real len: root.kind === "drizzle" ? 7 : 11 + root.rnd(drop.index, 16) * 7
+            readonly property int fallMs: (root.kind === "drizzle" ? 1100 : 650) + root.rnd(drop.index, 18) * 300
+            readonly property real split: fallMs / (fallMs + root.splashMs)
+            readonly property real fall: Math.min(1, phase / split)
+            readonly property real s: phase < split ? -1 : (phase - split) / (1 - split)
+            readonly property real path: root.height - drop.len + 20
             readonly property real x0: root.rnd(drop.index, 15) * (root.width + 40)
-            width: 1.5
-            height: root.kind === "drizzle" ? 7 : 11 + root.rnd(drop.index, 16) * 7
-            radius: 0.75
-            rotation: 15
-            x: x0 - p * root.height * 0.27
-            y: -20 + p * (root.height + 40)
-            color: Qt.rgba(0.86, 0.9, 0.96, 0.25 + root.rnd(drop.index, 17) * 0.3)
+            readonly property real hitX: x0 - path * 0.27 + 0.75 - drop.len / 2 * 0.26
+            readonly property real alpha: 0.25 + root.rnd(drop.index, 17) * 0.3
+            readonly property color tint: Qt.rgba(0.86, 0.9, 0.96, 1)
+
+            Rectangle {
+                visible: drop.s < 0
+                width: 1.5
+                height: drop.len
+                radius: 0.75
+                rotation: 15
+                x: drop.x0 - drop.fall * drop.path * 0.27
+                y: -20 + drop.fall * drop.path
+                color: drop.tint
+                opacity: drop.alpha
+            }
+
+            // Брызги: капельки в стороны по дуге
+            Repeater {
+                model: 3
+                Rectangle {
+                    id: bit
+                    required property int index
+                    // Влево, вправо и третья — куда повезёт, пониже
+                    readonly property real dir: bit.index === 0 ? -1 : bit.index === 1 ? 1 : root.rnd(drop.index, 27) - 0.5
+                    readonly property real vx: 5 + root.rnd(drop.index * 3 + bit.index, 25) * 7
+                    readonly property real vy: (bit.index === 2 ? 4 : 7) + root.rnd(drop.index * 3 + bit.index, 26) * 7
+                    visible: drop.s >= 0
+                    width: 2.5; height: 2.5; radius: 1.25
+                    x: drop.hitX + bit.dir * bit.vx * drop.s - 1.25
+                    y: root.height - 2.5 - 4 * bit.vy * drop.s * (1 - drop.s)
+                    scale: 1 - 0.4 * drop.s
+                    color: drop.tint
+                    opacity: Math.min(1, drop.alpha + 0.3) * (1 - drop.s * drop.s)
+                }
+            }
+            // Лужица: черта расходится и тает
+            Rectangle {
+                visible: drop.s >= 0
+                width: 3 + 14 * drop.s
+                height: 2
+                radius: 1
+                x: drop.hitX - width / 2
+                y: root.height - 2
+                color: drop.tint
+                opacity: Math.min(1, drop.alpha + 0.2) * (1 - drop.s)
+            }
+
             NumberAnimation on t {
                 from: 0; to: 1
-                duration: (root.kind === "drizzle" ? 1100 : 650) + root.rnd(drop.index, 18) * 300
+                duration: drop.fallMs + root.splashMs
                 loops: Animation.Infinite
             }
         }
