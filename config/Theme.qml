@@ -51,6 +51,13 @@ QtObject {
     }
     readonly property int fontSize: 13
 
+    // Слайдер MD3E выбранного Settings.sliderSize (токены MDC Android
+    // m3_comp_slider_*): [дорожка, внешние углы, ручка]
+    readonly property var sliderSpec: ({
+        xsmall: [16, 8, 44], small: [24, 8, 44], medium: [40, 12, 44],
+        large: [56, 16, 68], xlarge: [96, 28, 108]
+    })[Settings.sliderSize] ?? [16, 8, 44]
+
     // ===== OkLab =====
     // Смешивание в OkLab (Björn Ottosson): без провала в серую середину и
     // с ровной на глаз яркостью. Альфа премультиплицирована, как в CSS, —

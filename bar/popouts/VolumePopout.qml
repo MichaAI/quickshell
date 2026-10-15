@@ -23,7 +23,7 @@ Item {
         signal mutePressed()
 
         width: parent.width
-        height: 44
+        height: Math.max(44, body.implicitHeight)
 
         Text {
             id: ico
@@ -43,6 +43,7 @@ Item {
         }
 
         Column {
+            id: body
             anchors.left: ico.right
             anchors.leftMargin: 10
             anchors.right: perc.left

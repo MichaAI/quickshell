@@ -259,6 +259,8 @@ Item {
 
             StyledSlider {
                 width: parent.width
+                wavy: true
+                moving: root.player?.isPlaying ?? false
                 enabled: (root.player?.canSeek ?? false) && (root.player?.length ?? 0) > 0
                 value: root.player && root.player.length > 0
                     ? root.player.position / root.player.length : 0

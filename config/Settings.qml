@@ -8,6 +8,14 @@ QtObject {
     readonly property int pillPadding: 10
     readonly property int barSpacing: 6
 
+    // ===== Слайдеры: громкость, пипетка (прогресс музыки — всегда волна) =====
+    // "expressive" — MD3 Expressive: дорожка из двух частей и ручка-палочка
+    // с зазором; "pill" — пилюля в пилюле, как в шторке Android 12–15
+    readonly property string sliderStyle: "expressive"
+    // Толщина по шкале MD3E: "xsmall" 16 px, "small" 24, "medium" 40,
+    // "large" 56, "xlarge" 96
+    readonly property string sliderSize: "xsmall"
+
     readonly property int screenRadius: 14   // внутренние углы к краям монитора
     readonly property int popoutRadius: 16
     readonly property int popoutWing: 14     // радиус "крыльев" попаута к бару
