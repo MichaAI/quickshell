@@ -17,8 +17,11 @@ Item {
 
     readonly property bool wet: kind === "drizzle" || kind === "rain" || kind === "thunder"
     readonly property bool overcast: wet || kind === "cloudy" || kind === "snow" || kind === "fog"
-    readonly property bool showSun: isDay && (kind === "clear" || kind === "partly")
-    readonly property bool showMoon: !isDay && (kind === "clear" || kind === "partly")
+    // В пасмурную погоду светило не пропадает, а еле проглядывает за облаками
+    readonly property bool dimLight: kind === "cloudy"
+    readonly property bool showSun: isDay && (kind === "clear" || kind === "partly" || dimLight)
+    readonly property bool showMoon: !isDay && (kind === "clear" || kind === "partly" || dimLight)
+    readonly property real lightOpacity: dimLight ? 0.3 : 1
 
     // Небо: [верх, низ]. Достаточно тёмное, чтобы светлый текст читался
     readonly property var sky: {
@@ -68,6 +71,8 @@ Item {
     Item {
         id: sun
         visible: root.showSun
+        opacity: root.lightOpacity
+        Behavior on opacity { NumberAnimation { duration: 600 } }
         width: 52; height: 52
         x: root.width - 80
         y: 18
@@ -133,6 +138,8 @@ Item {
     Item {
         id: moon
         visible: root.showMoon
+        opacity: root.lightOpacity
+        Behavior on opacity { NumberAnimation { duration: 600 } }
         width: 40; height: 40
         x: root.width - 74
         y: 20
