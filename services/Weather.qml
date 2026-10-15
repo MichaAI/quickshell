@@ -3,10 +3,12 @@ import Quickshell
 import QtQuick
 import "../config"
 
-// Погода с Open-Meteo (без ключа). Место — Settings.weatherLocation
-// или, если там пусто, город по IP.
+// Погода с Open-Meteo (без ключа). Место — Settings.weatherLocation,
+// иначе QS_WEATHER_LOCATION (её ставит модуль home-manager), иначе город по IP.
 Singleton {
     id: root
+
+    readonly property string location: Settings.weatherLocation || (Quickshell.env("QS_WEATHER_LOCATION") ?? "")
 
     property bool ready: false
     property string place: ""
@@ -126,7 +128,7 @@ Singleton {
             fetchForecast()
             return
         }
-        const name = Settings.weatherLocation.trim()
+        const name = location.trim()
         if (name !== "") {
             get("https://geocoding-api.open-meteo.com/v1/search?count=1&language=ru&name=" + encodeURIComponent(name),
                 r => {

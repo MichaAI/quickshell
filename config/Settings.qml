@@ -18,7 +18,8 @@ QtObject {
     readonly property var terminal: ["kitty"]
 
     // ===== Погода (Open-Meteo) =====
-    // Город для прогноза, например "Москва"; "" — определить по IP
+    // Город для прогноза, например "Москва"; "" — из опции home-manager
+    // weatherLocation, а без неё — по IP
     readonly property string weatherLocation: ""
     readonly property int weatherRefreshMin: 20
 
