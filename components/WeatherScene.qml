@@ -12,6 +12,9 @@ Item {
     property string kind: "clear"   // clear partly cloudy fog drizzle rain snow thunder
     property bool isDay: true
 
+    // Для PopoutReveal: проявлять сцену целиком, не разбирая на частицы
+    readonly property bool revealWhole: true
+
     readonly property bool wet: kind === "drizzle" || kind === "rain" || kind === "thunder"
     readonly property bool overcast: wet || kind === "cloudy" || kind === "snow" || kind === "fog"
     readonly property bool showSun: isDay && (kind === "clear" || kind === "partly")
