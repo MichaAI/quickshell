@@ -10,6 +10,9 @@ Singleton {
 
     signal closePopouts()
     signal popoutRequested(string name)
+    // Открыть/закрыть конкретный попаут без переключения (IPC)
+    signal popoutOpenRequested(string name)
+    signal popoutCloseRequested(string name)
     // Заблокировать экран (lock/Lock.qml). Разблокировки отсюда нет — только паролем
     signal lockRequested()
 }

@@ -116,14 +116,32 @@ Scope {
                     win.popoutOpen = false
                 }
 
-                function onPopoutRequested(name) {
+                function anchorFor(name) {
                     const anchors = {
                         launcher: logoPill, calendar: timePill, system: sysPill,
                         music: musicPill, volume: volumePill, battery: batteryPill,
                         notifications: notifPill
                     }
-                    if (anchors[name] !== undefined)
-                        win.togglePopout(name, anchors[name])
+                    return anchors[name]
+                }
+
+                function onPopoutRequested(name) {
+                    const anchor = anchorFor(name)
+                    if (anchor !== undefined)
+                        win.togglePopout(name, anchor)
+                }
+
+                function onPopoutOpenRequested(name) {
+                    const anchor = anchorFor(name)
+                    if (anchor !== undefined && !(win.popoutOpen && win.shownPopout === name))
+                        win.togglePopout(name, anchor)
+                }
+
+                function onPopoutCloseRequested(name) {
+                    if (win.queuedPopout === name)
+                        win.queuedPopout = ""
+                    else if (win.popoutOpen && win.shownPopout === name)
+                        win.popoutOpen = false
                 }
             }
 

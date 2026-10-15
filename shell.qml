@@ -15,21 +15,47 @@ ShellRoot {
     NotificationToasts {}
     Lock {}
 
-    // niri: `qs ipc call launcher toggle`
-    IpcHandler {
-        target: "launcher"
+    // niri: `qs ipc call <launcher|calendar|system|music|volume|battery|notifications> <toggle|open|close>`
+    Variants {
+        model: ["launcher", "calendar", "system", "music", "volume", "battery", "notifications"]
 
-        function toggle(): void {
-            Ui.popoutRequested("launcher")
+        // Обёртка, чтобы modelData не торчал наружу как IPC-свойство
+        Scope {
+            id: popout
+            required property string modelData
+
+            IpcHandler {
+                target: popout.modelData
+
+                function toggle(): void {
+                    Ui.popoutRequested(popout.modelData)
+                }
+
+                function open(): void {
+                    Ui.popoutOpenRequested(popout.modelData)
+                }
+
+                function close(): void {
+                    Ui.popoutCloseRequested(popout.modelData)
+                }
+            }
         }
     }
 
-    // niri: `qs ipc call popout toggle <calendar|system|music|volume|battery|notifications>`
+    // niri: `qs ipc call popout <toggle|open|close> <calendar|system|music|volume|battery|notifications>`
     IpcHandler {
         target: "popout"
 
         function toggle(name: string): void {
             Ui.popoutRequested(name)
+        }
+
+        function open(name: string): void {
+            Ui.popoutOpenRequested(name)
+        }
+
+        function close(name: string): void {
+            Ui.popoutCloseRequested(name)
         }
     }
 
