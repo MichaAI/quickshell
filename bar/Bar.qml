@@ -118,7 +118,7 @@ Scope {
 
                 function anchorFor(name) {
                     const anchors = {
-                        launcher: logoPill, calendar: timePill, system: sysPill,
+                        launcher: logoPill, calendar: timePill, weather: weatherPill, system: sysPill,
                         music: musicPill, volume: volumePill, battery: batteryPill,
                         notifications: notifPill
                     }
@@ -379,6 +379,17 @@ Scope {
                     }
 
                     BarPill {
+                        id: weatherPill
+                        anchors.verticalCenter: parent.verticalCenter
+                        visible: Weather.ready
+                        active: win.shownPopout === "weather"
+                        onClicked: win.togglePopout("weather", weatherPill)
+
+                        PillText { text: Weather.icon; color: Weather.colorOf(Weather.code, Weather.isDay) }
+                        PillText { text: Weather.fmt(Weather.temp) }
+                    }
+
+                    BarPill {
                         id: windowPill
                         anchors.verticalCenter: parent.verticalCenter
                         visible: Niri.focusedWindow !== null
@@ -390,6 +401,46 @@ Scope {
                             pixelSize: Theme.fontSize
                             maxChars: 40
                             text: Niri.focusedWindow?.title ?? ""
+                        }
+                    }
+
+                    // Идёт запись экрана или кто-то слушает микрофон.
+                    // Клик останавливает трансляции экрана (PipeWire)
+                    BarPill {
+                        id: recPill
+                        anchors.verticalCenter: parent.verticalCenter
+                        visible: Record.active
+                        interactive: Record.screen
+                        onClicked: Record.stopAll()
+
+                        Rectangle {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 8; height: 8; radius: 4
+                            color: Theme.red
+                            SequentialAnimation on opacity {
+                                running: recPill.visible
+                                loops: Animation.Infinite
+                                NumberAnimation { to: 0.25; duration: 700; easing.type: Easing.InOutSine }
+                                NumberAnimation { to: 1; duration: 700; easing.type: Easing.InOutSine }
+                            }
+                        }
+                        PillText {
+                            visible: Record.screen
+                            text: "󰍹"
+                            color: Theme.red
+                        }
+                        PillText {
+                            visible: Record.screen
+                            text: Record.screenLabel + "  " + Record.elapsed
+                        }
+                        PillText {
+                            visible: Record.mic
+                            text: "󰍬"
+                            color: Theme.peach
+                        }
+                        PillText {
+                            visible: Record.mic && !Record.screen
+                            text: Record.micUsers.join(", ")
                         }
                     }
                 }
@@ -759,6 +810,7 @@ Scope {
                         switch (win.shownPopout) {
                         case "launcher": return launcherComp
                         case "calendar": return calendarComp
+                        case "weather": return weatherComp
                         case "system": return systemComp
                         case "music": return musicComp
                         case "volume": return volumeComp
@@ -773,6 +825,7 @@ Scope {
 
             Component { id: launcherComp; Popouts.LauncherPopout {} }
             Component { id: calendarComp; Popouts.CalendarPopout {} }
+            Component { id: weatherComp; Popouts.WeatherPopout {} }
             Component { id: systemComp; Popouts.SystemPopout {} }
             Component { id: musicComp; Popouts.MusicPopout {} }
             Component { id: volumeComp; Popouts.VolumePopout {} }

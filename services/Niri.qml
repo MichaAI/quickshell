@@ -162,6 +162,20 @@ Singleton {
                         root.casts = data.casts
                         break
 
+                    case "CastStartedOrChanged": {
+                        const c = data.cast
+                        const idx = root.casts.findIndex(x => x.stream_id === c.stream_id)
+                        const copy = [...root.casts]
+                        if (idx === -1) copy.push(c)
+                        else copy[idx] = c
+                        root.casts = copy
+                        break
+                    }
+
+                    case "CastStopped":
+                        root.casts = root.casts.filter(c => c.stream_id !== data.stream_id)
+                        break
+
                 }
             }
         }
@@ -184,6 +198,10 @@ Singleton {
 
     function switchLayout() {
         actionProc.exec(["niri", "msg", "action", "switch-layout", "next"])
+    }
+
+    function stopCast(sessionId) {
+        actionProc.exec(["niri", "msg", "action", "stop-cast", "--session-id", sessionId.toString()])
     }
 
     function toggleOverview() {

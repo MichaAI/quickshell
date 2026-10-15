@@ -15,9 +15,9 @@ ShellRoot {
     NotificationToasts {}
     Lock {}
 
-    // niri: `qs ipc call <launcher|calendar|system|music|volume|battery|notifications> <toggle|open|close>`
+    // niri: `qs ipc call <launcher|calendar|weather|system|music|volume|battery|notifications> <toggle|open|close>`
     Variants {
-        model: ["launcher", "calendar", "system", "music", "volume", "battery", "notifications"]
+        model: ["launcher", "calendar", "weather", "system", "music", "volume", "battery", "notifications"]
 
         // Обёртка, чтобы modelData не торчал наружу как IPC-свойство
         Scope {
@@ -42,7 +42,7 @@ ShellRoot {
         }
     }
 
-    // niri: `qs ipc call popout <toggle|open|close> <calendar|system|music|volume|battery|notifications>`
+    // niri: `qs ipc call popout <toggle|open|close> <calendar|weather|system|music|volume|battery|notifications>`
     IpcHandler {
         target: "popout"
 
