@@ -15,6 +15,7 @@ Item {
     property color to: "white"
     property string label: ""
     property bool checker: false    // шахматка под полосой — для прозрачности
+    property var valueText: v => Math.round(v * 100) + "%"
 
     signal moved(real value)
 
@@ -185,6 +186,14 @@ Item {
             scale: mouse.pressed ? 0.85 : 1
             Behavior on scale { Spring { epsilon: 0.002 } }
         }
+    }
+
+    ValueBubble {
+        target: root
+        handleX: track.x + track.cx
+        handleTop: (root.height - root.handleH) / 2
+        shown: mouse.pressed
+        text: root.valueText(track.v)
     }
 
     MouseArea {

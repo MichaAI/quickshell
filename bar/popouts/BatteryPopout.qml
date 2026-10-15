@@ -39,23 +39,33 @@ Item {
         width: root.implicitWidth - 32
         spacing: 10
 
-        Row {
+        // Заряд — волнистое кольцо; волна бежит, пока заряжается
+        WavyRing {
             anchors.horizontalCenter: parent.horizontalCenter
-            spacing: 12
+            width: 132
+            height: 132
+            value: Power.percent / 100
+            moving: Power.charging
+            from: Power.critical ? Theme.red : Theme.gradStart
+            to: Power.critical ? Theme.maroon : Theme.gradEnd
 
-            Text {
-                text: Power.icon
-                font.family: Theme.font
-                font.pixelSize: 34
-                anchors.verticalCenter: parent.verticalCenter
-                color: Power.critical ? Theme.red
-                     : Power.charging ? Theme.green : Theme.text
-            }
-            GradientText {
-                anchors.verticalCenter: parent.verticalCenter
-                pixelSize: 32
-                fontWeight: Font.Bold
-                text: Power.percent + "%"
+            Column {
+                anchors.centerIn: parent
+
+                Text {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: Power.icon
+                    font.family: Theme.font
+                    font.pixelSize: 16
+                    color: Power.critical ? Theme.red
+                         : Power.charging ? Theme.green : Theme.overlay1
+                }
+                GradientText {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    pixelSize: 30
+                    fontWeight: Font.Bold
+                    text: Power.percent + "%"
+                }
             }
         }
 

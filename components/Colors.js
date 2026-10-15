@@ -115,3 +115,74 @@ function onColor(c) {
     const lum = 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b
     return lum > 0.55 ? "#11111b" : "#cdd6f4"
 }
+
+// ===== OkLab / OkLCh =====
+
+function _lin(x) {
+    return x <= 0.04045 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4)
+}
+
+function _srgb(x) {
+    x = clamp(x, 0, 1)
+    return x <= 0.0031308 ? 12.92 * x : 1.055 * Math.pow(x, 1 / 2.4) - 0.055
+}
+
+// sRGB 0..1 → [L, a, b]
+function oklab(r, g, b) {
+    r = _lin(r); g = _lin(g); b = _lin(b)
+    const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b)
+    const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b)
+    const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b)
+    return [0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s,
+            1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s,
+            0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s]
+}
+
+// [L, a, b] → линейный sRGB (может выйти за 0..1)
+function _okToLinear(L, A, B) {
+    const l = Math.pow(L + 0.3963377774 * A + 0.2158037573 * B, 3)
+    const m = Math.pow(L - 0.1055613458 * A - 0.0638541728 * B, 3)
+    const s = Math.pow(L - 0.0894841775 * A - 1.2914855480 * B, 3)
+    return [4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+            -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+            -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s]
+}
+
+// OkLCh → {r, g, b, a}; хрома сбавляется, пока цвет не влезет в sRGB
+function fromOklch(L, C, h) {
+    let rgb = _okToLinear(L, C * Math.cos(h), C * Math.sin(h))
+    while (C > 0 && rgb.some(x => x < -1e-4 || x > 1 + 1e-4)) {
+        C = Math.max(0, C - 0.005)
+        rgb = _okToLinear(L, C * Math.cos(h), C * Math.sin(h))
+    }
+    return { r: _srgb(rgb[0]), g: _srgb(rgb[1]), b: _srgb(rgb[2]), a: 1 }
+}
+
+// Два акцента из картинки (RGBA-байты, например getImageData().data):
+// оттенки — два пика гистограммы, где голос пикселя — его насыщенность;
+// яркость L и насыщенность C — свои, как у темы, чтобы читалось на тёмном.
+// null — картинка почти серая.
+function accents(px, L, C) {
+    const bins = 36, hist = new Array(bins).fill(0)
+    for (let i = 0; i + 3 < px.length; i += 4) {
+        const lab = oklab(px[i] / 255, px[i + 1] / 255, px[i + 2] / 255)
+        const c = Math.hypot(lab[1], lab[2])
+        const w = Math.max(0, c - 0.03) * (1 - Math.abs(lab[0] - 0.6)) * px[i + 3] / 255
+        const h = (Math.atan2(lab[2], lab[1]) + 2 * Math.PI) % (2 * Math.PI)
+        hist[Math.floor(h / (2 * Math.PI) * bins) % bins] += w
+    }
+    const sm = hist.map((v, i) => hist[(i + bins - 1) % bins] * 0.25 + v * 0.5 + hist[(i + 1) % bins] * 0.25)
+    if (sm.reduce((a, b) => a + b, 0) < 1e-3)
+        return null
+    const dist = (a, b) => { const d = Math.abs(a - b) % bins; return Math.min(d, bins - d) }
+    let i1 = 0
+    for (let i = 1; i < bins; i++) if (sm[i] > sm[i1]) i1 = i
+    let i2 = -1
+    for (let i = 0; i < bins; i++)
+        if (dist(i, i1) >= 4 && (i2 < 0 || sm[i] > sm[i2])) i2 = i
+    // Второго цвета нет — берём соседний оттенок
+    if (i2 < 0 || sm[i2] < 0.15 * sm[i1])
+        i2 = (i1 + 5) % bins
+    const hue = i => (i + 0.5) / bins * 2 * Math.PI
+    return [fromOklch(L, C, hue(i1)), fromOklch(L, C, hue(i2))]
+}

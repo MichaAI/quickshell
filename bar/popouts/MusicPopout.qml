@@ -6,6 +6,8 @@ import Quickshell.Widgets
 import "../../config"
 import "../../services"
 import "../../components"
+import "../../components/Shapes.js" as Shapes
+import "../../components/Colors.js" as Colors
 
 Item {
     id: root
@@ -14,6 +16,13 @@ Item {
     implicitHeight: col.implicitHeight + 28
 
     readonly property var player: Players.active
+
+    // Акценты попаута: из обложки (Settings.coverColors) или темы
+    property var cover: null        // [начало, конец] из Colors.accents
+    property color accentFrom: Settings.coverColors && cover ? Qt.rgba(cover[0].r, cover[0].g, cover[0].b, 1) : Theme.gradStart
+    property color accentTo: Settings.coverColors && cover ? Qt.rgba(cover[1].r, cover[1].g, cover[1].b, 1) : Theme.gradEnd
+    Behavior on accentFrom { ColorAnimation { duration: 400 } }
+    Behavior on accentTo { ColorAnimation { duration: 400 } }
 
     // Свет обложки рисует бар: он ложится на весь шелл (попаут, бар, уголки)
     // между фоном и содержимым. Отсюда — только источник и где он лежит.
@@ -147,6 +156,38 @@ Item {
                         }
                     }
 
+                    // Оттенки всей обложки для акцентов (Colors.accents)
+                    Canvas {
+                        id: paletteProbe
+                        width: 24; height: 24
+                        visible: false
+
+                        readonly property string src: Settings.coverColors && art.status === Image.Ready ? art.source.toString() : ""
+                        property string loaded: ""
+
+                        onSrcChanged: {
+                            root.cover = null
+                            if (loaded !== "")
+                                unloadImage(loaded)
+                            loaded = src
+                            if (src !== "") {
+                                loadImage(src)
+                                if (isImageLoaded(src))
+                                    requestPaint()
+                            }
+                        }
+                        onImageLoaded: requestPaint()
+
+                        onPaint: {
+                            if (src === "" || !isImageLoaded(src))
+                                return
+                            const ctx = getContext("2d")
+                            ctx.clearRect(0, 0, width, height)
+                            ctx.drawImage(src, 0, 0, width, height)
+                            root.cover = Colors.accents(ctx.getImageData(0, 0, width, height).data, 0.77, 0.13)
+                        }
+                    }
+
                     Image {
                         id: art
                         anchors.fill: parent
@@ -183,6 +224,8 @@ Item {
 
                     GradientText {
                         pixelSize: 15
+                        from: root.accentFrom
+                        to: root.accentTo
                         text: root.title
                         onTextChanged: titleClip.reset()
                     }
@@ -241,7 +284,7 @@ Item {
                     height: Math.max(3, (Cava.bars[index] ?? 0) / 100 * eqRow.height)
                     anchors.bottom: parent.bottom
                     radius: width / 2.5
-                    color: Theme.mix(Theme.gradStart, Theme.gradEnd,
+                    color: Theme.mix(root.accentFrom, root.accentTo,
                                      eqRow.n > 1 ? index / (eqRow.n - 1) : 0)
                     opacity: 0.4 + 0.6 * ((Cava.bars[index] ?? 0) / 100)
 
@@ -260,7 +303,10 @@ Item {
             StyledSlider {
                 width: parent.width
                 wavy: true
+                colorFrom: root.accentFrom
+                colorTo: root.accentTo
                 moving: root.player?.isPlaying ?? false
+                valueText: v => Players.fmt(v * (root.player?.length ?? 0))
                 enabled: (root.player?.canSeek ?? false) && (root.player?.length ?? 0) > 0
                 value: root.player && root.player.length > 0
                     ? root.player.position / root.player.length : 0
@@ -313,17 +359,25 @@ Item {
                     onPressed: if (root.player?.canGoPrevious) root.player.previous()
                 }
 
-                Rectangle {
+                // Круг на паузе, печенька при игре — и медленно крутится,
+                // как пластинка
+                MorphShape {
+                    id: playBtn
                     width: 42; height: 42
-                    radius: 21
                     anchors.verticalCenter: parent.verticalCenter
-                    gradient: OkGradient {
-                        orientation: Gradient.Horizontal
-                        from: Theme.gradStart
-                        to: Theme.gradEnd
-                    }
-                    scale: pma.containsMouse ? 1.08 : 1
+                    from: Shapes.circle
+                    to: Shapes.cookie9
+                    colorFrom: root.accentFrom
+                    colorTo: root.accentTo
+                    morph: Players.playing ? 1 : 0
+                    Behavior on morph { Spring { epsilon: 0.002 } }
+                    scale: pma.pressed ? 0.9 : pma.containsMouse ? 1.08 : 1
                     Behavior on scale { Spring { epsilon: 0.002 } }
+
+                    FrameAnimation {
+                        running: playBtn.morph > 0.01 && playBtn.visible
+                        onTriggered: playBtn.turn = (playBtn.turn + frameTime / 12) % 1
+                    }
 
                     Text {
                         anchors.centerIn: parent

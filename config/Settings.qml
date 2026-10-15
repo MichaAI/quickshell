@@ -16,6 +16,10 @@ QtObject {
     // "large" 56, "xlarge" 96
     readonly property string sliderSize: "xsmall"
 
+    // Попаут музыки красится в цвета обложки: оттенки из картинки, яркость
+    // и насыщенность — как у темы. false — всегда цвета темы
+    readonly property bool coverColors: true
+
     readonly property int screenRadius: 14   // внутренние углы к краям монитора
     readonly property int popoutRadius: 16
     readonly property int popoutWing: 14     // радиус "крыльев" попаута к бару

@@ -16,6 +16,10 @@ Item {
     property real wheelStep: 0.05
     property bool wavy: false
     property bool moving: true
+    // Текст пузырька над ручкой, пока тянут
+    property var valueText: v => Math.round(v * 100) + "%"
+    property color colorFrom: Theme.gradStart
+    property color colorTo: Theme.gradEnd
 
     signal moved(real value)
 
@@ -50,8 +54,8 @@ Item {
         radius: height / 2
         gradient: OkGradient {
             orientation: Gradient.Horizontal
-            from: Theme.gradStart
-            to: Theme.gradEnd
+            from: root.colorFrom
+            to: root.colorTo
         }
     }
 
@@ -68,8 +72,8 @@ Item {
         bottomRightRadius: 2
         gradient: OkGradient {
             orientation: Gradient.Horizontal
-            from: Theme.gradStart
-            to: Theme.gradEnd
+            from: root.colorFrom
+            to: root.colorTo
         }
     }
 
@@ -86,8 +90,8 @@ Item {
         property real wavelength: 40
         property real phase: 0
         property real thick: root.trackH
-        property color c0: Theme.gradStart
-        property color c1: Theme.gradEnd
+        property color c0: root.colorFrom
+        property color c1: root.colorTo
         fragmentShader: "../assets/shaders/wave.frag.qsb"
 
         Behavior on amp { NumberAnimation { duration: 500; easing.type: Easing.OutCubic } }
@@ -122,7 +126,7 @@ Item {
         width: 4
         height: 4
         radius: 2
-        color: Theme.gradEnd
+        color: root.colorTo
     }
 
     // Ручка: на нажатии худеет до 2 px
@@ -133,8 +137,16 @@ Item {
         width: mouse.pressed ? 2 : 4
         height: root.handleH
         radius: width / 2
-        color: Theme.gradEnd
+        color: root.colorTo
         Behavior on width { NumberAnimation { duration: 100 } }
+    }
+
+    ValueBubble {
+        target: root
+        handleX: root.pill ? root.trackH / 2 + root.v * (root.width - root.trackH) : root.cx
+        handleTop: (root.height - root.handleH) / 2
+        shown: mouse.pressed
+        text: root.valueText(root.v)
     }
 
     MouseArea {
