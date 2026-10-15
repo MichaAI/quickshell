@@ -19,8 +19,15 @@ QtObject {
 
     // ===== Погода (Open-Meteo) =====
     // Город для прогноза, например "Москва"; "" — из опции home-manager
-    // weatherLocation, а без неё — по IP
+    // weather.location, а без неё — по IP
     readonly property string weatherLocation: ""
+    // Город можно и координатами: "56.13,47.25"
+    // Источник: "metno" (met.no), "openmeteo" или "wttr" (wttr.in, 3 дня);
+    // "" — из опции home-manager weather.provider, а без неё — metno
+    readonly property string weatherProvider: ""
+    // Прокси для запросов погоды, как у curl -x: "socks5h://127.0.0.1:1080",
+    // "http://host:3128"; "" — из опции weather.proxy, а без неё — напрямую
+    readonly property string weatherProxy: ""
     readonly property int weatherRefreshMin: 20
 
     // ===== Свет обложки (из попаута музыки на весь шелл) =====

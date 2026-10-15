@@ -26,18 +26,24 @@ symlinkJoin {
   paths = [ quickshell ];
   nativeBuildInputs = [ makeWrapper ];
 
-  postBuild = ''
-    for bin in $out/bin/*; do
-      wrapProgram "$bin" \
-        --prefix PATH : $out/bin \
-        --prefix PATH : ${lib.makeBinPath (runtimeInputs ++ lib.optional with3d qt6.qtquick3d)} \
-        --prefix QT_PLUGIN_PATH : ${lib.makeSearchPath qt6.qtbase.qtPluginPrefix plugins} \
-        ${lib.optionalString with3d ''
-          --prefix QML_IMPORT_PATH : ${lib.makeSearchPath qt6.qtbase.qtQmlPrefix qml}
-        ''} \
-        ${lib.concatStringsSep " " (lib.mapAttrsToList (k: v: "--set ${k} ${lib.escapeShellArg v}") env)}
-    done
-  '';
+  # Аргументы wrapProgram списком: так пустые и необязательные куски
+  # не рвут перенос строки в команде
+  postBuild =
+    let
+      args =
+        [
+          "--prefix PATH : $out/bin"
+          "--prefix PATH : ${lib.makeBinPath (runtimeInputs ++ lib.optional with3d qt6.qtquick3d)}"
+          "--prefix QT_PLUGIN_PATH : ${lib.makeSearchPath qt6.qtbase.qtPluginPrefix plugins}"
+        ]
+        ++ lib.optional with3d "--prefix QML_IMPORT_PATH : ${lib.makeSearchPath qt6.qtbase.qtQmlPrefix qml}"
+        ++ lib.mapAttrsToList (k: v: "--set ${k} ${lib.escapeShellArg v}") env;
+    in
+    ''
+      for bin in $out/bin/*; do
+        wrapProgram "$bin" ${lib.concatStringsSep " " args}
+      done
+    '';
 
   inherit (quickshell) meta;
 }

@@ -13,6 +13,13 @@ let
   configDir = pkgs.callPackage ./config.nix { inherit (cfg) settings; };
 in
 {
+  imports = [
+    (lib.mkRenamedOptionModule
+      [ "michaai" "quickshell" "weatherLocation" ]
+      [ "michaai" "quickshell" "weather" "location" ]
+    )
+  ];
+
   options.michaai.quickshell = {
     enable = mkEnableOption "quickshell с баром, лаунчером и локом";
 
@@ -37,6 +44,7 @@ in
         cava
         cliphist
         coreutils
+        curl
         fd
         findutils
         libqalculate
@@ -59,14 +67,35 @@ in
       '';
     };
 
-    weatherLocation = mkOption {
-      type = types.nullOr types.str;
-      default = null;
-      example = "Москва";
-      description = ''
-        Город для погоды на баре. null — определить по IP. Работает и
-        с liveSource: город приходит шеллу переменной QS_WEATHER_LOCATION.
-      '';
+    weather = {
+      location = mkOption {
+        type = types.nullOr types.str;
+        default = null;
+        example = "Москва";
+        description = ''
+          Город для погоды на баре или координаты "широта,долгота".
+          null — определить по IP.
+        '';
+      };
+
+      provider = mkOption {
+        type = types.nullOr (types.enum [ "metno" "openmeteo" "wttr" ]);
+        default = null;
+        description = ''
+          Откуда брать прогноз: met.no, Open-Meteo или wttr.in (только 3 дня).
+          null — met.no.
+        '';
+      };
+
+      proxy = mkOption {
+        type = types.nullOr types.str;
+        default = null;
+        example = "socks5h://127.0.0.1:1080";
+        description = ''
+          Прокси для запросов погоды в формате curl -x. Ляжет в стор открытым
+          текстом — логин и пароль сюда лучше не класть.
+        '';
+      };
     };
 
     settings = mkOption {
@@ -129,8 +158,11 @@ in
       quickshell = cfg.package;
       inherit (cfg) runtimeInputs;
       with3d = cfg.avatar3d;
-      env = lib.optionalAttrs (cfg.weatherLocation != null) {
-        QS_WEATHER_LOCATION = cfg.weatherLocation;
+      # Через окружение, а не settings: так работает и с liveSource
+      env = lib.filterAttrs (_: v: v != null) {
+        QS_WEATHER_LOCATION = cfg.weather.location;
+        QS_WEATHER_PROVIDER = cfg.weather.provider;
+        QS_WEATHER_PROXY = cfg.weather.proxy;
       };
     };
 

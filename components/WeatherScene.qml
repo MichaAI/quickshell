@@ -66,8 +66,8 @@ Item {
         id: sun
         visible: root.showSun
         width: 52; height: 52
-        x: root.width - 92
-        y: 22
+        x: root.width - 80
+        y: 18
 
         Repeater {
             model: 3
@@ -131,8 +131,8 @@ Item {
         id: moon
         visible: root.showMoon
         width: 40; height: 40
-        x: root.width - 86
-        y: 24
+        x: root.width - 74
+        y: 20
 
         Rectangle {
             anchors.centerIn: parent

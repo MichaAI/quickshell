@@ -103,7 +103,7 @@ Item {
                     Text {
                         text: Weather.description
                         font.family: Theme.font
-                        font.pixelSize: 14
+                        font.pixelSize: 13
                         font.bold: true
                         color: Theme.text
                     }
@@ -129,7 +129,7 @@ Item {
                 spacing: 14
 
                 // Стрелка показывает, куда дует (направление — откуда)
-                Chip { icon: "󰁝"; iconRotation: Weather.windDir + 180; text: Math.round(Weather.wind) + " км/ч" }
+                Chip { icon: "󰁝"; iconRotation: Weather.windDir + 180; text: Math.round(Weather.wind) + " м/с" }
                 Chip { icon: "󰖎"; text: Weather.humidity + "%" }
                 Chip { icon: "󰖨"; text: "УФ " + Weather.uv.toFixed(0) }
                 Chip { icon: "󰖜"; text: Weather.sunrise }
@@ -249,7 +249,7 @@ Item {
                             Text {
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 anchors.bottom: parent.bottom
-                                text: hour.modelData.pop >= 20 ? hour.modelData.pop + "%" : ""
+                                text: Weather.rainText(hour.modelData.pop, hour.modelData.mm)
                                 font.family: Theme.font
                                 font.pixelSize: 10
                                 color: Theme.sapphire
@@ -300,7 +300,7 @@ Item {
                         x: dayIcon.x + dayIcon.width
                         width: 36
                         anchors.verticalCenter: parent.verticalCenter
-                        text: day.modelData.pop >= 20 ? day.modelData.pop + "%" : ""
+                        text: Weather.rainText(day.modelData.pop, day.modelData.mm)
                         font.family: Theme.font
                         font.pixelSize: 11
                         color: Theme.sapphire
