@@ -721,8 +721,11 @@ Scope {
                 // бок о бок и строка списка — один элемент
                 property var revealTargets: []
 
+                // Без ShaderEffectSource: такие заводит layer.enabled, это
+                // внутренности чужого слоя, а не содержимое
                 function visibleKids(n) {
-                    return Array.from(n.children).filter(c => c.visible && c.width > 0 && c.height > 0)
+                    return Array.from(n.children).filter(c => c.visible && c.width > 0 && c.height > 0
+                        && c.sourceItem === undefined)
                 }
 
                 // Ничего не рисует сам: Item/Column/Row или прозрачный Rectangle
@@ -753,6 +756,11 @@ Scope {
                             listPending = true
                         return rows.length > 0 ? rows : [node]
                     }
+                    // Сцена (revealWhole) проявляется целиком: её частицы
+                    // разбросаны по высоте и сошли бы за строки, а свои
+                    // opacity и сдвиги у них отнимать нельзя
+                    if (node.revealWhole === true)
+                        return [node]
                     const kids = visibleKids(node)
                     if (depth > 8 || kids.length === 0)
                         return [node]
