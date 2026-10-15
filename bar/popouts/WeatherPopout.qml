@@ -298,6 +298,22 @@ Item {
             readonly property real hi: Math.max(...Weather.daily.map(d => d.max))
             function pos(t) { return Math.max(0, Math.min(1, (t - lo) / Math.max(1, hi - lo))) }
 
+            // Наведение и клик — один обработчик на весь список, строка — по y.
+            // С MouseArea на каждой строке подсветка залипала на прошлой
+            readonly property int rowPitch: 22 + spacing
+            readonly property int hoverIdx: weekHover.hovered ? rowAt(weekHover.point.position.y) : -1
+            function rowAt(y) {
+                return Math.max(0, Math.min(Weather.daily.length - 1, Math.floor(y / rowPitch)))
+            }
+
+            HoverHandler {
+                id: weekHover
+                cursorShape: Qt.PointingHandCursor
+            }
+            TapHandler {
+                onTapped: eventPoint => root.select(week.rowAt(eventPoint.position.y))
+            }
+
             Repeater {
                 model: Weather.daily
                 delegate: Item {
@@ -308,22 +324,15 @@ Item {
                     width: parent.width
                     height: 22
 
-                    // Клик — показать день в главной карточке
+                    // Клик — показать день в главной карточке (обработчики — у week)
                     Rectangle {
                         x: -6
                         width: parent.width + 12
                         height: parent.height
                         radius: 6
                         color: day.picked ? Theme.surface0
-                             : dayMouse.containsMouse ? Theme.alpha(Theme.surface0, 0.5) : "transparent"
+                             : week.hoverIdx === day.index ? Theme.alpha(Theme.surface0, 0.5) : "transparent"
                         Behavior on color { ColorAnimation { duration: 120 } }
-                    }
-                    MouseArea {
-                        id: dayMouse
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.select(day.index)
                     }
 
                     Text {
