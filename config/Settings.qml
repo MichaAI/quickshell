@@ -17,6 +17,12 @@ QtObject {
     // foot/kitty/wezterm start — как есть, alacritty/ghostty — с "-e".
     readonly property var terminal: ["kitty"]
 
+    // ===== Погода (Open-Meteo) =====
+    // Город для прогноза, например "Москва"; "" — из опции home-manager
+    // weatherLocation, а без неё — по IP
+    readonly property string weatherLocation: ""
+    readonly property int weatherRefreshMin: 20
+
     // ===== Свет обложки (из попаута музыки на весь шелл) =====
     readonly property int glowBlur: 64          // радиус размытия, px
     readonly property real glowScale: 1.3       // во сколько раз свет больше обложки

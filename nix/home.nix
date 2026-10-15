@@ -59,6 +59,16 @@ in
       '';
     };
 
+    weatherLocation = mkOption {
+      type = types.nullOr types.str;
+      default = null;
+      example = "Москва";
+      description = ''
+        Город для погоды на баре. null — определить по IP. Работает и
+        с liveSource: город приходит шеллу переменной QS_WEATHER_LOCATION.
+      '';
+    };
+
     settings = mkOption {
       type = types.attrsOf types.anything;
       default = { };
@@ -119,6 +129,9 @@ in
       quickshell = cfg.package;
       inherit (cfg) runtimeInputs;
       with3d = cfg.avatar3d;
+      env = lib.optionalAttrs (cfg.weatherLocation != null) {
+        QS_WEATHER_LOCATION = cfg.weatherLocation;
+      };
     };
 
     home.packages = [ cfg.finalPackage ];

@@ -10,6 +10,8 @@
   qt6,
   runtimeInputs ? [ ],
   with3d ? true,
+  # Переменные окружения шелла, например QS_WEATHER_LOCATION
+  env ? { },
 }:
 
 let
@@ -32,7 +34,8 @@ symlinkJoin {
         --prefix QT_PLUGIN_PATH : ${lib.makeSearchPath qt6.qtbase.qtPluginPrefix plugins} \
         ${lib.optionalString with3d ''
           --prefix QML_IMPORT_PATH : ${lib.makeSearchPath qt6.qtbase.qtQmlPrefix qml}
-        ''}
+        ''} \
+        ${lib.concatStringsSep " " (lib.mapAttrsToList (k: v: "--set ${k} ${lib.escapeShellArg v}") env)}
     done
   '';
 
