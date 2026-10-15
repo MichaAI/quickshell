@@ -47,7 +47,10 @@ Singleton {
     // [{ ts, time: "14", temp, code, isDay, pop, mm }] — сутки вперёд.
     // pop — вероятность осадков в %, -1 — источник её не даёт (тогда mm)
     property var hourly: []
-    // [{ ts, name: "Пн", min, max, code, pop, mm }] — до 7 дней
+    // То же на весь прогноз; дальние дни у met.no — шагом 6 часов
+    property var allHours: []
+    // [{ ts, name: "Пн", min, max, code, pop, mm, uv, rise, set }] — до 7 дней.
+    // rise/set — "HH:mm" или "", если источник их на этот день не дал
     property var daily: []
 
     readonly property string kind: kindOf(code)
@@ -282,7 +285,7 @@ Singleton {
         const nowKey = c.time.slice(0, 13)
         const start = Math.max(0, h.time.findIndex(t => t.slice(0, 13) === nowKey))
         const hours = []
-        for (let i = start; i < Math.min(start + 24, h.time.length); i++)
+        for (let i = start; i < h.time.length; i++)
             hours.push({
                 ts: localDate(h.time[i]).getTime(),
                 temp: h.temperature_2m[i],
@@ -297,7 +300,10 @@ Singleton {
             max: d.temperature_2m_max[i],
             code: d.weather_code[i],
             pop: d.precipitation_probability_max[i] ?? -1,
-            mm: d.precipitation_sum[i] ?? 0
+            mm: d.precipitation_sum[i] ?? 0,
+            uv: d.uv_index_max[i] ?? 0,
+            rise: d.sunrise[i]?.slice(11, 16) ?? "",
+            set: d.sunset[i]?.slice(11, 16) ?? ""
         }))
         return {
             temp: c.temperature_2m, feels: c.apparent_temperature, humidity: c.relative_humidity_2m,
@@ -332,7 +338,7 @@ Singleton {
         }
 
         const hours = []
-        for (const e of ts.slice(0, 24)) {
+        for (const e of ts) {
             const date = new Date(e.time)
             hours.push({
                 ts: date.getTime(),
@@ -354,13 +360,14 @@ Singleton {
             if (!day) {
                 if (days.length === 7)
                     break
-                day = { ts: key, min: Infinity, max: -Infinity, code: 3, noon: Infinity, pop: -1, mm: 0 }
+                day = { ts: key, min: Infinity, max: -Infinity, code: 3, noon: Infinity, pop: -1, mm: 0, uv: 0, rise: "", set: "" }
                 days.push(day)
             }
             const det = e.data.instant.details
             const n6 = e.data.next_6_hours?.details
             day.min = Math.min(day.min, det.air_temperature, n6?.air_temperature_min ?? Infinity)
             day.max = Math.max(day.max, det.air_temperature, n6?.air_temperature_max ?? -Infinity)
+            day.uv = Math.max(day.uv, det.ultraviolet_index_clear_sky ?? 0)
             const step = i + 1 < ts.length ? (new Date(ts[i + 1].time) - date) / 3600000 : 0
             if (step === 1)
                 day.mm += e.data.next_1_hours?.details?.precipitation_amount ?? 0
@@ -375,13 +382,14 @@ Singleton {
         }
         for (const day of days)
             delete day.noon
+        // Восход и закат met.no отдал только на сегодня
+        if (days.length > 0) {
+            days[0].rise = rise
+            days[0].set = set
+        }
 
         const now = ts[0], det = now.data.instant.details
-        const todayKey = days[0]?.ts
-        const uv = Math.max(0, ...ts.filter(e => {
-            const d = new Date(e.time)
-            return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() === todayKey
-        }).map(e => e.data.instant.details.ultraviolet_index_clear_sky ?? 0))
+        const uv = days[0]?.uv ?? 0
         return {
             temp: det.air_temperature, feels: det.apparent_air_temperature ?? det.air_temperature,
             humidity: Math.round(det.relative_humidity), wind: det.wind_speed, windDir: det.wind_from_direction,
@@ -414,7 +422,7 @@ Singleton {
                 const t = Number(h.time)
                 const date = new Date(y, mo - 1, dd, Math.floor(t / 100), t % 100)
                 // Точки — раз в 3 часа: берём ту, в чей интервал попадаем сейчас
-                if (date.getTime() + 3 * 3600000 <= now || hours.length >= 9)
+                if (date.getTime() + 3 * 3600000 <= now)
                     continue
                 hours.push({
                     ts: date.getTime(),
@@ -436,7 +444,10 @@ Singleton {
                 max: Number(w.maxtempC),
                 code: wwoCode(noon.weatherCode),
                 pop: Math.max(...w.hourly.map(h => Math.max(Number(h.chanceofrain), Number(h.chanceofsnow)))),
-                mm: w.hourly.reduce((s, h) => s + Number(h.precipMM), 0)
+                mm: w.hourly.reduce((s, h) => s + Number(h.precipMM), 0),
+                uv: Number(w.uvIndex ?? 0),
+                rise: hhmm(astro(w).sunrise),
+                set: hhmm(astro(w).sunset)
             }
         })
         const today = r.weather[0]
@@ -449,6 +460,21 @@ Singleton {
             isDay: dayAt(new Date(), rise, set), uv: Number(c.uvIndex),
             sunrise: rise, sunset: set, hourly: hours, daily: days
         }
+    }
+
+    // Часы одного дня (dayTs — его полночь) из всего прогноза
+    function hoursOf(dayTs) {
+        return allHours.filter(h => h.ts >= dayTs && h.ts < dayTs + 24 * 3600000)
+    }
+
+    readonly property var fullDayNames: ["Воскресенье", "Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота"]
+    readonly property var monthNames: ["января", "февраля", "марта", "апреля", "мая", "июня",
+        "июля", "августа", "сентября", "октября", "ноября", "декабря"]
+
+    // "Пятница, 17 октября"
+    function longDate(ts) {
+        const d = new Date(ts)
+        return fullDayNames[d.getDay()] + ", " + d.getDate() + " " + monthNames[d.getMonth()]
     }
 
     // ===== Применение и кеш =====
@@ -480,7 +506,8 @@ Singleton {
         uv = w.uv
         sunrise = w.sunrise
         sunset = w.sunset
-        hourly = hours
+        allHours = hours
+        hourly = hours.filter(h => h.ts < hours[0].ts + 24 * 3600000)
         daily = days
         todayMax = days[0].max
         todayMin = days[0].min

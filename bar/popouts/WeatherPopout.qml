@@ -11,8 +11,19 @@ Item {
     implicitWidth: 380
     implicitHeight: col.implicitHeight + 24
 
+    // Какой день в главной карточке: 0 — сейчас, дальше — дни недели
+    property int sel: 0
+    readonly property bool now: sel === 0 || !selDay
+    readonly property var selDay: Weather.daily[sel] ?? null
+    readonly property var stripHours: now ? Weather.hourly : Weather.hoursOf(selDay.ts)
+
+    function select(i) {
+        sel = Math.max(0, Math.min(Weather.daily.length - 1, i))
+    }
+
     component Card: Rectangle {
         default property alias content: inner.data
+        property alias spacing: inner.spacing
         width: col.width
         implicitHeight: inner.implicitHeight + 20
         radius: 12
@@ -56,7 +67,7 @@ Item {
         width: root.implicitWidth - 24
         spacing: 8
 
-        // ===== Сейчас: живое небо =====
+        // ===== Сейчас или выбранный день: живое небо =====
         ClippingRectangle {
             width: parent.width
             height: 136
@@ -65,8 +76,17 @@ Item {
 
             WeatherScene {
                 anchors.fill: parent
-                kind: Weather.kind
-                isDay: Weather.isDay
+                kind: root.now ? Weather.kind : Weather.kindOf(root.selDay.code)
+                isDay: root.now ? Weather.isDay : true
+            }
+
+            // Колесо листает дни
+            WheelHandler {
+                acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                onWheel: event => {
+                    if (event.angleDelta.y !== 0)
+                        root.select(root.sel + (event.angleDelta.y < 0 ? 1 : -1))
+                }
             }
 
             Row {
@@ -79,7 +99,7 @@ Item {
                     color: Theme.subtext1
                 }
                 Text {
-                    text: Weather.place
+                    text: root.now ? Weather.place : Weather.place + "  ·  " + Weather.longDate(root.selDay.ts)
                     font.family: Theme.font
                     font.pixelSize: 12
                     color: Theme.subtext1
@@ -91,7 +111,7 @@ Item {
                 spacing: 12
 
                 Text {
-                    text: Math.round(Weather.temp) + "°"
+                    text: Math.round(root.now ? Weather.temp : root.selDay.max) + "°"
                     font.family: Theme.displayFont
                     font.pixelSize: 54
                     color: Theme.text
@@ -101,20 +121,22 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: 3
                     Text {
-                        text: Weather.description
+                        text: root.now ? Weather.description : Weather.textOf(root.selDay.code)
                         font.family: Theme.font
                         font.pixelSize: 13
                         font.bold: true
                         color: Theme.text
                     }
                     Text {
-                        text: "Ощущается " + Weather.fmt(Weather.feels)
+                        text: root.now ? "Ощущается " + Weather.fmt(Weather.feels)
+                            : (Weather.rainText(root.selDay.pop, root.selDay.mm) || "без") + " осадков"
                         font.family: Theme.font
                         font.pixelSize: 12
                         color: Theme.subtext1
                     }
                     Text {
-                        text: "↑ " + Weather.fmt(Weather.todayMax) + "   ↓ " + Weather.fmt(Weather.todayMin)
+                        text: "↑ " + Weather.fmt(root.now ? Weather.todayMax : root.selDay.max)
+                            + "   ↓ " + Weather.fmt(root.now ? Weather.todayMin : root.selDay.min)
                         font.family: Theme.font
                         font.pixelSize: 12
                         color: Theme.subtext1
@@ -129,11 +151,12 @@ Item {
                 spacing: 14
 
                 // Стрелка показывает, куда дует (направление — откуда)
-                Chip { icon: "󰁝"; iconRotation: Weather.windDir + 180; text: Math.round(Weather.wind) + " м/с" }
-                Chip { icon: "󰖎"; text: Weather.humidity + "%" }
-                Chip { icon: "󰖨"; text: "УФ " + Weather.uv.toFixed(0) }
-                Chip { icon: "󰖜"; text: Weather.sunrise }
-                Chip { icon: "󰖛"; text: Weather.sunset }
+                // Ветер и влажность — только сейчас: на день источники их не дают
+                Chip { visible: root.now; icon: "󰁝"; iconRotation: Weather.windDir + 180; text: Math.round(Weather.wind) + " м/с" }
+                Chip { visible: root.now; icon: "󰖎"; text: Weather.humidity + "%" }
+                Chip { icon: "󰖨"; text: "УФ " + (root.now ? Weather.uv : root.selDay.uv).toFixed(0) }
+                Chip { visible: text !== ""; icon: "󰖜"; text: root.now ? Weather.sunrise : root.selDay.rise }
+                Chip { visible: text !== ""; icon: "󰖛"; text: root.now ? Weather.sunset : root.selDay.set }
             }
         }
 
@@ -149,8 +172,8 @@ Item {
                 clip: true
 
                 readonly property int cell: 46
-                readonly property real lo: Math.min(...Weather.hourly.map(h => h.temp))
-                readonly property real hi: Math.max(...Weather.hourly.map(h => h.temp))
+                readonly property real lo: Math.min(...root.stripHours.map(h => h.temp))
+                readonly property real hi: Math.max(...root.stripHours.map(h => h.temp))
                 // Полоса кривой: от curveTop до curveTop + curveH
                 readonly property real curveTop: 50
                 readonly property real curveH: 18
@@ -174,13 +197,18 @@ Item {
                     height: hours.height
                     onWidthChanged: requestPaint()
                     Connections {
-                        target: Weather
-                        function onHourlyChanged() { curve.requestPaint() }
+                        target: root
+                        // У другого дня лента начинается с полуночи — сразу к утру
+                        function onStripHoursChanged() {
+                            const morning = root.now ? 0 : Math.max(0, root.stripHours.findIndex(h => new Date(h.ts).getHours() >= 6))
+                            hours.contentX = Math.max(0, Math.min(morning * hours.cell, hourRow.width - hours.width))
+                            curve.requestPaint()
+                        }
                     }
                     onPaint: {
                         const ctx = getContext("2d")
                         ctx.clearRect(0, 0, width, height)
-                        const pts = Weather.hourly.map((h, i) => [i * hours.cell + hours.cell / 2, hours.yOf(h.temp)])
+                        const pts = root.stripHours.map((h, i) => [i * hours.cell + hours.cell / 2, hours.yOf(h.temp)])
                         if (pts.length < 2)
                             return
                         const grad = ctx.createLinearGradient(0, 0, width, 0)
@@ -206,7 +234,7 @@ Item {
                 Row {
                     id: hourRow
                     Repeater {
-                        model: Weather.hourly
+                        model: root.stripHours
                         delegate: Item {
                             id: hour
                             required property var modelData
@@ -220,7 +248,7 @@ Item {
                                 text: hour.modelData.time
                                 font.family: Theme.font
                                 font.pixelSize: 11
-                                color: hour.index === 0 ? Theme.text : Theme.overlay1
+                                color: hour.modelData.time === "Сейч" ? Theme.text : Theme.overlay1
                             }
                             Text {
                                 anchors.horizontalCenter: parent.horizontalCenter
@@ -244,7 +272,7 @@ Item {
                                 width: 6; height: 6; radius: 3
                                 color: Theme.cardBg
                                 border.width: 2
-                                border.color: Theme.mix(Theme.gradStart, Theme.gradEnd, hour.index / Math.max(1, Weather.hourly.length - 1))
+                                border.color: Theme.mix(Theme.gradStart, Theme.gradEnd, hour.index / Math.max(1, root.stripHours.length - 1))
                             }
                             Text {
                                 anchors.horizontalCenter: parent.horizontalCenter
@@ -261,8 +289,11 @@ Item {
         }
 
         // ===== Неделя: полоски диапазона =====
+        // Строки плотно: весь попаут обязан влезть в Settings.popoutMaxHeight,
+        // иначе низ обрезается
         Card {
             id: week
+            spacing: 2
             readonly property real lo: Math.min(...Weather.daily.map(d => d.min))
             readonly property real hi: Math.max(...Weather.daily.map(d => d.max))
             function pos(t) { return Math.max(0, Math.min(1, (t - lo) / Math.max(1, hi - lo))) }
@@ -273,8 +304,27 @@ Item {
                     id: day
                     required property var modelData
                     required property int index
+                    readonly property bool picked: root.sel === day.index
                     width: parent.width
                     height: 22
+
+                    // Клик — показать день в главной карточке
+                    Rectangle {
+                        x: -6
+                        width: parent.width + 12
+                        height: parent.height
+                        radius: 6
+                        color: day.picked ? Theme.surface0
+                             : dayMouse.containsMouse ? Theme.alpha(Theme.surface0, 0.5) : "transparent"
+                        Behavior on color { ColorAnimation { duration: 120 } }
+                    }
+                    MouseArea {
+                        id: dayMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.select(day.index)
+                    }
 
                     Text {
                         id: dayName
@@ -283,7 +333,7 @@ Item {
                         text: day.modelData.name
                         font.family: Theme.font
                         font.pixelSize: 12
-                        color: day.index === 0 ? Theme.text : Theme.subtext0
+                        color: day.picked ? Theme.text : Theme.subtext0
                     }
                     Text {
                         id: dayIcon
