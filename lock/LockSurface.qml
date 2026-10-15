@@ -178,23 +178,29 @@ Item {
                 // niri считает экран заблокированным только после первого кадра
                 // на каждом мониторе. Ава в этом кадре (разбор модели, сцены
                 // balsam'а, шейдеры Quick3D) держала лок до секунды. Поэтому
-                // сначала ~/.face, а ава грузится, когда экран уже закрыт,
-                // и подменяет её, когда готова
+                // сначала её снимок (см. Lock.frameKey), а живая ава грузится,
+                // когда экран уже закрыт, и подменяет его, когда готова
                 Loader {
                     id: model3d
                     anchors.fill: parent
                     readonly property bool shown: status === Loader.Ready && (item?.ready ?? false)
                     active: root.ctx.avatarModel !== "" && root.ctx.secure
                     asynchronous: true
-                    // Не shown: неготовая ава должна рисоваться (см. Avatar3D.k),
-                    // а пока она не готова, её не видно — модель крошечная
+                    // Не shown: неготовая ава должна рисоваться, чтобы Qt
+                    // Quick 3D её измерил. До готовности она стоит в позе
+                    // снимка под ним, а без габаритов из кеша — крошечная
                     visible: status === Loader.Ready
                     source: "Avatar3D.qml"
                     onLoaded: {
+                        item.bounds = Qt.binding(() => root.ctx.avatarBounds)
                         // Сцену — раньше модели: иначе RuntimeLoader успеет
                         // зря разобрать файл модели, пока сцены ещё нет
                         item.scene = Qt.binding(() => root.ctx.avatarScene !== "" ? "file://" + root.ctx.avatarScene : "")
                         item.model = Qt.binding(() => "file://" + root.ctx.avatarModel)
+                    }
+                    onShownChanged: {
+                        if (shown && root.ctx.lockStarted > 0)
+                            console.warn("lock: живая ава через", Date.now() - root.ctx.lockStarted, "мс после лока")
                     }
                     onStatusChanged: {
                         if (status === Loader.Error)
@@ -204,12 +210,24 @@ Item {
                     }
                 }
 
+                // Снимок авы — с первого кадра лока, пока живая не готова.
+                // Без sourceSize: так он берётся из кеша, куда его заранее
+                // загрузил Lock.qml
+                Image {
+                    id: frameImg
+                    anchors.fill: parent
+                    source: root.ctx.avatarFrame
+                    opacity: model3d.shown ? 0 : 1
+                    visible: opacity > 0
+                    Behavior on opacity { NumberAnimation { duration: 150 } }
+                }
+
                 ClippingRectangle {
                     anchors.centerIn: parent
                     width: 160; height: 160
                     radius: 80
                     color: Theme.surface0
-                    visible: !model3d.shown
+                    visible: !model3d.shown && frameImg.status !== Image.Ready
 
                     Image {
                         id: faceImg

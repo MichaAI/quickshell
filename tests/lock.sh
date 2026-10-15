@@ -3,13 +3,15 @@
 #
 #   tests/lock.sh [ревизия]     — по умолчанию рабочее дерево
 #
-# Сценарии: холодный кеш (QML, шейдеры Quick3D и mesa стёрты — как первый
-# лок после обновления), тёплый, и повторные локи после разблокировки.
+# Сценарии: холодный кеш (QML, шейдеры Quick3D и mesa и снимок авы стёрты —
+# как первый лок после обновления), тёплый, и повторные локи после
+# разблокировки. Перед первым локом шелл должен снять кадр авы в фоне:
+# с него лок и начинается, пока живая ава грузится.
 # Ава — лиса из tests/setup.sh с анимацией Survey; вращение выключено,
 # так что всё движение авы — от анимации. Лиса порой стоит неподвижно,
 # поэтому кадров четыре за ~1.5 с, и считается максимум разницы.
 #
-# Провал: лок дольше LIMIT_MS (500) или ава не шевелится.
+# Провал: лок дольше LIMIT_MS (500), ава не шевелится или кадр авы не снялся.
 . "$(dirname "$0")/lib.sh"
 
 REV=${1:-}
@@ -60,16 +62,23 @@ check() {
     if [ -z "$ms" ] || [ "$ms" -gt "$LIMIT_MS" ]; then verdict=FAIL; fi
     if $have_fox && [ "$motion" -eq 0 ]; then verdict=FAIL; fi
     [ $verdict = FAIL ] && fails=$((fails + 1))
-    printf '%-10s лок %5s мс   движение авы %5s px   %s\n' "$name" "${ms:-нет}" "$motion" "$verdict"
+    local live
+    live=$(qs_log | sed -n 's/.*lock: живая ава через \([0-9]*\) мс.*/\1/p' | tail -1)
+    printf '%-10s лок %5s мс   живая ава %5s мс   движение авы %5s px   %s\n' \
+        "$name" "${ms:-нет}" "${live:--}" "$motion" "$verdict"
 }
 
 for mode in cold warm; do
     [ $mode = cold ] && rm -rf "$TEST_HOME/.cache/quickshell/qmlcache" "$TEST_HOME"/.cache/quickshell/q3d* \
-        "$TEST_HOME"/.cache/quickshell/qtpipe* "$TEST_HOME"/.cache/qtshader* "$TEST_HOME/.cache/mesa_shader_cache"
+        "$TEST_HOME"/.cache/quickshell/qtpipe* "$TEST_HOME"/.cache/qtshader* "$TEST_HOME/.cache/mesa_shader_cache" \
+        "$TEST_HOME/.cache/quickshell/lock-avatar-frame"
     start_niri
     start_shell
     # Ждём, пока шелл найдёт аву: на холодном кеше balsam ещё собирает сцену
     wait_log "lock: 3D-ава" 60 || { log "шелл не поднялся:"; qs_log | tail -20; exit 1; }
+    if $have_fox && [ $mode = cold ]; then
+        wait_log "lock: кадр авы снят" 30 || { log "кадр авы не снялся"; fails=$((fails + 1)); }
+    fi
     sleep 2
     check "$mode" "$(lock_now)"
 done
