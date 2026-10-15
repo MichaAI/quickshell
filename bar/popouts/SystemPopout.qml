@@ -72,10 +72,10 @@ Item {
             width: Math.max(8, parent.width * Math.min(1, parent.value))
             height: parent.height
             radius: 4
-            gradient: Gradient {
+            gradient: OkGradient {
                 orientation: Gradient.Horizontal
-                GradientStop { position: 0; color: Theme.gradStart }
-                GradientStop { position: 1; color: Theme.gradEnd }
+                from: Theme.gradStart
+                to: Theme.gradEnd
             }
             Behavior on width { Spring {} }
         }

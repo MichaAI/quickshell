@@ -149,11 +149,11 @@ Item {
                     color: isToday ? "transparent" : (cma.containsMouse ? Theme.cardBg : "transparent")
 
                     gradient: isToday ? todayGrad : null
-                    Gradient {
+                    OkGradient {
                         id: todayGrad
                         orientation: Gradient.Horizontal
-                        GradientStop { position: 0; color: Theme.gradStart }
-                        GradientStop { position: 1; color: Theme.gradEnd }
+                        from: Theme.gradStart
+                        to: Theme.gradEnd
                     }
 
                     Text {

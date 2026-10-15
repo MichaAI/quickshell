@@ -28,10 +28,10 @@ Item {
         width: Math.max(track.height, root.value * track.width)
         height: track.height
         radius: 3
-        gradient: Gradient {
+        gradient: OkGradient {
             orientation: Gradient.Horizontal
-            GradientStop { position: 0; color: Theme.gradStart }
-            GradientStop { position: 1; color: Theme.gradEnd }
+            from: Theme.gradStart
+            to: Theme.gradEnd
         }
     }
 

@@ -41,9 +41,11 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        gradient: Gradient {
-            GradientStop { position: 0; color: root.sky[0]; Behavior on color { ColorAnimation { duration: 600 } } }
-            GradientStop { position: 1; color: root.sky[1]; Behavior on color { ColorAnimation { duration: 600 } } }
+        gradient: OkGradient {
+            from: root.sky[0]
+            to: root.sky[1]
+            Behavior on from { ColorAnimation { duration: 600 } }
+            Behavior on to { ColorAnimation { duration: 600 } }
         }
     }
 
@@ -127,9 +129,9 @@ Item {
         Rectangle {
             anchors.fill: parent
             radius: width / 2
-            gradient: Gradient {
-                GradientStop { position: 0; color: "#fff3c4" }
-                GradientStop { position: 1; color: Theme.peach }
+            gradient: OkGradient {
+                from: "#fff3c4"
+                to: Theme.peach
             }
         }
     }
@@ -356,17 +358,19 @@ Item {
     // Затемнение слева и снизу под текст
     Rectangle {
         anchors.fill: parent
-        gradient: Gradient {
+        gradient: OkGradient {
             orientation: Gradient.Horizontal
-            GradientStop { position: 0; color: Qt.rgba(0, 0, 0, 0.22) }
-            GradientStop { position: 0.6; color: "transparent" }
+            from: Qt.rgba(0, 0, 0, 0.22)
+            to: "transparent"
+            end: 0.6
         }
     }
     Rectangle {
         anchors.fill: parent
-        gradient: Gradient {
-            GradientStop { position: 0.35; color: "transparent" }
-            GradientStop { position: 1; color: Qt.rgba(0, 0, 0, 0.32) }
+        gradient: OkGradient {
+            from: "transparent"
+            to: Qt.rgba(0, 0, 0, 0.32)
+            start: 0.35
         }
     }
 }

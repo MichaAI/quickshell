@@ -64,20 +64,20 @@ Item {
     Fade {
         anchors.left: parent.left
         shown: root.offset > 0
-        gradient: Gradient {
+        gradient: OkGradient {
             orientation: Gradient.Horizontal
-            GradientStop { position: 0; color: root.fadeColor }
-            GradientStop { position: 1; color: Qt.alpha(root.fadeColor, 0) }
+            from: root.fadeColor
+            to: Qt.alpha(root.fadeColor, 0)
         }
     }
 
     Fade {
         anchors.right: parent.right
         shown: root.offset < root.overflow
-        gradient: Gradient {
+        gradient: OkGradient {
             orientation: Gradient.Horizontal
-            GradientStop { position: 0; color: Qt.alpha(root.fadeColor, 0) }
-            GradientStop { position: 1; color: root.fadeColor }
+            from: Qt.alpha(root.fadeColor, 0)
+            to: root.fadeColor
         }
     }
 

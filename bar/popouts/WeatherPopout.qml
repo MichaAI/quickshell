@@ -211,9 +211,7 @@ Item {
                         const pts = root.stripHours.map((h, i) => [i * hours.cell + hours.cell / 2, hours.yOf(h.temp)])
                         if (pts.length < 2)
                             return
-                        const grad = ctx.createLinearGradient(0, 0, width, 0)
-                        grad.addColorStop(0, Theme.gradStart)
-                        grad.addColorStop(1, Theme.gradEnd)
+                        const grad = Theme.okStops(ctx.createLinearGradient(0, 0, width, 0), Theme.gradStart, Theme.gradEnd)
                         ctx.strokeStyle = grad
                         ctx.lineWidth = 2
                         ctx.lineCap = "round"
@@ -393,10 +391,10 @@ Item {
                             width: Math.max(6, track.width * (week.pos(day.modelData.max) - week.pos(day.modelData.min)))
                             height: parent.height
                             radius: 3
-                            gradient: Gradient {
+                            gradient: OkGradient {
                                 orientation: Gradient.Horizontal
-                                GradientStop { position: 0; color: Theme.mix(Theme.sky, Theme.peach, week.pos(day.modelData.min)) }
-                                GradientStop { position: 1; color: Theme.mix(Theme.sky, Theme.peach, week.pos(day.modelData.max)) }
+                                from: Theme.mix(Theme.sky, Theme.peach, week.pos(day.modelData.min))
+                                to: Theme.mix(Theme.sky, Theme.peach, week.pos(day.modelData.max))
                             }
                         }
                         // Сегодня — где мы сейчас

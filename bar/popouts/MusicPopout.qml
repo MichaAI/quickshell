@@ -315,10 +315,10 @@ Item {
                     width: 42; height: 42
                     radius: 21
                     anchors.verticalCenter: parent.verticalCenter
-                    gradient: Gradient {
+                    gradient: OkGradient {
                         orientation: Gradient.Horizontal
-                        GradientStop { position: 0; color: Theme.gradStart }
-                        GradientStop { position: 1; color: Theme.gradEnd }
+                        from: Theme.gradStart
+                        to: Theme.gradEnd
                     }
                     scale: pma.containsMouse ? 1.08 : 1
                     Behavior on scale { Spring { epsilon: 0.002 } }

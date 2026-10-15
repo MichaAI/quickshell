@@ -52,9 +52,9 @@ Rectangle {
         width: 3
         height: row.big ? 34 : 24
         radius: 2
-        gradient: Gradient {
-            GradientStop { position: 0; color: Theme.gradStart }
-            GradientStop { position: 1; color: Theme.gradEnd }
+        gradient: OkGradient {
+            from: Theme.gradStart
+            to: Theme.gradEnd
         }
     }
 

@@ -83,10 +83,10 @@ Item {
         Rectangle {
             width: parent.width
             height: 1
-            gradient: Gradient {
+            gradient: OkGradient {
                 orientation: Gradient.Horizontal
-                GradientStop { position: 0; color: Theme.alpha(Theme.gradStart, 0.4) }
-                GradientStop { position: 1; color: Theme.alpha(Theme.gradEnd, 0.4) }
+                from: Theme.alpha(Theme.gradStart, 0.4)
+                to: Theme.alpha(Theme.gradEnd, 0.4)
             }
         }
 
