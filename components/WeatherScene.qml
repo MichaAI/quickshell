@@ -182,6 +182,9 @@ Item {
         property real alpha: 0.2
         opacity: alpha
         layer.enabled: true
+        // Сглаживание слоя: без него текстура липнет к целым пикселям,
+        // и медленное облако ползёт рывками
+        layer.smooth: true
         property real phase: 0          // начальная позиция, 0…1
         property int period: 60000      // полный проход, мс
         property real span: 0           // ширина неба
@@ -202,18 +205,26 @@ Item {
         Rectangle { x: parent.width * 0.40; y: 0; width: parent.width * 0.42; height: width; radius: width / 2; color: cloud.tint }
     }
 
+    readonly property int cloudCount: kind === "partly" ? 2 : (overcast ? 5 : 0)
+
     Repeater {
-        model: root.kind === "partly" ? 2 : (root.overcast ? 5 : 0)
+        model: root.cloudCount
         delegate: Cloud {
             id: skyCloud
             required property int index
             readonly property real depth: root.rnd(skyCloud.index, 7)
-            width: 90 + depth * 90
+            // Своя полоса по высоте, перемешанная относительно порядка по x,
+            // чтобы соседи по небу не шли одной линией
+            readonly property int lane: (skyCloud.index * 3) % root.cloudCount
+            width: 80 + depth * 70
             height: width * 0.4
-            y: -8 + root.rnd(skyCloud.index, 8) * root.height * (root.kind === "partly" ? 0.45 : 0.35)
+            y: -8 + (lane + root.rnd(skyCloud.index, 8) * 0.6) / root.cloudCount
+                 * root.height * (root.kind === "partly" ? 0.45 : 0.5)
             span: root.width
-            phase: root.rnd(skyCloud.index, 9)
-            period: 70000 - depth * 30000
+            // Равномерно по ширине с небольшим разбросом, а не как выпадет
+            phase: (skyCloud.index + root.rnd(skyCloud.index, 9) * 0.5) / root.cloudCount
+            // Скорости близкие: сильно разные нагоняли друг друга и сбивались в кучу
+            period: 62000 - depth * 12000
             tint: root.wet ? (root.isDay ? "#c3cede" : "#8f9ab0") : "white"
             alpha: root.kind === "partly" ? (root.isDay ? 0.22 : 0.1) + depth * 0.14
                  : root.wet ? 0.12 + depth * 0.12
