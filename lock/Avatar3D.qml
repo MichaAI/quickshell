@@ -21,19 +21,26 @@ Item {
     property int spinMs: Settings.lockSpinMs
     property string animation: Settings.lockAnimation
     property real animationSpeed: Settings.lockAnimationSpeed
+    // Для снимка: замереть в позе первого кадра. Живая ава тоже стоит в
+    // ней, пока не готова, — поэтому снимок подменяется ею без скачка
+    property bool still: false
+    // Габариты из кеша ({lo, hi}): с ними модель сразу нужного размера
+    property var bounds: null
 
     readonly property bool converted: scene.toString() !== "" && sceneLoader.status !== Loader3D.Error
-    readonly property bool ready: converted ? sceneLoader.status === Loader3D.Ready && extent > 0.0001
+    // Сцена готова, когда Qt Quick 3D измерил её — значит, уже нарисовал
+    readonly property bool ready: converted ? sceneLoader.status === Loader3D.Ready && measured
                                             : loader.status === RuntimeLoader.Success
 
     // Габариты модели: у RuntimeLoader — свои, у balsam'овской сцены
     // собираем по всем её Model
-    property vector3d lo: Qt.vector3d(0, 0, 0)
-    property vector3d hi: Qt.vector3d(0, 0, 0)
+    property vector3d lo: bounds?.lo ?? Qt.vector3d(0, 0, 0)
+    property vector3d hi: bounds?.hi ?? Qt.vector3d(0, 0, 0)
+    property bool measured: false
     readonly property real extent: Math.max(hi.x - lo.x, hi.y - lo.y, hi.z - lo.z, 0)
-    // Пока габаритов нет — модель исчезающе мала, но рисуется: габариты
-    // сцены Qt Quick 3D узнаёт, только отрисовав её. Спрятанный вид
-    // (visible: false) не рисуется, и ава так и не становилась готовой
+    // Без габаритов из кеша модель до измерения исчезающе мала, но рисуется:
+    // габариты сцены Qt Quick 3D узнаёт, только отрисовав её. Спрятанный
+    // вид (visible: false) не рисуется, и ава так и не становилась готовой
     readonly property real k: extent > 0.0001 ? root.modelSize / extent : 0.000001
 
     property var models: []         // все Model сцены — для габаритов
@@ -55,10 +62,14 @@ Item {
             for (const x of [a.x, b.x]) for (const y of [a.y, b.y]) for (const z of [a.z, b.z])
                 corners.push(m.mapPositionToNode(sceneLoader.item, Qt.vector3d(x, y, z)))
         }
-        if (corners.length === 0)
+        const a = Qt.vector3d(Math.min(...corners.map(c => c.x)), Math.min(...corners.map(c => c.y)), Math.min(...corners.map(c => c.z)))
+        const b = Qt.vector3d(Math.max(...corners.map(c => c.x)), Math.max(...corners.map(c => c.y)), Math.max(...corners.map(c => c.z)))
+        // Меши ещё не загружены — габариты нулевые. Не затираем ими кешевые
+        if (corners.length === 0 || Math.max(b.x - a.x, b.y - a.y, b.z - a.z) <= 0.0001)
             return
-        lo = Qt.vector3d(Math.min(...corners.map(c => c.x)), Math.min(...corners.map(c => c.y)), Math.min(...corners.map(c => c.z)))
-        hi = Qt.vector3d(Math.max(...corners.map(c => c.x)), Math.max(...corners.map(c => c.y)), Math.max(...corners.map(c => c.z)))
+        lo = a
+        hi = b
+        measured = true
     }
 
     // Таймлайны balsam кладёт в resources корня сцены, имя анимации —
@@ -77,6 +88,8 @@ Item {
             if (t.enabled)
                 found = t
         }
+        if (found)
+            found.currentFrame = found.startFrame
         if (root.animation !== "" && !found)
             console.warn("lock: в модели нет анимации", root.animation,
                          "— есть:", all.map(t => t.objectName).join(", ") || "никаких")
@@ -94,7 +107,8 @@ Item {
             ? (to - from) / (root.timeline.framesPerSecond ?? 1000) * 1000 / Math.max(root.animationSpeed, 0.01)
             : 0
         loops: Animation.Infinite
-        running: root.timeline !== null && duration > 0
+        // С готовности, а не с создания: до неё ава стоит в позе снимка
+        running: root.timeline !== null && duration > 0 && root.ready && !root.still
     }
 
     View3D {
@@ -126,7 +140,7 @@ Item {
                 from: 0; to: 360
                 duration: root.spinMs
                 loops: Animation.Infinite
-                running: root.spinMs > 0
+                running: root.spinMs > 0 && root.ready && !root.still
             }
 
             // Любую модель вписываем в один размер и ставим центром в начало

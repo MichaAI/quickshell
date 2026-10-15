@@ -46,6 +46,33 @@ Scope {
     }
     property string avatarModel: ""     // ~/avatar.(glb|gltf|fbx|obj), если есть
     property string avatarScene: ""     // она же после balsam — с анимациями
+    property string avatarKey: ""       // меняется вместе с моделью и Qt
+    property string frameDir: ""        // кеш готового кадра авы
+
+    // Готовый кадр 3D-авы. Живую аву на лок не пускаем до подтверждения
+    // блокировки: её разбор и шейдеры Quick3D держали первый кадр лока.
+    // Но и ~/.face на её месте — это мигание чужим лицом. Поэтому при
+    // старте шелла ава один раз рендерится в фоне и снимается в той позе,
+    // с которой живая ава начинает. Заодно прогреваются дисковые кеши
+    // шейдеров Quick3D и QML. На локе сначала снимок, и живая ава
+    // подменяет его незаметно. Снимок и габариты модели лежат в кеше и
+    // переживают перезапуск; переснимаем, когда меняется модель, Qt или
+    // то, как ава выглядит
+    readonly property string frameKey: avatarKey === "" ? "" : [
+        "v1", avatarKey, avatarScene, Settings.lockColumn, Settings.lockModelSize, Settings.lockAnimation,
+        Dither.avatarPixel, Dither.avatarDark, Dither.avatarMid, Dither.avatarLight, Dither.avatarBright
+    ].join(" ")
+    property var frame: null            // frame.json: {key, file, lo, hi}
+    property string frameReadPath: ""   // для какого пути frame.json уже прочитан
+    readonly property bool frameFresh: frameKey !== "" && frame?.key === frameKey
+    readonly property string avatarFrame: frameFresh ? "file://" + frameDir + "/" + frame.file : ""
+    readonly property var avatarBounds: frameFresh && frame.lo ? {
+        lo: Qt.vector3d(frame.lo[0], frame.lo[1], frame.lo[2]),
+        hi: Qt.vector3d(frame.hi[0], frame.hi[1], frame.hi[2])
+    } : null
+    property bool shotFailed: false     // без QtQuick3D или модель не открылась
+    readonly property bool needShot: frameKey !== "" && frameReadPath === frameFile.path
+                                     && !frameFresh && !shotFailed && !persist.locked
 
     readonly property string home: Quickshell.env("HOME")
     readonly property string user: Quickshell.env("USER") ?? ""
@@ -111,6 +138,118 @@ Scope {
             if (root.secure && root.lockStarted > 0)
                 console.warn("lock: экран закрыт за", Date.now() - root.lockStarted, "мс")
         }
+    }
+
+    FileView {
+        id: frameFile
+        path: root.frameDir !== "" ? root.frameDir + "/frame.json" : ""
+        printErrors: false
+        onLoaded: {
+            try {
+                root.frame = JSON.parse(text())
+            } catch (e) {
+                root.frame = null
+            }
+            root.frameReadPath = path
+        }
+        onLoadFailed: {
+            root.frame = null
+            root.frameReadPath = path
+        }
+    }
+
+    // Снимок декодируем заранее, как обои: лок берёт его из кеша Qt.
+    // Свойства — те же, что у картинки в LockSurface, иначе ключ кеша другой
+    Image {
+        visible: false
+        source: root.avatarFrame
+        asynchronous: true
+    }
+
+    // Фоновый рендер авы для снимка: окно в пиксель, прозрачное и
+    // сквозное для мыши, а сама ава — за его краем. Qt Quick 3D рисует
+    // её в свою текстуру и за краем, так что снимается она целиком, а
+    // на экране ничего нет. Окно живёт, пока снимок не готов
+    LazyLoader {
+        active: root.needShot
+
+        PanelWindow {
+            id: shotWin
+            anchors { top: true; left: true }
+            implicitWidth: 1
+            implicitHeight: 1
+            color: "transparent"
+            exclusionMode: ExclusionMode.Ignore
+            WlrLayershell.namespace: "quickshell:lock-avatar"
+            WlrLayershell.layer: WlrLayer.Background
+            WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+            mask: Region {}
+
+            readonly property real started: Date.now()
+
+            // Через Loader, как и на локе: без QtQuick3D он просто не
+            // загрузится, а лок останется
+            Loader {
+                id: shot
+                x: -width - 1
+                width: Settings.lockColumn
+                height: Settings.lockColumn
+                source: "Avatar3D.qml"
+                asynchronous: true
+                onLoaded: {
+                    shot.item.still = true
+                    shot.item.scene = Qt.binding(() => root.avatarScene !== "" ? "file://" + root.avatarScene : "")
+                    shot.item.model = Qt.binding(() => "file://" + root.avatarModel)
+                }
+                onStatusChanged: if (status === Loader.Error) root.shotFailed = true
+            }
+
+            // Готова — значит, меши измерены, то есть уже нарисованы. Ещё
+            // чуть ждём, чтобы в кадре наверняка была вся модель
+            Timer {
+                running: shot.status === Loader.Ready && (shot.item?.ready ?? false)
+                interval: 300
+                onTriggered: {
+                    const key = root.frameKey
+                    const a = shot.item
+                    a.grabToImage(r => {
+                        const file = "frame-" + Qt.md5(key) + ".png"
+                        if (!r.saveToFile(root.frameDir + "/" + file)) {
+                            console.warn("lock: кадр авы не записался в", root.frameDir)
+                            root.shotFailed = true
+                            return
+                        }
+                        const frame = {
+                            key, file,
+                            lo: [a.lo.x, a.lo.y, a.lo.z],
+                            hi: [a.hi.x, a.hi.y, a.hi.z]
+                        }
+                        frameFile.setText(JSON.stringify(frame))
+                        root.frame = frame
+                        frameClean.command = ["sh", "-c",
+                            'cd "$1" && for f in frame-*.png; do [ "$f" = "$2" ] || rm -f -- "$f"; done',
+                            "sh", root.frameDir, file]
+                        frameClean.running = true
+                        console.warn("lock: кадр авы снят за", Date.now() - shotWin.started, "мс")
+                    })
+                }
+            }
+
+            // Модель так и не открылась — не держим окно вечно
+            Timer {
+                running: true
+                interval: 60000
+                onTriggered: {
+                    console.warn("lock: кадр авы не снялся за минуту — на локе будет ~/.face")
+                    root.shotFailed = true
+                }
+            }
+        }
+    }
+
+    // Старые снимки — от прежних моделей и настроек
+    Process {
+        id: frameClean
     }
 
     // Модель ищем и при старте — в логе сразу видно, нашлась ли она
@@ -181,8 +320,9 @@ Scope {
 
     // Ищем ~/avatar.* и, если есть balsam, один раз переводим модель в
     // QML-сцену в кеше: RuntimeLoader анимации не проигрывает, а сцена —
-    // да. Кеш пересобирается, когда модель меняется. Вывод — две строки:
-    // модель и сцена (пустая, если balsam'а нет или он не справился)
+    // да. Кеш пересобирается, когда модель меняется. Вывод — четыре строки:
+    // модель, сцена (пустая, если balsam'а нет или он не справился), ключ
+    // модели и папка для готового кадра авы
     Process {
         id: modelProbe
         command: ["sh", "-c", `
@@ -190,29 +330,36 @@ Scope {
                 [ -f "$1/avatar.$e" ] && { src="$1/avatar.$e"; break; }
             done
             [ -n "\${src:-}" ] || exit 0
-            echo "$src"
-            command -v balsam >/dev/null || { echo; exit 0; }
-            cache="\${XDG_CACHE_HOME:-$1/.cache}/quickshell/lock-avatar"
+            base="\${XDG_CACHE_HOME:-$1/.cache}/quickshell"
+            cache="$base/lock-avatar"
             # Ключ кеша — настоящие пути модели и balsam'а: ~/avatar.glb
             # бывает ссылкой в /nix/store, и новая модель — это новая цель
             # ссылки, а не новое время файла. А после обновления Qt старая
-            # сцена может не прочитаться — пересобираем. Ключевые кадры
-            # пишем прямо в QML: двоичные .qad читает не всякий Timeline
-            key="v2 $(readlink -f "$src") $(readlink -f "$(command -v balsam)")"
-            if [ "$(cat "$cache/source" 2>/dev/null)" != "$key" ] || [ "$src" -nt "$cache/source" ]; then
-                rm -rf "$cache" && mkdir -p "$cache"
-                QT_QPA_PLATFORM=offscreen balsam --manualAnimations --disable-useBinaryKeyframes \
-                    -o "$cache" "$src" >&2 \
-                    && echo "$key" > "$cache/source"
+            # сцена может не прочитаться — пересобираем. Время правки — на
+            # случай модели, которую перезаписали на месте
+            balsam=$(command -v balsam || true)
+            key="v2 $(readlink -f "$src") $(stat -Lc %Y "$src") $(readlink -f "$balsam")"
+            scene=
+            if [ -n "$balsam" ]; then
+                # Ключевые кадры пишем прямо в QML: двоичные .qad читает не всякий Timeline
+                if [ "$(cat "$cache/source" 2>/dev/null)" != "$key" ]; then
+                    rm -rf "$cache" && mkdir -p "$cache"
+                    QT_QPA_PLATFORM=offscreen balsam --manualAnimations --disable-useBinaryKeyframes \
+                        -o "$cache" "$src" >&2 \
+                        && echo "$key" > "$cache/source"
+                fi
+                [ -f "$cache/source" ] && scene=$(ls "$cache"/*.qml 2>/dev/null | head -n 1)
             fi
-            [ -f "$cache/source" ] && ls "$cache"/*.qml 2>/dev/null | head -n 1
-            echo`,
+            mkdir -p "$base/lock-avatar-frame"
+            printf '%s\n' "$src" "$scene" "$key" "$base/lock-avatar-frame"`,
             "qs", root.home]
         stdout: StdioCollector {
             onStreamFinished: {
-                const [model, scene] = this.text.split("\n")
+                const [model, scene, key, frameDir] = this.text.split("\n")
                 root.avatarModel = model ?? ""
                 root.avatarScene = scene ?? ""
+                root.avatarKey = key ?? ""
+                root.frameDir = frameDir ?? ""
                 console.warn("lock: 3D-ава:", root.avatarModel || "нет ~/avatar.(glb|gltf|fbx|obj)",
                              root.avatarModel === "" ? ""
                              : root.avatarScene !== "" ? "→ сцена " + root.avatarScene
