@@ -412,7 +412,7 @@ Item {
 
                 // Круг на паузе, печенька при игре — и медленно крутится,
                 // как пластинка
-                MorphShape {
+                MaterialShape {
                     id: playBtn
                     width: 42; height: 42
                     anchors.verticalCenter: parent.verticalCenter

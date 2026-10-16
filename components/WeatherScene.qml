@@ -165,14 +165,14 @@ Item {
 
         // Само солнце — фигура Sunny из MD3 Expressive, медленно вращается.
         // Повёрнута на четверть, чтобы градиент шейдера шёл сверху вниз
-        MorphShape {
+        MaterialShape {
             id: sunShape
             anchors.centerIn: parent
             width: 64; height: 64
             radius: 31
             rotation: 90
-            from: Shapes.sunnyFull
-            to: Shapes.sunnyFull
+            from: Shapes.sunny
+            to: Shapes.sunny
             // У горизонта — рыжее
             colorFrom: Theme.mix("#fff3c4", "#ffd2a1", root.dawn)
             colorTo: Theme.mix(Theme.peach, "#f0866c", root.dawn)
