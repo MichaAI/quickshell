@@ -14,7 +14,6 @@ Item {
     PwObjectTracker { objects: Audio.streams }
 
     component VolRow: Item {
-        id: volRow
         property alias icon: ico.text
         property alias iconColor: ico.color
         property string label: ""
@@ -68,19 +67,16 @@ Item {
             }
         }
 
-        Item {
+        Text {
             id: perc
             width: 34
-            height: percText.implicitHeight
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
-            MorphText {
-                id: percText
-                anchors.right: parent.right
-                text: Math.round(volRow.value * 100) + ""
-                pixelSize: 12
-                color: volRow.muted ? Theme.overlay0 : Theme.text
-            }
+            text: Math.round(parent.value * 100) + ""
+            horizontalAlignment: Text.AlignRight
+            font.family: Theme.font
+            font.pixelSize: 12
+            color: parent.muted ? Theme.overlay0 : Theme.text
         }
     }
 
