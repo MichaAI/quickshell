@@ -23,12 +23,39 @@ Item {
 
     signal moved(real value)
 
+    // Пока тянут, ручка едет за мышью сразу, а наружу (PipeWire, MPRIS)
+    // значение уходит не чаще раза в sendEvery мс и только если сдвинулось
+    // хотя бы на sendStep; последнее положение отправляется при отпускании
+    property int sendEvery: 60
+    property real sendStep: 0.005
+    property real held: NaN         // положение под мышью, пока тянут
+    property real sent: NaN         // последнее отправленное
+    function send(force) {
+        if (isNaN(held) || (!force && Math.abs(held - sent) < sendStep) || held === sent)
+            return
+        sent = held
+        moved(held)
+        throttle.restart()
+    }
+    Timer {
+        id: throttle
+        interval: root.sendEvery
+        onTriggered: root.send(false)
+    }
+    // После отпускания ещё немного держим ручку на месте, пока значение
+    // не вернётся оттуда, куда его отправили, — чтобы не дёрнулась назад
+    Timer {
+        id: unhold
+        interval: 300
+        onTriggered: root.held = NaN
+    }
+
     readonly property bool pill: !wavy && Settings.sliderStyle === "pill"
     readonly property real trackH: wavy ? 4 : Theme.sliderSpec[0]
     readonly property real corner: wavy ? 2 : Math.min(Theme.sliderSpec[1], trackH / 2)
     readonly property real handleH: wavy ? 20 : pill ? trackH : Theme.sliderSpec[2]
     readonly property real gap: 6
-    readonly property real v: Math.max(0, Math.min(1, value))
+    readonly property real v: Math.max(0, Math.min(1, isNaN(held) ? value : held))
     // Центр ручки ходит между краями с отступом в полручки (ручка 4 px)
     readonly property real cx: 2 + v * (width - 4)
     readonly property real activeEnd: cx - 2 - gap
@@ -159,11 +186,27 @@ Item {
         function report(mx) {
             const v = root.pill ? (mx - root.trackH / 2) / (root.width - root.trackH)
                                 : (mx - 2) / (root.width - 4)
-            root.moved(Math.max(0, Math.min(1, v)))
+            unhold.stop()
+            root.held = Math.max(0, Math.min(1, v))
+            if (!throttle.running)
+                root.send(false)
         }
 
-        onPressed: event => report(event.x)
+        onPressed: event => {
+            root.sent = NaN
+            report(event.x)
+        }
         onPositionChanged: event => { if (pressed) report(event.x) }
+        onReleased: {
+            throttle.stop()
+            root.send(true)
+            unhold.restart()
+        }
+        onCanceled: {
+            throttle.stop()
+            root.send(true)
+            unhold.restart()
+        }
         onWheel: wheel => {
             const d = wheel.angleDelta.y > 0 ? root.wheelStep : -root.wheelStep
             root.moved(Math.max(0, Math.min(1, root.value + d)))

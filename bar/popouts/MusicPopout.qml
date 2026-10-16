@@ -345,6 +345,8 @@ Item {
             StyledSlider {
                 width: parent.width
                 wavy: true
+                // Перемотка по MPRIS — не чаще четырёх раз в секунду
+                sendEvery: 250
                 colorFrom: root.accentFrom
                 colorTo: root.accentTo
                 moving: root.player?.isPlaying ?? false

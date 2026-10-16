@@ -17,8 +17,16 @@ Item {
 
     // Ветер поперёк взгляда: + — дует вправо (на восток)
     readonly property real windX: wind * Math.sin((windDir + 180) * Math.PI / 180)
+    // Тот же ветер, но с инерцией: при смене погоды не дёргается, а
+    // за пару секунд стихает и разгоняется в новую сторону
+    property real windNow: 0
+    Component.onCompleted: windNow = windX
+    FrameAnimation {
+        running: Math.abs(root.windNow - root.windX) > 0.001
+        onTriggered: root.windNow += (root.windX - root.windNow) * (1 - Math.exp(-frameTime / 0.8))
+    }
     // Наклон дождя и снега, градусы: + — низ капли правее верха
-    readonly property real tilt: Math.max(-35, Math.min(35, windX * 3))
+    readonly property real tilt: Math.max(-35, Math.min(35, windNow * 3))
     readonly property real slope: Math.tan(tilt * Math.PI / 180)
 
     // Для PopoutReveal: проявлять сцену целиком, не разбирая на частицы
@@ -58,22 +66,28 @@ Item {
         }
     }
 
-    // ===== Звёзды =====
-    Repeater {
-        model: root.isDay || root.overcast ? 0 : 28
-        delegate: Rectangle {
-            id: star
-            required property int index
-            readonly property real s: 1 + root.rnd(star.index, 3) * 1.6
-            x: root.rnd(star.index, 1) * root.width
-            y: root.rnd(star.index, 2) * root.height * 0.75
-            width: s; height: s; radius: s / 2
-            color: "white"
-            SequentialAnimation on opacity {
-                loops: Animation.Infinite
-                PauseAnimation { duration: root.rnd(star.index, 4) * 3000 }
-                NumberAnimation { to: 0.15; duration: 900 + root.rnd(star.index, 5) * 1400; easing.type: Easing.InOutSine }
-                NumberAnimation { to: 0.85; duration: 900 + root.rnd(star.index, 6) * 1400; easing.type: Easing.InOutSine }
+    // ===== Звёзды: за облаками тают, а не пропадают =====
+    Item {
+        anchors.fill: parent
+        opacity: root.isDay || root.overcast ? 0 : 1
+        Behavior on opacity { NumberAnimation { duration: 1200; easing.type: Easing.InOutQuad } }
+        visible: opacity > 0.001
+        Repeater {
+            model: root.isDay ? 0 : 28
+            delegate: Rectangle {
+                id: star
+                required property int index
+                readonly property real s: 1 + root.rnd(star.index, 3) * 1.6
+                x: root.rnd(star.index, 1) * root.width
+                y: root.rnd(star.index, 2) * root.height * 0.75
+                width: s; height: s; radius: s / 2
+                color: "white"
+                SequentialAnimation on opacity {
+                    loops: Animation.Infinite
+                    PauseAnimation { duration: root.rnd(star.index, 4) * 3000 }
+                    NumberAnimation { to: 0.15; duration: 900 + root.rnd(star.index, 5) * 1400; easing.type: Easing.InOutSine }
+                    NumberAnimation { to: 0.85; duration: 900 + root.rnd(star.index, 6) * 1400; easing.type: Easing.InOutSine }
+                }
             }
         }
     }
@@ -81,9 +95,9 @@ Item {
     // ===== Солнце: ядро и дышащие ореолы =====
     Item {
         id: sun
-        visible: root.showSun
-        opacity: root.lightOpacity
-        Behavior on opacity { NumberAnimation { duration: 600 } }
+        opacity: root.showSun ? root.lightOpacity : 0
+        Behavior on opacity { NumberAnimation { duration: 1200; easing.type: Easing.InOutQuad } }
+        visible: opacity > 0.001
         width: 52; height: 52
         x: root.width - 80
         y: 18
@@ -148,9 +162,9 @@ Item {
     // ===== Луна =====
     Item {
         id: moon
-        visible: root.showMoon
-        opacity: root.lightOpacity
-        Behavior on opacity { NumberAnimation { duration: 600 } }
+        opacity: root.showMoon ? root.lightOpacity : 0
+        Behavior on opacity { NumberAnimation { duration: 1200; easing.type: Easing.InOutQuad } }
+        visible: opacity > 0.001
         width: 40; height: 40
         x: root.width - 74
         y: 20
@@ -185,31 +199,45 @@ Item {
     }
 
     // ===== Облака =====
+    // Набор облаков всегда один и тот же, погода только решает, какие видны:
+    // лишние тают, нужные проявляются, а остальные плывут дальше как плыли
     component Cloud: Item {
         id: cloud
         property color tint: "white"
+        Behavior on tint { ColorAnimation { duration: 1200 } }
         // Круги рисуются непрозрачными, прозрачность — всему облаку разом,
         // иначе на стыках кругов темнеет
         property real alpha: 0.2
-        opacity: alpha
+        Behavior on alpha { NumberAnimation { duration: 1200; easing.type: Easing.InOutQuad } }
+        property bool shown: true
+        property real fade: shown ? 1 : 0
+        Behavior on fade { NumberAnimation { duration: 1200; easing.type: Easing.InOutQuad } }
+        opacity: alpha * fade
+        visible: opacity > 0.001
         layer.enabled: true
         // Сглаживание слоя: без него текстура липнет к целым пикселям,
         // и медленное облако ползёт рывками
         layer.smooth: true
         property real phase: 0          // начальная позиция, 0…1
-        property int period: 60000      // полный проход, мс
-        property int dir: 1             // 1 — вправо, -1 — влево
+        property real period: 60000     // полный проход в штиль, мс
         property real span: 0           // ширина неба
-        property real t
-        readonly property real p: (t + phase) % 1
 
         width: 120; height: 48
-        x: dir > 0 ? -width + (span + width) * p : span - (span + width) * p
+        x: -width + (span + width) * phase
 
-        NumberAnimation on t {
-            from: 0; to: 1
-            duration: cloud.period
-            loops: Animation.Infinite
+        // Едет со скоростью ветра; за краем неба выходит с другой стороны
+        FrameAnimation {
+            running: cloud.visible
+            onTriggered: {
+                const w = root.windNow
+                // В штиль — вправо; ветер разгоняет в свою сторону. Плавно
+                // через ноль: облака тормозят и разворачиваются, а не прыгают
+                const flow = w / 4 + Math.max(-1, Math.min(1, 2 * w + 1))
+                let nx = cloud.x + flow * (cloud.span + cloud.width) * frameTime * 1000 / cloud.period
+                if (nx > cloud.span) nx -= cloud.span + cloud.width
+                else if (nx < -cloud.width) nx += cloud.span + cloud.width
+                cloud.x = nx
+            }
         }
 
         Rectangle { x: 0; y: parent.height * 0.45; width: parent.width; height: parent.height * 0.55; radius: height / 2; color: cloud.tint }
@@ -217,28 +245,27 @@ Item {
         Rectangle { x: parent.width * 0.40; y: 0; width: parent.width * 0.42; height: width; radius: width / 2; color: cloud.tint }
     }
 
-    readonly property int cloudCount: kind === "partly" ? 2 : (overcast ? 5 : 0)
+    // Переменная облачность — два облака из пяти, в верхних полосах
+    readonly property var cloudsShown: kind === "partly" ? [0, 2] : overcast ? [0, 1, 2, 3, 4] : []
 
     Repeater {
-        model: root.cloudCount
+        model: 5
         delegate: Cloud {
             id: skyCloud
             required property int index
             readonly property real depth: root.rnd(skyCloud.index, 7)
             // Своя полоса по высоте, перемешанная относительно порядка по x,
             // чтобы соседи по небу не шли одной линией
-            readonly property int lane: (skyCloud.index * 3) % root.cloudCount
+            readonly property int lane: (skyCloud.index * 3) % 5
+            shown: root.cloudsShown.includes(skyCloud.index)
             width: 80 + depth * 70
             height: width * 0.4
-            y: -8 + (lane + root.rnd(skyCloud.index, 8) * 0.6) / root.cloudCount
-                 * root.height * (root.kind === "partly" ? 0.45 : 0.5)
+            y: -8 + (lane + root.rnd(skyCloud.index, 8) * 0.6) / 5 * root.height * 0.5
             span: root.width
             // Равномерно по ширине с небольшим разбросом, а не как выпадет
-            phase: (skyCloud.index + root.rnd(skyCloud.index, 9) * 0.5) / root.cloudCount
+            phase: (skyCloud.index + root.rnd(skyCloud.index, 9) * 0.5) / 5
             // Скорости близкие: сильно разные нагоняли друг друга и сбивались в кучу
-            // Ветер гонит быстрее и в свою сторону
-            period: (62000 - depth * 12000) / (1 + Math.abs(root.windX) / 4)
-            dir: root.windX < -0.5 ? -1 : 1
+            period: 62000 - depth * 12000
             tint: root.wet ? (root.isDay ? "#c3cede" : "#8f9ab0") : "white"
             alpha: root.kind === "partly" ? (root.isDay ? 0.22 : 0.1) + depth * 0.14
                  : root.wet ? 0.12 + depth * 0.12

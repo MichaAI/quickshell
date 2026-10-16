@@ -23,6 +23,7 @@ Item {
     property real slide: 0
     property real shrink: 1
     property real drag: 0                // смещение пальцами, px
+    property bool swiping: false         // пальцы сейчас тянут карточку
     property int dir: 1                  // куда уезжать: 1 — вправо, -1 — влево
     property var after: null
     property int delay: 0
@@ -42,17 +43,22 @@ Item {
     Component.onCompleted: if (enter) inAnim.start()
 
     // ===== Свайп двумя пальцами =====
+    // Слушает только горизонтальную составляющую (по умолчанию WheelHandler
+    // берёт лишь события с вертикальной и чисто вбок не срабатывал). Пока
+    // карточку не тянут, события идут дальше — список листается как обычно;
+    // отказаться от события из onWheel нельзя, поэтому через blocking.
     WheelHandler {
         target: null
         acceptedDevices: PointerDevice.TouchPad
+        orientation: Qt.Horizontal
+        blocking: root.swiping
         onWheel: event => {
             const dx = event.pixelDelta.x, dy = event.pixelDelta.y
             // Вертикальное — список листать; инерция после отпускания — мимо
             if (root.leaving || event.phase === Qt.ScrollMomentum
-                    || (root.drag === 0 && Math.abs(dx) <= Math.abs(dy))) {
-                event.accepted = false
+                    || (!root.swiping && Math.abs(dx) <= Math.abs(dy)))
                 return
-            }
+            root.swiping = true
             snapBack.stop()
             root.drag += Settings.notifSwipeInvert ? -dx : dx
             if (event.phase === Qt.ScrollEnd)
@@ -69,6 +75,7 @@ Item {
     }
     function release() {
         releaseTimer.stop()
+        swiping = false
         if (Math.abs(drag) > width / 3) {
             dir = drag > 0 ? 1 : -1
             leave(() => root.notif.dismiss())
