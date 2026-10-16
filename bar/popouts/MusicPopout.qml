@@ -43,21 +43,63 @@ Item {
     Component.onCompleted: Cava.viewers++
     Component.onDestruction: Cava.viewers--
 
-    component CtlBtn: Text {
+    // Кнопка группы MD3 Expressive: тональная пилюля; нажатая шире и
+    // квадратнее, соседи на это время ужимаются (ControlGroup.shift)
+    component CtlBtn: Rectangle {
+        id: btn
+        property alias text: glyph.text
         property bool on: true
+        property bool toggle: false     // переключатель: подсвечен, пока on
+        property ControlGroup group
+        property int idx: 0
         signal pressed()
-        font.family: Theme.font
-        font.pixelSize: 16
-        color: bma.containsMouse ? Theme.text : (on ? Theme.subtext1 : Theme.overlay0)
+
+        readonly property bool down: bma.pressed
+        onDownChanged: group.press(idx, down)
+
+        width: 44 + group.shift(idx)
+        height: 36
+        radius: group.pressedIdx === idx ? 10 : height / 2
         anchors.verticalCenter: parent.verticalCenter
+        color: toggle && on ? Theme.alpha(group.accent, 0.22)
+             : bma.containsMouse ? Theme.surface1 : Theme.surface0
+        Behavior on width { Spring { epsilon: 0.05 } }
+        Behavior on radius { Spring { epsilon: 0.05 } }
+        Behavior on color { ColorAnimation { duration: 150 } }
+
+        Text {
+            id: glyph
+            anchors.centerIn: parent
+            font.family: Theme.font
+            font.pixelSize: 16
+            color: btn.toggle && btn.on ? btn.group.accent
+                 : btn.on ? Theme.text : Theme.overlay0
+        }
 
         MouseArea {
             id: bma
             anchors.fill: parent
-            anchors.margins: -6
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
-            onClicked: parent.pressed()
+            onClicked: btn.pressed()
+        }
+    }
+
+    // Ряд кнопок, который знает, какая нажата
+    component ControlGroup: Row {
+        property color accent: Theme.mauve
+        property int pressedIdx: -1
+        function press(i, down) {
+            if (down)
+                pressedIdx = i
+            else if (pressedIdx === i)
+                pressedIdx = -1
+        }
+        // Нажатая шире на 14, соседи уже на 7
+        function shift(i) {
+            if (pressedIdx < 0)
+                return 0
+            return i === pressedIdx ? 14 : Math.abs(i - pressedIdx) === 1 ? -7 : 0
         }
     }
 
@@ -342,11 +384,15 @@ Item {
             width: parent.width
             height: 44
 
-            Row {
+            ControlGroup {
+                id: controls
                 anchors.centerIn: parent
-                spacing: 18
+                spacing: 6
+                accent: root.accentTo
 
                 CtlBtn {
+                    group: controls; idx: 0
+                    toggle: true
                     text: "󰒝"
                     on: root.player?.shuffle ?? false
                     visible: root.player?.shuffleSupported ?? false
@@ -354,6 +400,7 @@ Item {
                 }
 
                 CtlBtn {
+                    group: controls; idx: 1
                     text: "󰒮"
                     on: root.player?.canGoPrevious ?? false
                     onPressed: if (root.player?.canGoPrevious) root.player.previous()
@@ -371,7 +418,8 @@ Item {
                     colorTo: root.accentTo
                     morph: Players.playing ? 1 : 0
                     Behavior on morph { Spring { epsilon: 0.002 } }
-                    scale: pma.pressed ? 0.9 : pma.containsMouse ? 1.08 : 1
+                    // В группе: нажатая раздувается, соседи ужимаются
+                    scale: pma.pressed ? 1.12 : pma.containsMouse ? 1.06 : 1
                     Behavior on scale { Spring { epsilon: 0.002 } }
 
                     FrameAnimation {
@@ -392,16 +440,20 @@ Item {
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
                         onClicked: root.player?.togglePlaying()
+                        onPressedChanged: controls.press(2, pressed)
                     }
                 }
 
                 CtlBtn {
+                    group: controls; idx: 3
                     text: "󰒭"
                     on: root.player?.canGoNext ?? false
                     onPressed: if (root.player?.canGoNext) root.player.next()
                 }
 
                 CtlBtn {
+                    group: controls; idx: 4
+                    toggle: true
                     text: root.player?.loopState === MprisLoopState.Track ? "󰑘" : "󰑖"
                     on: (root.player?.loopState ?? MprisLoopState.None) !== MprisLoopState.None
                     visible: root.player?.loopSupported ?? false
