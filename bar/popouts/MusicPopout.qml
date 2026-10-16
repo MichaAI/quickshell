@@ -39,6 +39,10 @@ Item {
         return a === title ? "" : a
     }
 
+    // Текст песни вместо эквалайзера — кнопкой, если LRCLIB его знает
+    property bool showLyrics: false
+    readonly property bool lyricsOn: showLyrics && Lyrics.available
+
     // Эквалайзер: cava живёт в сервисе и замерзает, пока попаут закрыт
     Component.onCompleted: Cava.viewers++
     Component.onDestruction: Cava.viewers--
@@ -307,31 +311,156 @@ Item {
             }
         }
 
-        // Эквалайзер
-        Row {
-            id: eqRow
+        // Эквалайзер или текст песни: место под текст раздвигается пружиной
+        Item {
+            id: midArea
             width: parent.width
-            height: 42
-            spacing: 3
+            height: root.lyricsOn ? 150 : 42
+            Behavior on height { Spring { epsilon: 0.5 } }
+            clip: true
 
-            readonly property int n: Math.max(1, Cava.bars.length)
-            readonly property real barW: (width - spacing * (n - 1)) / n
+            Row {
+                id: eqRow
+                width: parent.width
+                height: 42
+                anchors.bottom: parent.bottom
+                spacing: 3
+                opacity: root.lyricsOn ? 0 : 1
+                visible: opacity > 0.01
+                Behavior on opacity { NumberAnimation { duration: 200 } }
 
-            Repeater {
-                model: Cava.bars.length
+                readonly property int n: Math.max(1, Cava.bars.length)
+                readonly property real barW: (width - spacing * (n - 1)) / n
 
+                Repeater {
+                    model: Cava.bars.length
+
+                    Rectangle {
+                        required property int index
+                        width: eqRow.barW
+                        height: Math.max(3, (Cava.bars[index] ?? 0) / 100 * eqRow.height)
+                        anchors.bottom: parent.bottom
+                        radius: width / 2.5
+                        color: Theme.mix(root.accentFrom, root.accentTo,
+                                         eqRow.n > 1 ? index / (eqRow.n - 1) : 0)
+                        opacity: 0.4 + 0.6 * ((Cava.bars[index] ?? 0) / 100)
+
+                        Behavior on height {
+                            NumberAnimation { duration: 60 }
+                        }
+                    }
+                }
+            }
+
+            // Текст песни: звучащая строка — посередине и в цвет обложки,
+            // соседние тише. Клик по строке перематывает к ней
+            Item {
+                id: lyr
+                anchors.fill: parent
+                opacity: root.lyricsOn ? 1 : 0
+                visible: opacity > 0.01
+                Behavior on opacity { NumberAnimation { duration: 200 } }
+
+                // Позиция MPRIS тикает раз в секунду — между тиками досчитываем сами
+                property real base: root.player?.position ?? 0
+                property real stamp: Date.now()
+                property real pos: base
+                Connections {
+                    target: root.player
+                    function onPositionChanged() {
+                        lyr.base = root.player.position
+                        lyr.stamp = Date.now()
+                    }
+                }
+                FrameAnimation {
+                    running: lyr.visible && Lyrics.synced
+                    onTriggered: lyr.pos = lyr.base + (root.player?.isPlaying ? (Date.now() - lyr.stamp) / 1000 : 0)
+                }
+                readonly property int cur: Lyrics.lineAt(pos + 0.15)
+
+                ListView {
+                    id: lyrList
+                    anchors.fill: parent
+                    clip: true
+                    spacing: 6
+                    model: Lyrics.lines
+                    boundsBehavior: Flickable.StopAtBounds
+                    currentIndex: Math.max(0, lyr.cur)
+                    highlightRangeMode: Lyrics.synced ? ListView.ApplyRange : ListView.NoHighlightRange
+                    preferredHighlightBegin: height / 2 - 12
+                    preferredHighlightEnd: height / 2 + 12
+                    highlightMoveDuration: 450
+                    highlightMoveVelocity: -1
+
+                    // Для строк: снаружи делегата видно только сам список
+                    readonly property int cur: lyr.cur
+                    readonly property color accent: Theme.mix(root.accentFrom, root.accentTo, 0.5)
+                    readonly property bool canSeek: Lyrics.synced && (root.player?.canSeek ?? false)
+                    function seek(t) { root.player.position = t }
+
+                    delegate: Text {
+                        id: line
+                        required property var modelData
+                        required property int index
+                        readonly property var view: ListView.view
+                        readonly property bool current: Lyrics.synced && line.index === view.cur
+                        width: view.width
+                        // Справа — место под кнопку копирования
+                        leftPadding: 30
+                        rightPadding: 30
+                        horizontalAlignment: Text.AlignHCenter
+                        wrapMode: Text.WordWrap
+                        text: line.modelData.text || "♪"
+                        font.family: Theme.font
+                        // Без жирного: он перекладывал строку и обрезал её край
+                        font.pixelSize: 13
+                        color: line.current ? view.accent : Theme.subtext0
+                        opacity: !Lyrics.synced ? 0.9
+                               : line.current ? 1 : Math.max(0.3, 0.8 - 0.15 * Math.abs(line.index - view.cur))
+                        Behavior on opacity { NumberAnimation { duration: 250 } }
+                        Behavior on color { ColorAnimation { duration: 250 } }
+
+                        HoverHandler {
+                            enabled: line.view.canSeek
+                            cursorShape: Qt.PointingHandCursor
+                        }
+                        TapHandler {
+                            enabled: line.view.canSeek
+                            onTapped: line.view.seek(line.modelData.t)
+                        }
+                    }
+                }
+
+                // Копировать весь текст
                 Rectangle {
-                    required property int index
-                    width: eqRow.barW
-                    height: Math.max(3, (Cava.bars[index] ?? 0) / 100 * eqRow.height)
-                    anchors.bottom: parent.bottom
-                    radius: width / 2.5
-                    color: Theme.mix(root.accentFrom, root.accentTo,
-                                     eqRow.n > 1 ? index / (eqRow.n - 1) : 0)
-                    opacity: 0.4 + 0.6 * ((Cava.bars[index] ?? 0) / 100)
-
-                    Behavior on height {
-                        NumberAnimation { duration: 60 }
+                    anchors.top: parent.top
+                    anchors.right: parent.right
+                    width: 26; height: 26; radius: 13
+                    color: copyMa.containsMouse ? Theme.surface1 : Theme.surface0
+                    opacity: 0.9
+                    Text {
+                        id: copyGlyph
+                        anchors.centerIn: parent
+                        text: "󰆏"
+                        font.family: Theme.font
+                        font.pixelSize: 13
+                        color: Theme.text
+                    }
+                    MouseArea {
+                        id: copyMa
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            Tools.copy(Lyrics.plain)
+                            copyGlyph.text = "󰄬"
+                            copied.restart()
+                        }
+                    }
+                    Timer {
+                        id: copied
+                        interval: 1200
+                        onTriggered: copyGlyph.text = "󰆏"
                     }
                 }
             }
@@ -468,6 +597,15 @@ Item {
                           : s === MprisLoopState.Playlist ? MprisLoopState.Track
                           : MprisLoopState.None
                     }
+                }
+
+                CtlBtn {
+                    group: controls; idx: 5
+                    toggle: true
+                    text: "󰍡"
+                    on: root.showLyrics
+                    visible: Lyrics.available
+                    onPressed: root.showLyrics = !root.showLyrics
                 }
             }
         }
