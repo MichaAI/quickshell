@@ -7,6 +7,8 @@ import "Shapes.js" as Shapes
 // Живое небо в духе Breezy Weather: градиент по погоде и времени суток,
 // солнце с дышащими ореолами или луна со звёздами, плывущие облака,
 // дождь, снег, туман и молнии. Ветер косит дождь и снег и гонит облака.
+// Солнце и луна идут дугой по небу по времени time между восходом и
+// закатом, у горизонта небо теплеет; у луны — настоящая фаза на эту дату.
 // Обрезку по скруглению делает родитель.
 Item {
     id: root
@@ -15,6 +17,40 @@ Item {
     property bool isDay: true
     property real wind: 0           // м/с
     property real windDir: 0        // откуда дует, градусы
+    property real time: Date.now()  // какой момент показываем, мс
+    property string rise: ""        // восход и закат того дня, "HH:mm"
+    property string set: ""
+
+    // ===== Время суток =====
+    function minutesOf(s, fallback) {
+        return s ? Number(s.slice(0, 2)) * 60 + Number(s.slice(3, 5)) : fallback
+    }
+    readonly property real riseMin: minutesOf(rise, 6 * 60)
+    readonly property real setMin: Math.max(riseMin + 60, minutesOf(set, 18 * 60))
+    readonly property real minute: { const d = new Date(time); return d.getHours() * 60 + d.getMinutes() }
+    // Доля пути солнца (днём) или луны (ночью) от восхода к закату, 0…1
+    readonly property real arcTarget: {
+        if (isDay)
+            return Math.max(0, Math.min(1, (minute - riseMin) / (setMin - riseMin)))
+        const m = minute < riseMin ? minute + 1440 : minute
+        return Math.max(0, Math.min(1, (m - setMin) / (riseMin + 1440 - setMin)))
+    }
+    property real arc: arcTarget
+    Behavior on arc { NumberAnimation { duration: 900; easing.type: Easing.InOutCubic } }
+    // Близость к восходу или закату: 1 — на самом горизонте, 0 — за час и дальше
+    readonly property real dawn: {
+        const d = Math.min(Math.abs(minute - riseMin), Math.abs(minute - setMin))
+        return Math.max(0, 1 - d / 60)
+    }
+    // Фаза луны: 0 — новолуние, 0.5 — полнолуние (от новолуния 6 января 2000)
+    readonly property real moonPhase: {
+        const days = (time - Date.UTC(2000, 0, 6, 18, 14)) / 86400000
+        return ((days / 29.530588853) % 1 + 1) % 1
+    }
+    // Точка дуги: от низа справа-слева к верху; дуга — в правой части
+    // карточки, левая занята текстом
+    function arcX(u) { return width * 0.62 + u * (width * 0.38 - 30) }
+    function arcY(u) { return height * 0.55 - Math.sin(Math.PI * u) * height * 0.31 }
 
     // Ветер поперёк взгляда: + — дует вправо (на восток)
     readonly property real windX: wind * Math.sin((windDir + 180) * Math.PI / 180)
@@ -42,7 +78,7 @@ Item {
     readonly property real lightOpacity: dimLight ? 0.3 : 1
 
     // Небо: [верх, низ]. Достаточно тёмное, чтобы светлый текст читался
-    readonly property var sky: {
+    readonly property var baseSky: {
         if (kind === "thunder") return ["#1f1a2e", "#3d3552"]
         if (wet) return isDay ? ["#34445a", "#5a6b80"] : ["#151b29", "#2b3446"]
         if (kind === "snow") return isDay ? ["#4d6283", "#8597b3"] : ["#1b2133", "#39425a"]
@@ -50,6 +86,10 @@ Item {
         if (kind === "cloudy") return isDay ? ["#45556c", "#71839b"] : ["#181c2a", "#323849"]
         return isDay ? ["#2a5a9c", "#5d97d2"] : ["#0c1026", "#262c58"]
     }
+    // У горизонта небо теплеет: сверху сиреневое, снизу персиковое. За
+    // тучами — еле заметно
+    readonly property real warm: dawn * (overcast ? 0.25 : 0.75)
+    readonly property var sky: [Theme.mix(baseSky[0], "#4a3f78", warm), Theme.mix(baseSky[1], "#d98a6a", warm)]
 
     // Детерминированный «рандом», чтобы частицы не прыгали при пересоздании
     function rnd(i, salt) {
@@ -100,8 +140,8 @@ Item {
         Behavior on opacity { NumberAnimation { duration: 1200; easing.type: Easing.InOutQuad } }
         visible: opacity > 0.001
         width: 52; height: 52
-        x: root.width - 80
-        y: 18
+        x: root.arcX(root.arc) - width / 2
+        y: root.arcY(root.arc) - height / 2
 
         Repeater {
             model: 3
@@ -133,8 +173,9 @@ Item {
             rotation: 90
             from: Shapes.sunnyFull
             to: Shapes.sunnyFull
-            colorFrom: "#fff3c4"
-            colorTo: Theme.peach
+            // У горизонта — рыжее
+            colorFrom: Theme.mix("#fff3c4", "#ffd2a1", root.dawn)
+            colorTo: Theme.mix(Theme.peach, "#f0866c", root.dawn)
             FrameAnimation {
                 running: sun.visible
                 onTriggered: sunShape.turn = (sunShape.turn + frameTime / 60) % 1
@@ -142,20 +183,21 @@ Item {
         }
     }
 
-    // ===== Луна =====
+    // ===== Луна: с настоящей фазой =====
     Item {
         id: moon
         opacity: root.showMoon ? root.lightOpacity : 0
         Behavior on opacity { NumberAnimation { duration: 1200; easing.type: Easing.InOutQuad } }
         visible: opacity > 0.001
         width: 40; height: 40
-        x: root.width - 74
-        y: 20
+        x: root.arcX(root.arc) - width / 2
+        y: root.arcY(root.arc) - height / 2
 
         Rectangle {
             anchors.centerIn: parent
             width: parent.width * 2.6; height: width; radius: width / 2
-            color: Theme.alpha(Theme.lavender, 0.08)
+            // Ореол — по освещённой доле
+            color: Theme.alpha(Theme.lavender, 0.02 + 0.06 * (1 - Math.cos(2 * Math.PI * root.moonPhase)) / 2)
             SequentialAnimation on scale {
                 running: moon.visible
                 loops: Animation.Infinite
@@ -163,20 +205,42 @@ Item {
                 NumberAnimation { from: 1.1; to: 0.9; duration: 3200; easing.type: Easing.InOutSine }
             }
         }
-        Rectangle {
+        // Тёмная часть еле видна (пепельный свет), светлая — с кратерами.
+        // Граница света — полуэллипс: растущая луна освещена справа
+        // (для северного полушария), убывающая — слева
+        Canvas {
+            id: moonCanvas
             anchors.fill: parent
-            radius: width / 2
-            color: "#e8e6f5"
-        }
-        // Кратеры
-        Repeater {
-            model: [[9, 10, 8], [22, 20, 6], [14, 25, 4]]
-            delegate: Rectangle {
-                id: crater
-                required property var modelData
-                x: crater.modelData[0]; y: crater.modelData[1]
-                width: crater.modelData[2]; height: width; radius: width / 2
-                color: "#cfcbe3"
+            readonly property real phase: root.moonPhase
+            onPhaseChanged: requestPaint()
+            onPaint: {
+                const ctx = getContext("2d")
+                ctx.reset()
+                const r = width / 2, cx = r, cy = r
+                ctx.fillStyle = Qt.rgba(0.91, 0.90, 0.96, 0.14)
+                ctx.beginPath(); ctx.arc(cx, cy, r, 0, 2 * Math.PI); ctx.fill()
+                const p = phase, waxing = p < 0.5
+                const k = Math.cos(2 * Math.PI * p)      // 1 — новая, -1 — полная
+                ctx.save()
+                ctx.beginPath()
+                // Освещённый край — половина диска
+                const side = waxing ? 1 : -1
+                ctx.arc(cx, cy, r, -Math.PI / 2, Math.PI / 2, side < 0)
+                // Терминатор — эллипс с полуосью |k|·r, выгнут к свету или к тени
+                const steps = 32
+                for (let i = 0; i <= steps; i++) {
+                    const a = Math.PI / 2 - Math.PI * i / steps
+                    ctx.lineTo(cx + side * k * r * Math.cos(a), cy + r * Math.sin(a))
+                }
+                ctx.closePath()
+                ctx.clip()
+                ctx.fillStyle = "#e8e6f5"
+                ctx.fillRect(0, 0, width, height)
+                ctx.fillStyle = "#cfcbe3"
+                for (const [x, y, d] of [[9, 10, 8], [22, 20, 6], [14, 25, 4]]) {
+                    ctx.beginPath(); ctx.arc(x + d / 2, y + d / 2, d / 2, 0, 2 * Math.PI); ctx.fill()
+                }
+                ctx.restore()
             }
         }
     }

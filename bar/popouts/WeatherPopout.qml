@@ -11,14 +11,66 @@ Item {
     implicitWidth: 380
     implicitHeight: col.implicitHeight + 24
 
-    // Какой день в главной карточке: 0 — сейчас, дальше — дни недели
-    property int sel: 0
-    readonly property bool now: sel === 0 || !selDay
+    // Что в главной карточке: сейчас, выбранный день или выбранный час.
+    // Час и день связаны в обе стороны: клик по часу выделяет его день в
+    // неделе, клик по дню прокручивает ленту часов к нему
+    property int sel: 0                 // выбранный день
+    property real selHourTs: -1         // выбранный час; -1 — не выбран
+    readonly property var selHour: selHourTs < 0 ? null : Weather.allHours.find(h => h.ts === selHourTs) ?? null
+    readonly property bool now: !selHour && (sel === 0 || !selDay)
     readonly property var selDay: Weather.daily[sel] ?? null
-    readonly property var stripHours: now ? Weather.hourly : Weather.hoursOf(selDay.ts)
+    // Лента часов — весь прогноз подряд, через полночь
+    readonly property var stripHours: Weather.allHours
+
+    // День, в который попадает момент ts
+    function dayIndexOf(ts) {
+        for (let i = Weather.daily.length - 1; i >= 0; i--)
+            if (ts >= Weather.daily[i].ts)
+                return i
+        return 0
+    }
 
     function select(i) {
+        selHourTs = -1
         sel = Math.max(0, Math.min(Weather.daily.length - 1, i))
+        hours.scrollToDay(sel)
+    }
+    function selectHour(i) {
+        const h = stripHours[i]
+        if (!h)
+            return
+        // Первый час — это «сейчас»
+        selHourTs = i === 0 ? -1 : h.ts
+        sel = dayIndexOf(h.ts)
+    }
+
+    // Что показывает карточка: значения часа, дня или текущие
+    readonly property var shown: selHour ? {
+        kind: Weather.kindOf(selHour.code), isDay: selHour.isDay, time: selHour.ts,
+        temp: selHour.temp, text: Weather.textOf(selHour.code),
+        sub: (Weather.rainText(selHour.pop, selHour.mm) || "без") + " осадков"
+    } : now ? {
+        kind: Weather.kind, isDay: Weather.isDay, time: clock.now,
+        temp: Weather.temp, text: Weather.description, sub: "Ощущается " + Weather.fmt(Weather.feels)
+    } : {
+        kind: Weather.kindOf(selDay.code), isDay: true, time: selDay.ts + 13 * 3600000,
+        temp: selDay.max, text: Weather.textOf(selDay.code),
+        sub: (Weather.rainText(selDay.pop, selDay.mm) || "без") + " осадков"
+    }
+    // Восход и закат дня в карточке; у дальних дней met.no их не даёт — берём сегодняшние
+    readonly property string riseOf: (now ? Weather.sunrise : selDay?.rise) || Weather.sunrise
+    readonly property string setOf: (now ? Weather.sunset : selDay?.set) || Weather.sunset
+
+    // Солнце и луна по живому небу двигаются и без выбора: раз в минуту
+    QtObject {
+        id: clock
+        property real now: Date.now()
+    }
+    Timer {
+        interval: 60000
+        running: root.visible
+        repeat: true
+        onTriggered: clock.now = Date.now()
     }
 
     component Card: Rectangle {
@@ -73,11 +125,17 @@ Item {
             height: 136
             radius: 12
             color: Theme.cardBg
+            // Появляется и пружинит целиком (PopoutReveal): по частям небо
+            // съезжало внутри рамки, а текст и ореолы солнца — отдельно от него
+            readonly property bool revealWhole: true
 
             WeatherScene {
                 anchors.fill: parent
-                kind: root.now ? Weather.kind : Weather.kindOf(root.selDay.code)
-                isDay: root.now ? Weather.isDay : true
+                kind: root.shown.kind
+                isDay: root.shown.isDay
+                time: root.shown.time
+                rise: root.riseOf
+                set: root.setOf
                 // Ветер есть только у «сейчас»: у дней в прогнозе его нет
                 wind: root.now ? Weather.wind : 0
                 windDir: Weather.windDir
@@ -102,7 +160,9 @@ Item {
                     color: Theme.subtext1
                 }
                 Text {
-                    text: root.now ? Weather.place : Weather.place + "  ·  " + Weather.longDate(root.selDay.ts)
+                    text: root.now ? Weather.place
+                        : Weather.place + "  ·  " + Weather.longDate(root.selDay.ts)
+                          + (root.selHour ? ", " + new Date(root.selHour.ts).getHours() + ":00" : "")
                     font.family: Theme.font
                     font.pixelSize: 12
                     color: Theme.subtext1
@@ -114,7 +174,7 @@ Item {
                 spacing: 12
 
                 MorphText {
-                    text: Math.round(root.now ? Weather.temp : root.selDay.max) + "°"
+                    text: Math.round(root.shown.temp) + "°"
                     font: "neofolia"
                     pixelSize: 54
                     color: Theme.text
@@ -124,15 +184,14 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: 3
                     Text {
-                        text: root.now ? Weather.description : Weather.textOf(root.selDay.code)
+                        text: root.shown.text
                         font.family: Theme.font
                         font.pixelSize: 13
                         font.bold: true
                         color: Theme.text
                     }
                     Text {
-                        text: root.now ? "Ощущается " + Weather.fmt(Weather.feels)
-                            : (Weather.rainText(root.selDay.pop, root.selDay.mm) || "без") + " осадков"
+                        text: root.shown.sub
                         font.family: Theme.font
                         font.pixelSize: 12
                         color: Theme.subtext1
@@ -185,6 +244,31 @@ Item {
                     return curveTop + (1 - (t - lo) / span) * curveH
                 }
 
+                // К дню i: сегодня — к началу, другой день — к его утру
+                function scrollToDay(i) {
+                    const day = Weather.daily[i]
+                    if (!day)
+                        return
+                    let idx = 0
+                    if (i > 0) {
+                        idx = root.stripHours.findIndex(h => h.ts >= day.ts && new Date(h.ts).getHours() >= 6)
+                        if (idx < 0)
+                            idx = root.stripHours.findIndex(h => h.ts >= day.ts)
+                    }
+                    scrollAnim.to = Math.max(0, Math.min(Math.max(0, idx) * cell, contentWidth - width))
+                    scrollAnim.restart()
+                }
+                NumberAnimation {
+                    id: scrollAnim
+                    target: hours; property: "contentX"
+                    duration: 450; easing.type: Easing.OutCubic
+                }
+                // День в начале видимой части ленты — его отмечаем в неделе
+                readonly property int viewDay: {
+                    const h = root.stripHours[Math.floor((contentX + cell) / cell)]
+                    return h ? root.dayIndexOf(h.ts) : 0
+                }
+
                 // Вертикальное колесо листает вбок
                 WheelHandler {
                     acceptedDevices: PointerDevice.Mouse
@@ -201,12 +285,7 @@ Item {
                     onWidthChanged: requestPaint()
                     Connections {
                         target: root
-                        // У другого дня лента начинается с полуночи — сразу к утру
-                        function onStripHoursChanged() {
-                            const morning = root.now ? 0 : Math.max(0, root.stripHours.findIndex(h => new Date(h.ts).getHours() >= 6))
-                            hours.contentX = Math.max(0, Math.min(morning * hours.cell, hourRow.width - hours.width))
-                            curve.requestPaint()
-                        }
+                        function onStripHoursChanged() { curve.requestPaint() }
                     }
                     onPaint: {
                         const ctx = getContext("2d")
@@ -240,16 +319,49 @@ Item {
                             id: hour
                             required property var modelData
                             required property int index
+                            readonly property bool picked: root.selHour ? root.selHourTs === hour.modelData.ts : hour.index === 0 && root.now
+                            // Полночь — подпись дня вместо «00»
+                            readonly property bool midnight: hour.index > 0 && new Date(hour.modelData.ts).getHours() === 0
+                            // Часы чужого дня приглушены, когда выбран день или час
+                            readonly property bool inFocus: root.now || root.dayIndexOf(hour.modelData.ts) === root.sel
                             width: hours.cell
                             height: hours.height
+                            opacity: inFocus ? 1 : 0.45
+                            Behavior on opacity { NumberAnimation { duration: 200 } }
+
+                            Rectangle {
+                                anchors.fill: parent
+                                anchors.leftMargin: 2
+                                anchors.rightMargin: 2
+                                radius: 8
+                                color: hour.picked ? Theme.surface0
+                                     : hourHover.hovered ? Theme.alpha(Theme.surface0, 0.5) : "transparent"
+                                Behavior on color { ColorAnimation { duration: 120 } }
+                            }
+                            // Граница суток
+                            Rectangle {
+                                visible: hour.midnight
+                                width: 1
+                                height: parent.height - 8
+                                y: 4
+                                color: Theme.surface1
+                            }
+                            HoverHandler {
+                                id: hourHover
+                                cursorShape: Qt.PointingHandCursor
+                            }
+                            TapHandler {
+                                onTapped: root.selectHour(hour.index)
+                            }
 
                             Text {
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 y: 0
-                                text: hour.modelData.time
+                                text: hour.midnight ? Weather.dayNames[new Date(hour.modelData.ts).getDay()] : hour.modelData.time
                                 font.family: Theme.font
                                 font.pixelSize: 11
-                                color: hour.modelData.time === "Сейч" ? Theme.text : Theme.overlay1
+                                font.bold: hour.midnight
+                                color: hour.modelData.time === "Сейч" || hour.midnight || hour.picked ? Theme.text : Theme.overlay1
                             }
                             Text {
                                 anchors.horizontalCenter: parent.horizontalCenter
@@ -334,6 +446,17 @@ Item {
                         color: day.picked ? Theme.surface0
                              : week.hoverIdx === day.index ? Theme.alpha(Theme.surface0, 0.5) : "transparent"
                         Behavior on color { ColorAnimation { duration: 120 } }
+                    }
+                    // День, который сейчас на ленте часов
+                    Rectangle {
+                        x: -4
+                        width: 3
+                        height: 12
+                        radius: 1.5
+                        anchors.verticalCenter: parent.verticalCenter
+                        color: Theme.mix(Theme.gradStart, Theme.gradEnd, 0.5)
+                        opacity: hours.viewDay === day.index ? 1 : 0
+                        Behavior on opacity { NumberAnimation { duration: 160 } }
                     }
 
                     Text {
