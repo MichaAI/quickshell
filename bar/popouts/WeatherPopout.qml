@@ -78,6 +78,9 @@ Item {
                 anchors.fill: parent
                 kind: root.now ? Weather.kind : Weather.kindOf(root.selDay.code)
                 isDay: root.now ? Weather.isDay : true
+                // Ветер есть только у «сейчас»: у дней в прогнозе его нет
+                wind: root.now ? Weather.wind : 0
+                windDir: Weather.windDir
             }
 
             // Колесо листает дни

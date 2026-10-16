@@ -5,12 +5,21 @@ import "../config"
 
 // Живое небо в духе Breezy Weather: градиент по погоде и времени суток,
 // солнце с дышащими ореолами или луна со звёздами, плывущие облака,
-// дождь, снег, туман и вспышки грозы. Обрезку по скруглению делает родитель.
+// дождь, снег, туман и молнии. Ветер косит дождь и снег и гонит облака.
+// Обрезку по скруглению делает родитель.
 Item {
     id: root
 
     property string kind: "clear"   // clear partly cloudy fog drizzle rain snow thunder
     property bool isDay: true
+    property real wind: 0           // м/с
+    property real windDir: 0        // откуда дует, градусы
+
+    // Ветер поперёк взгляда: + — дует вправо (на восток)
+    readonly property real windX: wind * Math.sin((windDir + 180) * Math.PI / 180)
+    // Наклон дождя и снега, градусы: + — низ капли правее верха
+    readonly property real tilt: Math.max(-35, Math.min(35, windX * 3))
+    readonly property real slope: Math.tan(tilt * Math.PI / 180)
 
     // Для PopoutReveal: проявлять сцену целиком, не разбирая на частицы
     readonly property bool revealWhole: true
@@ -189,12 +198,13 @@ Item {
         layer.smooth: true
         property real phase: 0          // начальная позиция, 0…1
         property int period: 60000      // полный проход, мс
+        property int dir: 1             // 1 — вправо, -1 — влево
         property real span: 0           // ширина неба
         property real t
         readonly property real p: (t + phase) % 1
 
         width: 120; height: 48
-        x: -width + (span + width) * p
+        x: dir > 0 ? -width + (span + width) * p : span - (span + width) * p
 
         NumberAnimation on t {
             from: 0; to: 1
@@ -226,7 +236,9 @@ Item {
             // Равномерно по ширине с небольшим разбросом, а не как выпадет
             phase: (skyCloud.index + root.rnd(skyCloud.index, 9) * 0.5) / root.cloudCount
             // Скорости близкие: сильно разные нагоняли друг друга и сбивались в кучу
-            period: 62000 - depth * 12000
+            // Ветер гонит быстрее и в свою сторону
+            period: (62000 - depth * 12000) / (1 + Math.abs(root.windX) / 4)
+            dir: root.windX < -0.5 ? -1 : 1
             tint: root.wet ? (root.isDay ? "#c3cede" : "#8f9ab0") : "white"
             alpha: root.kind === "partly" ? (root.isDay ? 0.22 : 0.1) + depth * 0.14
                  : root.wet ? 0.12 + depth * 0.12
@@ -272,8 +284,10 @@ Item {
             readonly property real fall: Math.min(1, phase / split)
             readonly property real s: phase < split ? -1 : (phase - split) / (1 - split)
             readonly property real path: root.height - drop.len + 20
-            readonly property real x0: root.rnd(drop.index, 15) * (root.width + 40)
-            readonly property real hitX: x0 - path * 0.27 + 0.75 - drop.len / 2 * 0.26
+            // Старт выше и с запасом против ветра, чтобы снос не оголял край
+            readonly property real drift: path * root.slope
+            readonly property real x0: -Math.max(0, drift) - 10 + root.rnd(drop.index, 15) * (root.width + Math.abs(drift) + 20)
+            readonly property real hitX: x0 + drift + 0.75 + drop.len / 2 * Math.sin(root.tilt * Math.PI / 180)
             readonly property real alpha: 0.25 + root.rnd(drop.index, 17) * 0.3
             readonly property color tint: Qt.rgba(0.86, 0.9, 0.96, 1)
 
@@ -282,8 +296,8 @@ Item {
                 width: 1.5
                 height: drop.len
                 radius: 0.75
-                rotation: 15
-                x: drop.x0 - drop.fall * drop.path * 0.27
+                rotation: -root.tilt
+                x: drop.x0 + drop.fall * drop.drift
                 y: -20 + drop.fall * drop.path
                 color: drop.tint
                 opacity: drop.alpha
@@ -338,7 +352,9 @@ Item {
             readonly property real p: (t + root.rnd(flake.index, 19)) % 1
             readonly property real s: 2 + root.rnd(flake.index, 20) * 3.5
             width: s; height: s; radius: s / 2
-            x: root.rnd(flake.index, 21) * root.width + Math.sin((p * 3 + root.rnd(flake.index, 22)) * Math.PI * 2) * 8
+            readonly property real drift: (root.height + 20) * root.slope
+            x: -Math.max(0, drift) + root.rnd(flake.index, 21) * (root.width + Math.abs(drift))
+               + p * drift + Math.sin((p * 3 + root.rnd(flake.index, 22)) * Math.PI * 2) * 8
             y: -10 + p * (root.height + 20)
             color: Qt.rgba(1, 1, 1, 0.5 + root.rnd(flake.index, 23) * 0.4)
             NumberAnimation on t {
@@ -349,58 +365,116 @@ Item {
         }
     }
 
-    // ===== Гроза: молния и вспышка неба =====
-    Shape {
-        id: bolt
-        visible: root.kind === "thunder"
-        opacity: 0
-        x: root.width * 0.55
-        y: 6
-        width: 34; height: 70
-        preferredRendererType: Shape.CurveRenderer
-        ShapePath {
-            strokeWidth: 0
-            fillColor: "#fff6d6"
-            startX: 18; startY: 0
-            PathLine { x: 4; y: 38 }
-            PathLine { x: 15; y: 38 }
-            PathLine { x: 8; y: 70 }
-            PathLine { x: 30; y: 28 }
-            PathLine { x: 19; y: 28 }
-            PathLine { x: 28; y: 0 }
-            PathLine { x: 18; y: 0 }
-        }
-    }
-
-    Rectangle {
-        id: flash
+    // ===== Гроза: молния растёт, как в замедленной съёмке =====
+    // Каждый раз новая: лидер ступеньками ползёт вниз и ветвится, ветки
+    // отстают и глохнут. Дошёл до низа — главный канал разгорается и всё
+    // плавно гаснет. Экран не вспыхивает
+    Canvas {
+        id: lightning
         anchors.fill: parent
-        color: "white"
-        opacity: 0
-    }
+        visible: root.kind === "thunder"
 
-    SequentialAnimation {
-        id: strike
-        ParallelAnimation {
-            NumberAnimation { target: flash; property: "opacity"; to: 0.35; duration: 60 }
-            NumberAnimation { target: bolt; property: "opacity"; to: 1; duration: 40 }
-        }
-        NumberAnimation { target: flash; property: "opacity"; to: 0.05; duration: 90 }
-        NumberAnimation { target: flash; property: "opacity"; to: 0.25; duration: 50 }
-        ParallelAnimation {
-            NumberAnimation { target: flash; property: "opacity"; to: 0; duration: 420; easing.type: Easing.OutQuad }
-            NumberAnimation { target: bolt; property: "opacity"; to: 0; duration: 320; easing.type: Easing.OutQuad }
-        }
-    }
+        property var segs: []          // [x1, y1, x2, y2, путь до начала, длина, главный, ветка]
+        property real total: 0         // длина главного канала
+        property real front: 0         // докуда дорос лидер
+        property real glow: 0          // разгорание после касания
+        property real fade: 1
+        property real stepWait: 0
 
-    Timer {
-        running: root.kind === "thunder"
-        interval: 2500
-        repeat: true
-        onTriggered: {
-            bolt.x = root.width * (0.35 + Math.random() * 0.4)
-            strike.restart()
-            interval = 2500 + Math.random() * 4500
+        function strike() {
+            const segs = []
+            let chains = 0
+            const grow = (x, y, bias, d, depth, main) => {
+                const chain = chains++
+                let steps = main ? 1000 : 3 + Math.floor(Math.random() * (8 - depth * 2))
+                while (steps-- > 0 && y < height) {
+                    const nx = x + (Math.random() - 0.5) * 12 + bias
+                    const ny = y + 5 + Math.random() * 7
+                    const len = Math.hypot(nx - x, ny - y)
+                    segs.push([x, y, nx, ny, d, len, main, chain])
+                    if (depth < 2 && Math.random() < (main ? 0.22 : 0.12))
+                        grow(nx, ny, (Math.random() < 0.5 ? -1 : 1) * (4 + Math.random() * 4), d + len, depth + 1, false)
+                    x = nx; y = ny; d += len
+                    if (main) total = d
+                }
+            }
+            total = 0
+            grow(width * (0.3 + Math.random() * 0.45), 14, 0, 0, 0, true)
+            lightning.segs = segs
+            front = 0; glow = 0; fade = 1; stepWait = 0
+            afterglow.stop()
+        }
+
+        // Лидер: рывок на 7–12 px каждые ~45 мс
+        FrameAnimation {
+            running: lightning.visible && lightning.segs.length > 0 && lightning.front < lightning.total
+            onTriggered: {
+                lightning.stepWait -= frameTime
+                if (lightning.stepWait > 0)
+                    return
+                lightning.stepWait = 0.035 + Math.random() * 0.03
+                lightning.front = Math.min(lightning.total, lightning.front + 7 + Math.random() * 5)
+                lightning.requestPaint()
+            }
+        }
+
+        onFrontChanged: if (front >= total && total > 0) afterglow.restart()
+        SequentialAnimation {
+            id: afterglow
+            NumberAnimation { target: lightning; property: "glow"; to: 1; duration: 140; easing.type: Easing.OutCubic }
+            PauseAnimation { duration: 120 }
+            NumberAnimation { target: lightning; property: "fade"; to: 0; duration: 900; easing.type: Easing.InOutQuad }
+            ScriptAction { script: { lightning.segs = []; lightning.requestPaint() } }
+        }
+        onGlowChanged: requestPaint()
+        onFadeChanged: requestPaint()
+
+        onPaint: {
+            const ctx = getContext("2d")
+            ctx.clearRect(0, 0, width, height)
+            if (segs.length === 0 || fade <= 0)
+                return
+            ctx.lineCap = "round"
+            ctx.lineJoin = "round"
+            // Каждая ветка — один путь, иначе на стыках отрезков свечение
+            // копится бусинами
+            const paths = {}
+            for (const g of segs) {
+                if (g[4] >= front)
+                    continue
+                const k = Math.min(1, (front - g[4]) / g[5])
+                const c = paths[g[7]] ?? (paths[g[7]] = { main: g[6], pts: [[g[0], g[1]]] })
+                c.pts.push([g[0] + (g[2] - g[0]) * k, g[1] + (g[3] - g[1]) * k])
+            }
+            // Два прохода: мягкое свечение и ядро
+            for (const pass of [0, 1]) {
+                for (const c of Object.values(paths)) {
+                    // Ветки после касания гаснут быстрее канала
+                    const a = fade * (c.main ? 1 : Math.max(0, 1 - glow * 0.6))
+                    if (pass === 0) {
+                        ctx.strokeStyle = Qt.rgba(0.8, 0.78, 1, (c.main ? 0.12 + 0.22 * glow : 0.08) * a)
+                        ctx.lineWidth = c.main ? 4 + 5 * glow : 3
+                    } else {
+                        ctx.strokeStyle = Qt.rgba(1, 0.97, 0.86, (c.main ? 0.7 + 0.3 * glow : 0.55) * a)
+                        ctx.lineWidth = c.main ? 1.3 + 1.2 * glow : 0.9
+                    }
+                    ctx.beginPath()
+                    ctx.moveTo(c.pts[0][0], c.pts[0][1])
+                    for (let i = 1; i < c.pts.length; i++)
+                        ctx.lineTo(c.pts[i][0], c.pts[i][1])
+                    ctx.stroke()
+                }
+            }
+        }
+
+        Timer {
+            running: lightning.visible
+            interval: 2500
+            repeat: true
+            onTriggered: {
+                lightning.strike()
+                interval = 3500 + Math.random() * 5500
+            }
         }
     }
 
