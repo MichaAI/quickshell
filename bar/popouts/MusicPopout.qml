@@ -318,6 +318,10 @@ Item {
             height: root.lyricsOn ? 150 : 42
             Behavior on height { Spring { epsilon: 0.5 } }
             clip: true
+            // Для PopoutReveal: проявлять целиком. Иначе он сам выставит
+            // opacity эквалайзеру и строкам текста и перебьёт их привязки —
+            // эквалайзер не гаснет под текстом, строки не подсвечиваются
+            readonly property bool revealWhole: true
 
             Row {
                 id: eqRow
