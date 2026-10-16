@@ -201,7 +201,7 @@ Item {
                     // Оттенки всей обложки для акцентов (Colors.accents)
                     Canvas {
                         id: paletteProbe
-                        width: 24; height: 24
+                        width: 48; height: 48
                         visible: false
 
                         readonly property string src: Settings.coverColors && art.status === Image.Ready ? art.source.toString() : ""
