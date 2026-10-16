@@ -311,13 +311,17 @@ Item {
             }
         }
 
-        // Эквалайзер или текст песни: место под текст раздвигается пружиной
+        // Текст песни над эквалайзером: место под текст раздвигается пружиной
         Item {
             id: midArea
             width: parent.width
-            height: root.lyricsOn ? 150 : 42
+            height: root.lyricsOn ? 140 + 8 + 42 : 42
             Behavior on height { Spring { epsilon: 0.5 } }
             clip: true
+            // Для PopoutReveal: проявлять целиком. Иначе он сам выставит
+            // opacity панели текста и её строкам и перебьёт их привязки —
+            // панель не прячется, строки не подсвечиваются
+            readonly property bool revealWhole: true
 
             Row {
                 id: eqRow
@@ -325,9 +329,6 @@ Item {
                 height: 42
                 anchors.bottom: parent.bottom
                 spacing: 3
-                opacity: root.lyricsOn ? 0 : 1
-                visible: opacity > 0.01
-                Behavior on opacity { NumberAnimation { duration: 200 } }
 
                 readonly property int n: Math.max(1, Cava.bars.length)
                 readonly property real barW: (width - spacing * (n - 1)) / n
@@ -356,7 +357,8 @@ Item {
             // соседние тише. Клик по строке перематывает к ней
             Item {
                 id: lyr
-                anchors.fill: parent
+                width: parent.width
+                height: 140
                 opacity: root.lyricsOn ? 1 : 0
                 visible: opacity > 0.01
                 Behavior on opacity { NumberAnimation { duration: 200 } }

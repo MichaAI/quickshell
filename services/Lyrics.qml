@@ -68,6 +68,10 @@ Singleton {
         loading = false
     }
 
+    // Сервис создаётся при первом обращении — трек к этому времени уже
+    // может играть, и смены key для него не будет
+    Component.onCompleted: debounce.restart()
+
     onKeyChanged: {
         show({ lines: [], synced: false })
         retry.stop()
@@ -116,32 +120,62 @@ Singleton {
         get(url, (r, ok) => {
             if (k !== root.key)
                 return
-            if (!ok)
-                return root.fail()
+            // Точный запрос LRCLIB тяжёлый и под нагрузкой сбоит первым —
+            // тогда всё равно ищем, а если и поиск пуст, не запоминаем
+            const shaky = !ok
             const res = parse(r)
             if (res.lines.length > 0 || r?.instrumental) {
                 root.cache[k] = res
                 root.show(res)
                 return
             }
-            // Точного совпадения нет — поиск, и из найденного ближайшее по длине
-            get(base + "search?track_name=" + q(p.trackTitle) + "&artist_name=" + q(p.trackArtist), (list, ok2) => {
-                if (k !== root.key)
-                    return
-                if (!ok2)
-                    return root.fail()
-                let best = { lines: [], synced: false }
-                const cands = (Array.isArray(list) ? list : [])
-                    .filter(x => len <= 0 || Math.abs((x.duration ?? 0) - len) <= 3)
-                for (const x of cands) {
-                    const res2 = parse(x)
-                    if (res2.lines.length > 0 && (best.lines.length === 0 || (res2.synced && !best.synced)))
-                        best = res2
-                }
-                root.cache[k] = best
-                root.show(best)
-            })
+            // Точного совпадения нет — поиск. Яндекс пишет всех исполнителей
+            // через запятую и «(prod. …)» в названии, а в LRCLIB трек часто
+            // записан только на главного — тогда ищем ещё раз попроще
+            const title = root.cleanTitle(p.trackTitle), artist = root.firstArtist(p.trackArtist)
+            const attempts = [[p.trackTitle, p.trackArtist]]
+            if (title !== p.trackTitle || artist !== p.trackArtist)
+                attempts.push([title, artist])
+            const next = i => {
+                get(base + "search?track_name=" + q(attempts[i][0]) + "&artist_name=" + q(attempts[i][1]), (list, ok2) => {
+                    if (k !== root.key)
+                        return
+                    if (!ok2)
+                        return root.fail()
+                    const best = root.pick(list, len)
+                    if (best.lines.length === 0 && i + 1 < attempts.length)
+                        return next(i + 1)
+                    if (best.lines.length === 0 && shaky)
+                        return root.fail()
+                    root.cache[k] = best
+                    root.show(best)
+                })
+            }
+            next(0)
         })
+    }
+
+    // Из найденного — ближайшее по длине (±3 с), синхронное лучше простого
+    function pick(list, len) {
+        let best = { lines: [], synced: false }
+        const cands = (Array.isArray(list) ? list : [])
+            .filter(x => len <= 0 || Math.abs((x.duration ?? 0) - len) <= 3)
+        for (const x of cands) {
+            const res = parse(x)
+            if (res.lines.length > 0 && (best.lines.length === 0 || (res.synced && !best.synced)))
+                best = res
+        }
+        return best
+    }
+
+    // «A, B & C feat. D» → «A»
+    function firstArtist(a) {
+        return (a ?? "").split(/,\s*|\s+&\s+|\s+(?:feat|ft)\.?\s+/i)[0].trim()
+    }
+
+    // Без «(feat. …)», «(prod. …)», «[with …]»
+    function cleanTitle(t) {
+        return (t ?? "").replace(/\s*[([](?:feat|ft|prod|with)\b[^)\]]*[)\]]/gi, "").trim()
     }
 
     Component {
