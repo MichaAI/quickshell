@@ -360,10 +360,12 @@ Item {
                     anchors.centerIn: parent
                     spacing: 6
 
-                    GradientText {
+                    MorphText {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        display: true
+                        font: "neofolia"
                         pixelSize: 96
+                        color: Theme.gradStart
+                        colorTo: Theme.gradEnd
                         outlineWidth: 4
                         outlineColor: Theme.base
                         text: Qt.formatDateTime(Time.now, "HH:mm")

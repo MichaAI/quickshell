@@ -128,11 +128,10 @@ Item {
                     font.pixelSize: 12
                     color: SysStat.temp > 80 ? Theme.red : Theme.peach
                 }
-                Text {
+                MorphText {
                     text: SysStat.cpu.toFixed(0) + "%"
-                    font.family: Theme.font
-                    font.pixelSize: 13
-                    font.weight: Font.Bold
+                    font: "monoBold"
+                    pixelSize: 13
                     color: Theme.text
                 }
             }

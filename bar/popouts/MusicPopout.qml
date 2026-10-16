@@ -362,18 +362,16 @@ Item {
                 width: parent.width
                 height: 14
 
-                Text {
+                MorphText {
                     anchors.left: parent.left
                     text: Players.fmt(root.player?.position ?? 0)
-                    font.family: Theme.font
-                    font.pixelSize: 11
+                    pixelSize: 11
                     color: Theme.overlay1
                 }
-                Text {
+                MorphText {
                     anchors.right: parent.right
                     text: Players.fmt(root.player?.length ?? 0)
-                    font.family: Theme.font
-                    font.pixelSize: 11
+                    pixelSize: 11
                     color: Theme.overlay1
                 }
             }

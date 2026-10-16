@@ -60,10 +60,12 @@ Item {
                     color: Power.critical ? Theme.red
                          : Power.charging ? Theme.green : Theme.overlay1
                 }
-                GradientText {
+                MorphText {
                     anchors.horizontalCenter: parent.horizontalCenter
+                    font: "monoBoldItalic"
                     pixelSize: 30
-                    fontWeight: Font.Bold
+                    color: Power.critical ? Theme.red : Theme.gradStart
+                    colorTo: Power.critical ? Theme.maroon : Theme.gradEnd
                     text: Power.percent + "%"
                 }
             }

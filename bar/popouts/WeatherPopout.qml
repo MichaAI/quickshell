@@ -113,10 +113,10 @@ Item {
                 x: 12; y: 28
                 spacing: 12
 
-                Text {
+                MorphText {
                     text: Math.round(root.now ? Weather.temp : root.selDay.max) + "°"
-                    font.family: Theme.displayFont
-                    font.pixelSize: 54
+                    font: "neofolia"
+                    pixelSize: 54
                     color: Theme.text
                 }
 
@@ -259,12 +259,11 @@ Item {
                                 font.pixelSize: 17
                                 color: Weather.colorOf(hour.modelData.code, hour.modelData.isDay)
                             }
-                            Text {
+                            MorphText {
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 y: hours.yOf(hour.modelData.temp) - 17
                                 text: Math.round(hour.modelData.temp) + "°"
-                                font.family: Theme.font
-                                font.pixelSize: 11
+                                pixelSize: 11
                                 color: Theme.text
                             }
                             Rectangle {
@@ -365,16 +364,19 @@ Item {
                         font.pixelSize: 11
                         color: Theme.sapphire
                     }
-                    Text {
+                    Item {
                         id: dayMin
                         x: dayPop.x + dayPop.width
                         width: 32
-                        horizontalAlignment: Text.AlignRight
+                        height: minText.implicitHeight
                         anchors.verticalCenter: parent.verticalCenter
-                        text: Math.round(day.modelData.min) + "°"
-                        font.family: Theme.font
-                        font.pixelSize: 12
-                        color: Theme.overlay1
+                        MorphText {
+                            id: minText
+                            anchors.right: parent.right
+                            text: Math.round(day.modelData.min) + "°"
+                            pixelSize: 12
+                            color: Theme.overlay1
+                        }
                     }
                     Item {
                         id: track
@@ -411,16 +413,19 @@ Item {
                             border.color: Theme.cardBg
                         }
                     }
-                    Text {
+                    Item {
                         id: dayMax
                         anchors.right: parent.right
                         width: 32
-                        horizontalAlignment: Text.AlignRight
+                        height: maxText.implicitHeight
                         anchors.verticalCenter: parent.verticalCenter
-                        text: Math.round(day.modelData.max) + "°"
-                        font.family: Theme.font
-                        font.pixelSize: 12
-                        color: Theme.text
+                        MorphText {
+                            id: maxText
+                            anchors.right: parent.right
+                            text: Math.round(day.modelData.max) + "°"
+                            pixelSize: 12
+                            color: Theme.text
+                        }
                     }
                 }
             }
