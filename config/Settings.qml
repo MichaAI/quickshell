@@ -23,6 +23,9 @@ QtObject {
     // Уведомления смахиваются двумя пальцами по тачпаду. Если карточка
     // едет против пальцев — true
     readonly property bool notifSwipeInvert: false
+    // Уведомления одного приложения — стопкой в центре уведомлений:
+    // видно последнее, клик по шапке раскрывает остальные
+    readonly property bool notifGroups: false
 
     readonly property int screenRadius: 14   // внутренние углы к краям монитора
     readonly property int popoutRadius: 16
