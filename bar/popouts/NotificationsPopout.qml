@@ -60,12 +60,11 @@ Item {
                 text: "Уведомления"
                 pixelSize: 15
             }
-            Text {
+            MorphText {
                 anchors.verticalCenter: parent.verticalCenter
                 visible: Notifs.count > 0
-                text: Notifs.count
-                font.family: Theme.font
-                font.pixelSize: 12
+                text: String(Notifs.count)
+                pixelSize: 12
                 color: Theme.overlay1
             }
         }
@@ -98,10 +97,10 @@ Item {
         anchors.leftMargin: 16
         anchors.rightMargin: 16
         height: 1
-        gradient: Gradient {
+        gradient: OkGradient {
             orientation: Gradient.Horizontal
-            GradientStop { position: 0; color: Theme.alpha(Theme.gradStart, 0.4) }
-            GradientStop { position: 1; color: Theme.alpha(Theme.gradEnd, 0.4) }
+            from: Theme.alpha(Theme.gradStart, 0.4)
+            to: Theme.alpha(Theme.gradEnd, 0.4)
         }
     }
 

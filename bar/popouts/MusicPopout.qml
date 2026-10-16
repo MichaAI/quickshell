@@ -6,6 +6,8 @@ import Quickshell.Widgets
 import "../../config"
 import "../../services"
 import "../../components"
+import "../../components/Shapes.js" as Shapes
+import "../../components/Colors.js" as Colors
 
 Item {
     id: root
@@ -14,6 +16,13 @@ Item {
     implicitHeight: col.implicitHeight + 28
 
     readonly property var player: Players.active
+
+    // Акценты попаута: из обложки (Settings.coverColors) или темы
+    property var cover: null        // [начало, конец] из Colors.accents
+    property color accentFrom: Settings.coverColors && cover ? Qt.rgba(cover[0].r, cover[0].g, cover[0].b, 1) : Theme.gradStart
+    property color accentTo: Settings.coverColors && cover ? Qt.rgba(cover[1].r, cover[1].g, cover[1].b, 1) : Theme.gradEnd
+    Behavior on accentFrom { ColorAnimation { duration: 400 } }
+    Behavior on accentTo { ColorAnimation { duration: 400 } }
 
     // Свет обложки рисует бар: он ложится на весь шелл (попаут, бар, уголки)
     // между фоном и содержимым. Отсюда — только источник и где он лежит.
@@ -34,21 +43,63 @@ Item {
     Component.onCompleted: Cava.viewers++
     Component.onDestruction: Cava.viewers--
 
-    component CtlBtn: Text {
+    // Кнопка группы MD3 Expressive: тональная пилюля; нажатая шире и
+    // квадратнее, соседи на это время ужимаются (ControlGroup.shift)
+    component CtlBtn: Rectangle {
+        id: btn
+        property alias text: glyph.text
         property bool on: true
+        property bool toggle: false     // переключатель: подсвечен, пока on
+        property ControlGroup group
+        property int idx: 0
         signal pressed()
-        font.family: Theme.font
-        font.pixelSize: 16
-        color: bma.containsMouse ? Theme.text : (on ? Theme.subtext1 : Theme.overlay0)
+
+        readonly property bool down: bma.pressed
+        onDownChanged: group.press(idx, down)
+
+        width: 44 + group.shift(idx)
+        height: 36
+        radius: group.pressedIdx === idx ? 10 : height / 2
         anchors.verticalCenter: parent.verticalCenter
+        color: toggle && on ? Theme.alpha(group.accent, 0.22)
+             : bma.containsMouse ? Theme.surface1 : Theme.surface0
+        Behavior on width { Spring { epsilon: 0.05 } }
+        Behavior on radius { Spring { epsilon: 0.05 } }
+        Behavior on color { ColorAnimation { duration: 150 } }
+
+        Text {
+            id: glyph
+            anchors.centerIn: parent
+            font.family: Theme.font
+            font.pixelSize: 16
+            color: btn.toggle && btn.on ? btn.group.accent
+                 : btn.on ? Theme.text : Theme.overlay0
+        }
 
         MouseArea {
             id: bma
             anchors.fill: parent
-            anchors.margins: -6
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
-            onClicked: parent.pressed()
+            onClicked: btn.pressed()
+        }
+    }
+
+    // Ряд кнопок, который знает, какая нажата
+    component ControlGroup: Row {
+        property color accent: Theme.mauve
+        property int pressedIdx: -1
+        function press(i, down) {
+            if (down)
+                pressedIdx = i
+            else if (pressedIdx === i)
+                pressedIdx = -1
+        }
+        // Нажатая шире на 14, соседи уже на 7
+        function shift(i) {
+            if (pressedIdx < 0)
+                return 0
+            return i === pressedIdx ? 14 : Math.abs(i - pressedIdx) === 1 ? -7 : 0
         }
     }
 
@@ -147,6 +198,38 @@ Item {
                         }
                     }
 
+                    // Оттенки всей обложки для акцентов (Colors.accents)
+                    Canvas {
+                        id: paletteProbe
+                        width: 24; height: 24
+                        visible: false
+
+                        readonly property string src: Settings.coverColors && art.status === Image.Ready ? art.source.toString() : ""
+                        property string loaded: ""
+
+                        onSrcChanged: {
+                            root.cover = null
+                            if (loaded !== "")
+                                unloadImage(loaded)
+                            loaded = src
+                            if (src !== "") {
+                                loadImage(src)
+                                if (isImageLoaded(src))
+                                    requestPaint()
+                            }
+                        }
+                        onImageLoaded: requestPaint()
+
+                        onPaint: {
+                            if (src === "" || !isImageLoaded(src))
+                                return
+                            const ctx = getContext("2d")
+                            ctx.clearRect(0, 0, width, height)
+                            ctx.drawImage(src, 0, 0, width, height)
+                            root.cover = Colors.accents(ctx.getImageData(0, 0, width, height).data, 0.77, 0.13)
+                        }
+                    }
+
                     Image {
                         id: art
                         anchors.fill: parent
@@ -183,6 +266,8 @@ Item {
 
                     GradientText {
                         pixelSize: 15
+                        from: root.accentFrom
+                        to: root.accentTo
                         text: root.title
                         onTextChanged: titleClip.reset()
                     }
@@ -241,7 +326,7 @@ Item {
                     height: Math.max(3, (Cava.bars[index] ?? 0) / 100 * eqRow.height)
                     anchors.bottom: parent.bottom
                     radius: width / 2.5
-                    color: Theme.mix(Theme.gradStart, Theme.gradEnd,
+                    color: Theme.mix(root.accentFrom, root.accentTo,
                                      eqRow.n > 1 ? index / (eqRow.n - 1) : 0)
                     opacity: 0.4 + 0.6 * ((Cava.bars[index] ?? 0) / 100)
 
@@ -259,6 +344,11 @@ Item {
 
             StyledSlider {
                 width: parent.width
+                wavy: true
+                colorFrom: root.accentFrom
+                colorTo: root.accentTo
+                moving: root.player?.isPlaying ?? false
+                valueText: v => Players.fmt(v * (root.player?.length ?? 0))
                 enabled: (root.player?.canSeek ?? false) && (root.player?.length ?? 0) > 0
                 value: root.player && root.player.length > 0
                     ? root.player.position / root.player.length : 0
@@ -272,18 +362,16 @@ Item {
                 width: parent.width
                 height: 14
 
-                Text {
+                MorphText {
                     anchors.left: parent.left
                     text: Players.fmt(root.player?.position ?? 0)
-                    font.family: Theme.font
-                    font.pixelSize: 11
+                    pixelSize: 11
                     color: Theme.overlay1
                 }
-                Text {
+                MorphText {
                     anchors.right: parent.right
                     text: Players.fmt(root.player?.length ?? 0)
-                    font.family: Theme.font
-                    font.pixelSize: 11
+                    pixelSize: 11
                     color: Theme.overlay1
                 }
             }
@@ -294,11 +382,15 @@ Item {
             width: parent.width
             height: 44
 
-            Row {
+            ControlGroup {
+                id: controls
                 anchors.centerIn: parent
-                spacing: 18
+                spacing: 6
+                accent: root.accentTo
 
                 CtlBtn {
+                    group: controls; idx: 0
+                    toggle: true
                     text: "󰒝"
                     on: root.player?.shuffle ?? false
                     visible: root.player?.shuffleSupported ?? false
@@ -306,22 +398,32 @@ Item {
                 }
 
                 CtlBtn {
+                    group: controls; idx: 1
                     text: "󰒮"
                     on: root.player?.canGoPrevious ?? false
                     onPressed: if (root.player?.canGoPrevious) root.player.previous()
                 }
 
-                Rectangle {
+                // Круг на паузе, печенька при игре — и медленно крутится,
+                // как пластинка
+                MorphShape {
+                    id: playBtn
                     width: 42; height: 42
-                    radius: 21
                     anchors.verticalCenter: parent.verticalCenter
-                    gradient: Gradient {
-                        orientation: Gradient.Horizontal
-                        GradientStop { position: 0; color: Theme.gradStart }
-                        GradientStop { position: 1; color: Theme.gradEnd }
-                    }
-                    scale: pma.containsMouse ? 1.08 : 1
+                    from: Shapes.circle
+                    to: Shapes.cookie9
+                    colorFrom: root.accentFrom
+                    colorTo: root.accentTo
+                    morph: Players.playing ? 1 : 0
+                    Behavior on morph { Spring { epsilon: 0.002 } }
+                    // В группе: нажатая раздувается, соседи ужимаются
+                    scale: pma.pressed ? 1.12 : pma.containsMouse ? 1.06 : 1
                     Behavior on scale { Spring { epsilon: 0.002 } }
+
+                    FrameAnimation {
+                        running: playBtn.morph > 0.01 && playBtn.visible
+                        onTriggered: playBtn.turn = (playBtn.turn + frameTime / 12) % 1
+                    }
 
                     Text {
                         anchors.centerIn: parent
@@ -336,16 +438,20 @@ Item {
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
                         onClicked: root.player?.togglePlaying()
+                        onPressedChanged: controls.press(2, pressed)
                     }
                 }
 
                 CtlBtn {
+                    group: controls; idx: 3
                     text: "󰒭"
                     on: root.player?.canGoNext ?? false
                     onPressed: if (root.player?.canGoNext) root.player.next()
                 }
 
                 CtlBtn {
+                    group: controls; idx: 4
+                    toggle: true
                     text: root.player?.loopState === MprisLoopState.Track ? "󰑘" : "󰑖"
                     on: (root.player?.loopState ?? MprisLoopState.None) !== MprisLoopState.None
                     visible: root.player?.loopSupported ?? false

@@ -43,9 +43,9 @@ Rectangle {
         width: 3
         height: parent.height - 24
         radius: 2
-        gradient: Gradient {
-            GradientStop { position: 0; color: Theme.red }
-            GradientStop { position: 1; color: Theme.maroon }
+        gradient: OkGradient {
+            from: Theme.red
+            to: Theme.maroon
         }
     }
 

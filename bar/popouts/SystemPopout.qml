@@ -72,10 +72,10 @@ Item {
             width: Math.max(8, parent.width * Math.min(1, parent.value))
             height: parent.height
             radius: 4
-            gradient: Gradient {
+            gradient: OkGradient {
                 orientation: Gradient.Horizontal
-                GradientStop { position: 0; color: Theme.gradStart }
-                GradientStop { position: 1; color: Theme.gradEnd }
+                from: Theme.gradStart
+                to: Theme.gradEnd
             }
             Behavior on width { Spring {} }
         }
@@ -128,11 +128,10 @@ Item {
                     font.pixelSize: 12
                     color: SysStat.temp > 80 ? Theme.red : Theme.peach
                 }
-                Text {
+                MorphText {
                     text: SysStat.cpu.toFixed(0) + "%"
-                    font.family: Theme.font
-                    font.pixelSize: 13
-                    font.weight: Font.Bold
+                    font: "monoBold"
+                    pixelSize: 13
                     color: Theme.text
                 }
             }

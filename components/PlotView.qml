@@ -64,9 +64,7 @@ Item {
             if (y0 >= 0 && y0 <= h) { ctx.beginPath(); ctx.moveTo(0, y0); ctx.lineTo(w, y0); ctx.stroke() }
 
             // Кривая; разрываем на NaN и на скачках через всю высоту (асимптоты)
-            const grad = ctx.createLinearGradient(0, 0, w, 0)
-            grad.addColorStop(0, Theme.gradStart)
-            grad.addColorStop(1, Theme.gradEnd)
+            const grad = Theme.okStops(ctx.createLinearGradient(0, 0, w, 0), Theme.gradStart, Theme.gradEnd)
             ctx.strokeStyle = grad
             ctx.lineWidth = 2
             ctx.lineJoin = "round"

@@ -78,6 +78,9 @@ Item {
                 anchors.fill: parent
                 kind: root.now ? Weather.kind : Weather.kindOf(root.selDay.code)
                 isDay: root.now ? Weather.isDay : true
+                // Ветер есть только у «сейчас»: у дней в прогнозе его нет
+                wind: root.now ? Weather.wind : 0
+                windDir: Weather.windDir
             }
 
             // Колесо листает дни
@@ -110,10 +113,10 @@ Item {
                 x: 12; y: 28
                 spacing: 12
 
-                Text {
+                MorphText {
                     text: Math.round(root.now ? Weather.temp : root.selDay.max) + "°"
-                    font.family: Theme.displayFont
-                    font.pixelSize: 54
+                    font: "neofolia"
+                    pixelSize: 54
                     color: Theme.text
                 }
 
@@ -211,9 +214,7 @@ Item {
                         const pts = root.stripHours.map((h, i) => [i * hours.cell + hours.cell / 2, hours.yOf(h.temp)])
                         if (pts.length < 2)
                             return
-                        const grad = ctx.createLinearGradient(0, 0, width, 0)
-                        grad.addColorStop(0, Theme.gradStart)
-                        grad.addColorStop(1, Theme.gradEnd)
+                        const grad = Theme.okStops(ctx.createLinearGradient(0, 0, width, 0), Theme.gradStart, Theme.gradEnd)
                         ctx.strokeStyle = grad
                         ctx.lineWidth = 2
                         ctx.lineCap = "round"
@@ -258,12 +259,11 @@ Item {
                                 font.pixelSize: 17
                                 color: Weather.colorOf(hour.modelData.code, hour.modelData.isDay)
                             }
-                            Text {
+                            MorphText {
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 y: hours.yOf(hour.modelData.temp) - 17
                                 text: Math.round(hour.modelData.temp) + "°"
-                                font.family: Theme.font
-                                font.pixelSize: 11
+                                pixelSize: 11
                                 color: Theme.text
                             }
                             Rectangle {
@@ -364,16 +364,19 @@ Item {
                         font.pixelSize: 11
                         color: Theme.sapphire
                     }
-                    Text {
+                    Item {
                         id: dayMin
                         x: dayPop.x + dayPop.width
                         width: 32
-                        horizontalAlignment: Text.AlignRight
+                        height: minText.implicitHeight
                         anchors.verticalCenter: parent.verticalCenter
-                        text: Math.round(day.modelData.min) + "°"
-                        font.family: Theme.font
-                        font.pixelSize: 12
-                        color: Theme.overlay1
+                        MorphText {
+                            id: minText
+                            anchors.right: parent.right
+                            text: Math.round(day.modelData.min) + "°"
+                            pixelSize: 12
+                            color: Theme.overlay1
+                        }
                     }
                     Item {
                         id: track
@@ -393,10 +396,10 @@ Item {
                             width: Math.max(6, track.width * (week.pos(day.modelData.max) - week.pos(day.modelData.min)))
                             height: parent.height
                             radius: 3
-                            gradient: Gradient {
+                            gradient: OkGradient {
                                 orientation: Gradient.Horizontal
-                                GradientStop { position: 0; color: Theme.mix(Theme.sky, Theme.peach, week.pos(day.modelData.min)) }
-                                GradientStop { position: 1; color: Theme.mix(Theme.sky, Theme.peach, week.pos(day.modelData.max)) }
+                                from: Theme.mix(Theme.sky, Theme.peach, week.pos(day.modelData.min))
+                                to: Theme.mix(Theme.sky, Theme.peach, week.pos(day.modelData.max))
                             }
                         }
                         // Сегодня — где мы сейчас
@@ -410,16 +413,19 @@ Item {
                             border.color: Theme.cardBg
                         }
                     }
-                    Text {
+                    Item {
                         id: dayMax
                         anchors.right: parent.right
                         width: 32
-                        horizontalAlignment: Text.AlignRight
+                        height: maxText.implicitHeight
                         anchors.verticalCenter: parent.verticalCenter
-                        text: Math.round(day.modelData.max) + "°"
-                        font.family: Theme.font
-                        font.pixelSize: 12
-                        color: Theme.text
+                        MorphText {
+                            id: maxText
+                            anchors.right: parent.right
+                            text: Math.round(day.modelData.max) + "°"
+                            pixelSize: 12
+                            color: Theme.text
+                        }
                     }
                 }
             }
