@@ -60,11 +60,12 @@ Item {
                 text: "Уведомления"
                 pixelSize: 15
             }
-            MorphText {
+            Text {
                 anchors.verticalCenter: parent.verticalCenter
                 visible: Notifs.count > 0
-                text: String(Notifs.count)
-                pixelSize: 12
+                text: Notifs.count
+                font.family: Theme.font
+                font.pixelSize: 12
                 color: Theme.overlay1
             }
         }

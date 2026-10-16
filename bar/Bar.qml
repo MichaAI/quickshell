@@ -19,12 +19,6 @@ Scope {
         color: Theme.text
         anchors.verticalCenter: parent.verticalCenter
     }
-    // Числа: цифры перетекают одна в другую (MorphText)
-    component PillNum: MorphText {
-        pixelSize: Theme.fontSize
-        color: Theme.text
-        anchors.verticalCenter: parent.verticalCenter
-    }
 
     Variants {
         model: Quickshell.screens
@@ -381,7 +375,7 @@ Scope {
                         onClicked: win.togglePopout("calendar", timePill)
 
                         PillText { text: "󰥔"; color: Theme.sapphire }
-                        PillNum { text: Time.time }
+                        PillText { text: Time.time }
                     }
 
                     BarPill {
@@ -392,7 +386,7 @@ Scope {
                         onClicked: win.togglePopout("weather", weatherPill)
 
                         PillText { text: Weather.icon; color: Weather.colorOf(Weather.code, Weather.isDay) }
-                        PillNum { text: Weather.fmt(Weather.temp) }
+                        PillText { text: Weather.fmt(Weather.temp) }
                     }
 
                     BarPill {
@@ -463,11 +457,11 @@ Scope {
                         onClicked: win.togglePopout("system", sysPill)
 
                         PillText { text: ""; color: Theme.blue }
-                        PillNum { text: SysStat.cpu.toFixed(0) }
+                        PillText { text: SysStat.cpu.toFixed(0) }
                         PillText { text: ""; color: Theme.blue }
-                        PillNum { text: SysStat.memPerc.toFixed(0) }
+                        PillText { text: SysStat.memPerc.toFixed(0) }
                         PillText { text: "󰔏"; color: Theme.blue }
-                        PillNum { text: SysStat.temp.toFixed(0) }
+                        PillText { text: SysStat.temp.toFixed(0) }
                     }
 
                     BarPill {
@@ -549,7 +543,7 @@ Scope {
                             text: Audio.icon
                             color: Audio.muted ? Theme.overlay0 : Theme.teal
                         }
-                        PillNum {
+                        PillText {
                             text: Audio.muted ? "MUTED" : Math.round(Audio.volume * 100).toString()
                             color: Audio.muted ? Theme.overlay0 : Theme.text
                         }
@@ -593,7 +587,7 @@ Scope {
                                 Spring {}
                             }
 
-                            PillNum {
+                            PillText {
                                 id: brightText
                                 text: Brightness.percent.toString()
                                 opacity: brightPill.expanded ? 1 : 0
@@ -609,7 +603,7 @@ Scope {
                         active: win.shownPopout === "battery"
                         onClicked: win.togglePopout("battery", batteryPill)
 
-                        PillNum { text: Power.percent.toString() }
+                        PillText { text: Power.percent.toString() }
                         PillText {
                             text: Power.icon
                             color: Power.critical ? Theme.red
@@ -670,7 +664,7 @@ Scope {
                             color: Notifs.dnd ? Theme.overlay0
                                  : Notifs.unread && Notifs.count > 0 ? Theme.peach : Theme.lavender
                         }
-                        PillNum {
+                        PillText {
                             text: Notifs.count.toString()
                             visible: Notifs.count > 0
                             color: Notifs.dnd ? Theme.overlay0 : Theme.text

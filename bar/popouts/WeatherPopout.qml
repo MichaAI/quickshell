@@ -259,11 +259,12 @@ Item {
                                 font.pixelSize: 17
                                 color: Weather.colorOf(hour.modelData.code, hour.modelData.isDay)
                             }
-                            MorphText {
+                            Text {
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 y: hours.yOf(hour.modelData.temp) - 17
                                 text: Math.round(hour.modelData.temp) + "°"
-                                pixelSize: 11
+                                font.family: Theme.font
+                                font.pixelSize: 11
                                 color: Theme.text
                             }
                             Rectangle {
@@ -364,19 +365,16 @@ Item {
                         font.pixelSize: 11
                         color: Theme.sapphire
                     }
-                    Item {
+                    Text {
                         id: dayMin
                         x: dayPop.x + dayPop.width
                         width: 32
-                        height: minText.implicitHeight
+                        horizontalAlignment: Text.AlignRight
                         anchors.verticalCenter: parent.verticalCenter
-                        MorphText {
-                            id: minText
-                            anchors.right: parent.right
-                            text: Math.round(day.modelData.min) + "°"
-                            pixelSize: 12
-                            color: Theme.overlay1
-                        }
+                        text: Math.round(day.modelData.min) + "°"
+                        font.family: Theme.font
+                        font.pixelSize: 12
+                        color: Theme.overlay1
                     }
                     Item {
                         id: track
@@ -413,19 +411,16 @@ Item {
                             border.color: Theme.cardBg
                         }
                     }
-                    Item {
+                    Text {
                         id: dayMax
                         anchors.right: parent.right
                         width: 32
-                        height: maxText.implicitHeight
+                        horizontalAlignment: Text.AlignRight
                         anchors.verticalCenter: parent.verticalCenter
-                        MorphText {
-                            id: maxText
-                            anchors.right: parent.right
-                            text: Math.round(day.modelData.max) + "°"
-                            pixelSize: 12
-                            color: Theme.text
-                        }
+                        text: Math.round(day.modelData.max) + "°"
+                        font.family: Theme.font
+                        font.pixelSize: 12
+                        color: Theme.text
                     }
                 }
             }
