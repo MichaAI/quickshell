@@ -34,6 +34,11 @@ Item {
     }
 
     // Длинные меню (VPN, плееры) не влезают в popoutMaxHeight — даём скролл
+    Overscroll {
+        flick: flick
+        z: 1
+    }
+
     Flickable {
         id: flick
         anchors.fill: parent

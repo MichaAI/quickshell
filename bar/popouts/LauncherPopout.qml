@@ -511,6 +511,12 @@ Item {
                 }
             }
 
+            Overscroll {
+                flick: list
+                z: 1
+                visible: list.visible
+            }
+
             ListView {
                 id: list
                 anchors.fill: parent

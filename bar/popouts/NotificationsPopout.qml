@@ -143,6 +143,12 @@ Item {
             }
         }
 
+        // Растяжка у краёв — поверх списка
+        Overscroll {
+            flick: list
+            z: 1
+        }
+
         ListView {
             id: list
             anchors.fill: parent

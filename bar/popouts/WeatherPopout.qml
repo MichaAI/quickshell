@@ -234,6 +234,15 @@ Item {
                 clip: true
 
                 readonly property int cell: 46
+
+                // Растяжка у краёв: ребёнком самого Flickable, а не ленты,
+                // иначе ехала бы вместе с ней
+                Overscroll {
+                    parent: hours
+                    flick: hours
+                    horizontal: true
+                    z: 1
+                }
                 readonly property real lo: Math.min(...root.stripHours.map(h => h.temp))
                 readonly property real hi: Math.max(...root.stripHours.map(h => h.temp))
                 // Полоса кривой: от curveTop до curveTop + curveH
