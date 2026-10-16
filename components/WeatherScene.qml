@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Shapes
 import "../config"
+import "Shapes.js" as Shapes
 
 // Живое небо в духе Breezy Weather: градиент по погоде и времени суток,
 // солнце с дышащими ореолами или луна со звёздами, плывущие облака,
@@ -92,7 +93,7 @@ Item {
         }
     }
 
-    // ===== Солнце: ядро и дышащие ореолы =====
+    // ===== Солнце: фигура Sunny и дышащие ореолы =====
     Item {
         id: sun
         opacity: root.showSun ? root.lightOpacity : 0
@@ -122,39 +123,21 @@ Item {
             }
         }
 
-        // Лучи медленно вращаются
-        Item {
-            anchors.fill: parent
-            RotationAnimation on rotation {
+        // Само солнце — фигура Sunny из MD3 Expressive, медленно вращается.
+        // Повёрнута на четверть, чтобы градиент шейдера шёл сверху вниз
+        MorphShape {
+            id: sunShape
+            anchors.centerIn: parent
+            width: 64; height: 64
+            radius: 31
+            rotation: 90
+            from: Shapes.sunnyFull
+            to: Shapes.sunnyFull
+            colorFrom: "#fff3c4"
+            colorTo: Theme.peach
+            FrameAnimation {
                 running: sun.visible
-                from: 0; to: 360
-                duration: 60000
-                loops: Animation.Infinite
-            }
-            Repeater {
-                model: 12
-                delegate: Rectangle {
-                    id: ray
-                    required property int index
-                    x: parent.width / 2 - width / 2
-                    y: -14
-                    width: 3; height: 10; radius: 1.5
-                    color: Theme.alpha(Theme.yellow, 0.55)
-                    transform: Rotation {
-                        origin.x: 1.5
-                        origin.y: 26 + 14
-                        angle: ray.index * 30
-                    }
-                }
-            }
-        }
-
-        Rectangle {
-            anchors.fill: parent
-            radius: width / 2
-            gradient: OkGradient {
-                from: "#fff3c4"
-                to: Theme.peach
+                onTriggered: sunShape.turn = (sunShape.turn + frameTime / 60) % 1
             }
         }
     }
