@@ -51,7 +51,7 @@ Item {
             vanish.restart()
     }
 
-    MorphShape {
+    MaterialShape {
         id: blob
         anchors.centerIn: parent
         anchors.verticalCenterOffset: lift

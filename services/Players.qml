@@ -8,7 +8,9 @@ Singleton {
 
     property MprisPlayer selected: null
 
-    readonly property var list: Mpris.players.values
+    // playerctld — не плеер, а зеркало последнего активного (для
+    // playerctl на горячих клавишах): в списке он двойник настоящего
+    readonly property var list: Mpris.players.values.filter(p => p.dbusName !== "org.mpris.MediaPlayer2.playerctld")
 
     readonly property MprisPlayer active: {
         if (selected && list.includes(selected))

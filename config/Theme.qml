@@ -63,6 +63,9 @@ QtObject {
     // с ровной на глаз яркостью. Альфа премультиплицирована, как в CSS, —
     // переход в прозрачность не тащит за собой чёрный
     function mix(a, b, t) {
+        // Строку "#rrggbb" — в цвет: у строки нет .r/.g/.b
+        if (typeof a === "string") a = Qt.color(a)
+        if (typeof b === "string") b = Qt.color(b)
         const p = oklab(a), q = oklab(b)
         const al = a.a + (b.a - a.a) * t
         if (al <= 0)

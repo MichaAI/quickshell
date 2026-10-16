@@ -158,31 +158,138 @@ function fromOklch(L, C, h) {
     return { r: _srgb(rgb[0]), g: _srgb(rgb[1]), b: _srgb(rgb[2]), a: 1 }
 }
 
-// Два акцента из картинки (RGBA-байты, например getImageData().data):
-// оттенки — два пика гистограммы, где голос пикселя — его насыщенность;
-// яркость L и насыщенность C — свои, как у темы, чтобы читалось на тёмном.
-// null — картинка почти серая.
-function accents(px, L, C) {
-    const bins = 36, hist = new Array(bins).fill(0)
-    for (let i = 0; i + 3 < px.length; i += 4) {
-        const lab = oklab(px[i] / 255, px[i + 1] / 255, px[i + 2] / 255)
-        const c = Math.hypot(lab[1], lab[2])
-        const w = Math.max(0, c - 0.03) * (1 - Math.abs(lab[0] - 0.6)) * px[i + 3] / 255
-        const h = (Math.atan2(lab[2], lab[1]) + 2 * Math.PI) % (2 * Math.PI)
-        hist[Math.floor(h / (2 * Math.PI) * bins) % bins] += w
+// Дальтонизм: линейный sRGB глазами протанопа и дейтеранопа (Machado 2009)
+const _cvd = [
+    [[0.152286, 1.052583, -0.204868], [0.114503, 0.786281, 0.099216], [-0.003882, -0.048116, 1.051998]],
+    [[0.367322, 0.860646, -0.227968], [0.280085, 0.672501, 0.047413], [-0.011820, 0.042940, 0.968881]]
+]
+
+function _labOf(c) {
+    return oklab(c.r, c.g, c.b)
+}
+
+// Насколько пара различима для красно-зелёного дальтоника: меньшее ΔE OkLab
+// из протанопии и дейтеранопии
+function cvdDistance(c1, c2) {
+    const lin = c => [_lin(c.r), _lin(c.g), _lin(c.b)]
+    let best = Infinity
+    for (const M of _cvd) {
+        const sim = c => {
+            const v = lin(c)
+            const o = M.map(row => _srgb(row[0] * v[0] + row[1] * v[1] + row[2] * v[2]))
+            return oklab(o[0], o[1], o[2])
+        }
+        const p = sim(c1), q = sim(c2)
+        best = Math.min(best, Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]))
     }
-    const sm = hist.map((v, i) => hist[(i + bins - 1) % bins] * 0.25 + v * 0.5 + hist[(i + 1) % bins] * 0.25)
-    if (sm.reduce((a, b) => a + b, 0) < 1e-3)
+    return best
+}
+
+// Два акцента из картинки (RGBA-байты квадрата, например getImageData().data)
+// для градиента на тёмном фоне.
+//
+// 1. Пиксели — в OkLab; центр кадра весит больше краёв (там обычно сюжет,
+//    по краям — фон и рамки).
+// 2. k-means на 8 цветов (детерминированно: старт — самые далёкие друг от
+//    друга точки, так что одна обложка — всегда одни цвета).
+// 3. Очки цвета: доля площади в степени 0.6 (маленькое яркое пятно может
+//    перебить большой тусклый фон) × насыщенность. Серые тоже участвуют, но
+//    со слабым голосом: у блёклой обложки побеждает хоть чуть цветное, а у
+//    совсем серой — её же серый. Почти чёрные и почти белые не участвуют.
+// 4. Второй — лучший по очкам из тех, что отличаются оттенком хотя бы на
+//    25° (у серых оттенка толком нет — им не обязательно), со штрафом за почти противоположные: градиент между ними в OkLab
+//    идёт через серое. И с наградой за различимость при красно-зелёном
+//    дальтонизме — иначе градиент для такого глаза плоский.
+//    Другого оттенка нет — подойдёт тот же тон, но светлее или темнее;
+//    нет и такого (однотонная обложка) — градиент в одном тоне.
+//    Если пара сливается для дальтоника (красный с зелёным, один тон),
+//    разводим её по яркости: оттенки обложки остаются, а градиент виден.
+// 5. Яркость — около L, чтобы читалось; насыщенность — своя у обложки,
+//    но не больше C: блёклая обложка даёт спокойные акценты, а не кислоту,
+//    серая — серые с её лёгким оттенком.
+// null — только если в картинке нет непрозрачных пикселей.
+function accents(px, L, C) {
+    const n = px.length / 4, side = Math.round(Math.sqrt(n)) || 1
+    const pts = [], wts = []
+    for (let i = 0; i < n; i++) {
+        const a = px[4 * i + 3] / 255
+        if (a < 0.5)
+            continue
+        const x = (i % side + 0.5) / side - 0.5, y = (Math.floor(i / side) + 0.5) / side - 0.5
+        pts.push(oklab(px[4 * i] / 255, px[4 * i + 1] / 255, px[4 * i + 2] / 255))
+        wts.push(a * (1 - 0.6 * Math.min(1, (x * x + y * y) * 2)))
+    }
+    if (pts.length === 0)
         return null
-    const dist = (a, b) => { const d = Math.abs(a - b) % bins; return Math.min(d, bins - d) }
-    let i1 = 0
-    for (let i = 1; i < bins; i++) if (sm[i] > sm[i1]) i1 = i
-    let i2 = -1
-    for (let i = 0; i < bins; i++)
-        if (dist(i, i1) >= 4 && (i2 < 0 || sm[i] > sm[i2])) i2 = i
-    // Второго цвета нет — берём соседний оттенок
-    if (i2 < 0 || sm[i2] < 0.15 * sm[i1])
-        i2 = (i1 + 5) % bins
-    const hue = i => (i + 0.5) / bins * 2 * Math.PI
-    return [fromOklch(L, C, hue(i1)), fromOklch(L, C, hue(i2))]
+    const d2 = (p, q) => (p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2 + (p[2] - q[2]) ** 2
+
+    // k-means
+    const K = Math.min(8, pts.length)
+    let mean = [0, 0, 0], W = 0
+    pts.forEach((p, i) => { for (let k = 0; k < 3; k++) mean[k] += p[k] * wts[i]; W += wts[i] })
+    mean = mean.map(v => v / W)
+    const cent = []
+    let near = pts.map(p => d2(p, mean))
+    for (let k = 0; k < K; k++) {
+        let far = 0
+        for (let i = 1; i < pts.length; i++) if (near[i] * wts[i] > near[far] * wts[far]) far = i
+        cent.push(pts[far].slice())
+        near = near.map((v, i) => Math.min(v, d2(pts[i], pts[far])))
+    }
+    let own = new Array(pts.length).fill(0)
+    for (let it = 0; it < 10; it++) {
+        own = pts.map(p => { let b = 0; for (let k = 1; k < K; k++) if (d2(p, cent[k]) < d2(p, cent[b])) b = k; return b })
+        const sum = cent.map(() => [0, 0, 0, 0])
+        pts.forEach((p, i) => { const s = sum[own[i]]; s[0] += p[0] * wts[i]; s[1] += p[1] * wts[i]; s[2] += p[2] * wts[i]; s[3] += wts[i] })
+        sum.forEach((s, k) => { if (s[3] > 0) cent[k] = [s[0] / s[3], s[1] / s[3], s[2] / s[3]] })
+    }
+    const share = cent.map(() => 0)
+    own.forEach((k, i) => share[k] += wts[i] / W)
+
+    const sat = (x, lo, hi) => clamp((x - lo) / (hi - lo), 0, 1)
+    const cl = cent.map((c, k) => {
+        const ch = Math.hypot(c[1], c[2])
+        return {
+            L: c[0], C: ch, h: Math.atan2(c[2], c[1]), share: share[k],
+            score: share[k] < 0.02 ? 0
+                 : Math.pow(share[k], 0.6) * (0.08 + 0.92 * sat(ch, 0.012, 0.07)) * (0.5 + ch * 4)
+                   * Math.max(0.05, sat(c[0], 0.12, 0.3) * (1 - sat(c[0], 0.9, 0.98)))
+        }
+    }).filter(c => c.score > 0).sort((p, q) => q.score - p.score)
+    if (cl.length === 0)
+        return null
+
+    const grey = c => c.C < 0.03
+    // Серому — его лёгкий оттенок, чуть усиленный; цветному — не тусклее 0.06
+    const make = (c, dL) => fromOklch(clamp(L + (c.L - 0.6) * 0.15, L - 0.05, L + 0.05) + (dL ?? 0),
+                                      grey(c) ? c.C * 1.5 : clamp(c.C * 1.25, 0.06, C), c.h)
+    const hueGap = (a, b) => { const d = Math.abs(a - b) % (2 * Math.PI); return Math.min(d, 2 * Math.PI - d) * 180 / Math.PI }
+    const first = cl[0], c1 = make(first)
+    const pairScore = c2 => sat(cvdDistance(c1, c2), 0.02, 0.08) * 0.7 + 0.3
+
+    // Сначала ищем другой оттенок; тот же тон, но заметно светлее или
+    // темнее, — только если другого нет
+    const pick = sameTone => {
+        let found = null, best = 0
+        for (const c of cl.slice(1)) {
+            const gap = grey(c) || grey(first) ? 60 : hueGap(c.h, first.h)
+            if (sameTone ? gap >= 25 || Math.abs(c.L - first.L) < 0.08 : gap < 25)
+                continue
+            const s = c.score * (gap > 120 ? 1 - 0.6 * (gap - 120) / 60 : 1) * pairScore(make(c))
+            if (s > best && c.score > first.score * 0.12) { best = s; found = c }
+        }
+        return found
+    }
+    let second = pick(false) ?? pick(true)
+    // Однотонная: тот же цвет, ниже разведём по яркости
+    if (!second)
+        second = first
+    let c2 = make(second)
+    if (cvdDistance(c1, c2) < 0.05) {
+        // Светлее тот, что светлее на обложке
+        const up = first.L >= second.L ? 1 : -1
+        const k = second === first ? 1.4 : 1
+        return [make(first, 0.04 * k * up), make(second, -0.06 * k * up)]
+    }
+    return [c1, c2]
 }

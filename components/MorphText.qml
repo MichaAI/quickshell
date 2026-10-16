@@ -26,8 +26,9 @@ Item {
     readonly property real h: f.height * pixelSize          // высота рамки символа
     readonly property bool supported: text.split("").every(c => f.chars[c] !== undefined)
 
-    implicitWidth: supported ? row.width : fallback.implicitWidth
-    implicitHeight: supported ? h : fallback.implicitHeight
+    // Целые размеры: иначе при центровке строка встаёт на полпикселя и мылится
+    implicitWidth: supported ? Math.ceil(row.width) : fallback.implicitWidth
+    implicitHeight: supported ? Math.ceil(h) : fallback.implicitHeight
     baselineOffset: supported ? f.baseline * h : fallback.baselineOffset
 
     // Пары штрихов для перехода a → b: [[точки «откуда», точки «куда»,
@@ -110,10 +111,15 @@ Item {
                     renderStrategy: Canvas.Threaded
                     // Запас под кисть, обводку и наклон курсива
                     readonly property real pad: root.h * (root.f.radius + 0.3) + root.outlineWidth
-                    x: -pad
-                    y: -pad
-                    width: slot.width + 2 * pad
-                    height: root.h + 2 * pad
+                    // Холст — на целых пикселях, хоть символ и стоит на дробной
+                    // ширине соседей: текстура со сдвигом на полпикселя мылится.
+                    // offX, offY — где внутри холста начало символа
+                    x: Math.floor(slot.x - pad + 0.5) - slot.x
+                    y: -Math.ceil(pad)
+                    readonly property real offX: -x
+                    readonly property real offY: -y
+                    width: Math.ceil(slot.width + 2 * pad + 1)
+                    height: Math.ceil(root.h) + 2 * Math.ceil(pad)
 
                     onPaint: {
                         const ctx = getContext("2d")
@@ -123,8 +129,8 @@ Item {
                         ctx.lineJoin = "round"
                         const trace = (pa, pb, closed) => {
                             const n = pa.length / 2
-                            const px = k => pad + (pa[2 * k] + (pb[2 * k] - pa[2 * k]) * t) * h
-                            const py = k => pad + (pa[2 * k + 1] + (pb[2 * k + 1] - pa[2 * k + 1]) * t) * h
+                            const px = k => offX + (pa[2 * k] + (pb[2 * k] - pa[2 * k]) * t) * h
+                            const py = k => offY + (pa[2 * k + 1] + (pb[2 * k + 1] - pa[2 * k + 1]) * t) * h
                             ctx.beginPath()
                             ctx.moveTo(px(0), py(0))
                             // Вся линия в полпикселя — это точка («:», «.»): круг кисти
@@ -151,7 +157,7 @@ Item {
                             }
                         }
                         // Градиент по всей строке, а не по символу
-                        const g = ctx.createLinearGradient(pad - slot.x, 0, pad - slot.x + row.width, 0)
+                        const g = ctx.createLinearGradient(offX - slot.x, 0, offX - slot.x + row.width, 0)
                         Theme.okStops(g, root.color, root.colorTo)
                         ctx.strokeStyle = g
                         for (const [pa, pb, closed, ra, rb] of slot.steps) {

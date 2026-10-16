@@ -69,8 +69,11 @@ void main() {
     float rho = length(p);
 
     float r = thick * 0.5;
+    // Под конец концы дуги сходятся и срастаются в целое кольцо: иначе
+    // наверху остаётся щербина между двумя скруглёнными концами
+    float close = smoothstep(0.995, 1.0, progress);
     // Активная дуга: центр линии от cap до progress - cap
-    float a0 = cap, a1 = progress - cap;
+    float a0 = cap * (1.0 - close), a1 = progress - cap * (1.0 - close);
     float act = 0.0;
     if (a1 > a0) {
         float d;
@@ -101,7 +104,11 @@ void main() {
         trk = clamp(r - d + 0.5, 0.0, 1.0);
     }
 
+    // Цвет — от начала дуги к её концу; у полного кольца конец упёрся бы
+    // в начало резким стыком, поэтому к 100% градиент становится зеркальным:
+    // наверху начальный цвет, внизу конечный
     float t = clamp((a - a0) / max(a1 - a0, 0.001), 0.0, 1.0);
+    t = mix(t, 1.0 - abs(2.0 * a - 1.0), smoothstep(0.85, 1.0, progress));
     vec3 col = fromOklab(mix(oklab(c0.rgb), oklab(c1.rgb), t));
     vec4 o = track * trk;
     o = vec4(col, 1.0) * act + o * (1.0 - act);
