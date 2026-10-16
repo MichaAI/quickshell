@@ -3,8 +3,10 @@ import QtQuick
 import "../config"
 import "../services"
 
-// Карточка уведомления с анимацией ухода: уезжает вправо, тает,
+// Карточка уведомления с анимацией ухода: уезжает вбок, тает,
 // потом схлопывает своё место, и только после этого вызывается действие.
+// Смахивается двумя пальцами по тачпаду: едет за пальцами, отпущенная
+// дальше трети ширины — улетает и закрывает уведомление, иначе пружинит назад.
 Item {
     id: root
 
@@ -20,6 +22,8 @@ Item {
 
     property real slide: 0
     property real shrink: 1
+    property real drag: 0                // смещение пальцами, px
+    property int dir: 1                  // куда уезжать: 1 — вправо, -1 — влево
     property var after: null
     property int delay: 0
 
@@ -36,6 +40,47 @@ Item {
     }
 
     Component.onCompleted: if (enter) inAnim.start()
+
+    // ===== Свайп двумя пальцами =====
+    WheelHandler {
+        target: null
+        acceptedDevices: PointerDevice.TouchPad
+        onWheel: event => {
+            const dx = event.pixelDelta.x, dy = event.pixelDelta.y
+            // Вертикальное — список листать; инерция после отпускания — мимо
+            if (root.leaving || event.phase === Qt.ScrollMomentum
+                    || (root.drag === 0 && Math.abs(dx) <= Math.abs(dy))) {
+                event.accepted = false
+                return
+            }
+            snapBack.stop()
+            root.drag += Settings.notifSwipeInvert ? -dx : dx
+            if (event.phase === Qt.ScrollEnd)
+                root.release()
+            else
+                releaseTimer.restart()
+        }
+    }
+    // Не все тачпады шлют конец жеста — тогда конец по паузе
+    Timer {
+        id: releaseTimer
+        interval: 150
+        onTriggered: root.release()
+    }
+    function release() {
+        releaseTimer.stop()
+        if (Math.abs(drag) > width / 3) {
+            dir = drag > 0 ? 1 : -1
+            leave(() => root.notif.dismiss())
+        } else {
+            snapBack.start()
+        }
+    }
+    Spring {
+        id: snapBack
+        target: root; property: "drag"; to: 0
+        epsilon: 0.2
+    }
 
     Spring {
         id: inAnim
@@ -65,10 +110,10 @@ Item {
 
     NotifCard {
         id: card
-        x: root.slide * (root.width + 16)
+        x: root.drag + root.dir * root.slide * (root.width + 16)
         width: root.width
         height: implicitHeight
-        opacity: 1 - root.slide
+        opacity: (1 - root.slide) * (1 - 0.6 * Math.min(1, Math.abs(root.drag) / root.width))
         notif: root.notif
         // Крестик: убрать уведомление (всплывашка уйдёт сама по closed)
         onClosePressed: root.leave(() => root.notif.dismiss())
