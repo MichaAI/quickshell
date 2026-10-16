@@ -62,8 +62,8 @@ Item {
                 }
                 MorphText {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    font: "monoBoldItalic"
-                    pixelSize: 30
+                    font: "neofolia"
+                    pixelSize: 36
                     color: Power.critical ? Theme.red : Theme.gradStart
                     colorTo: Power.critical ? Theme.maroon : Theme.gradEnd
                     text: Power.percent + "%"
