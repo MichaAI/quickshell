@@ -6,7 +6,8 @@ import QtQuick
 // Тексты песен с LRCLIB (lrclib.net, бесплатно и без ключа) для того, что
 // играет сейчас (Players.active). Синхронный текст — строки со временем,
 // иначе просто текст. Запрос — curl (через прокси погоды, если он задан);
-// найденное запоминается на сессию.
+// ответ сервера (есть текст или точно нет) запоминается на сессию, а сбой
+// (сеть, «сервер занят») — нет: тот же трек переспрашиваем чуть позже.
 Singleton {
     id: root
 
@@ -69,7 +70,23 @@ Singleton {
 
     onKeyChanged: {
         show({ lines: [], synced: false })
+        retry.stop()
+        tries = 0
         debounce.restart()
+    }
+
+    // Сбой — ещё раз через 15 с, минуту, три; дальше до смены трека не мучаем
+    property int tries: 0
+    function fail() {
+        loading = false
+        if (tries >= 3)
+            return
+        retry.interval = [15000, 60000, 180000][tries++]
+        retry.restart()
+    }
+    Timer {
+        id: retry
+        onTriggered: root.fetch()
     }
 
     // Трек переключают пачкой — ждём, пока метаданные устоятся
@@ -96,9 +113,11 @@ Singleton {
             url += "&album_name=" + q(p.trackAlbum)
         if (len > 0)
             url += "&duration=" + len
-        get(url, r => {
+        get(url, (r, ok) => {
             if (k !== root.key)
                 return
+            if (!ok)
+                return root.fail()
             const res = parse(r)
             if (res.lines.length > 0 || r?.instrumental) {
                 root.cache[k] = res
@@ -106,9 +125,11 @@ Singleton {
                 return
             }
             // Точного совпадения нет — поиск, и из найденного ближайшее по длине
-            get(base + "search?track_name=" + q(p.trackTitle) + "&artist_name=" + q(p.trackArtist), list => {
+            get(base + "search?track_name=" + q(p.trackTitle) + "&artist_name=" + q(p.trackArtist), (list, ok2) => {
                 if (k !== root.key)
                     return
+                if (!ok2)
+                    return root.fail()
                 let best = { lines: [], synced: false }
                 const cands = (Array.isArray(list) ? list : [])
                     .filter(x => len <= 0 || Math.abs((x.duration ?? 0) - len) <= 3)
@@ -128,13 +149,19 @@ Singleton {
         Process {
             id: req
             property var done
+            // В конце вывода — код ответа (-w). 200 — ответ, 404 — точно
+            // нет; остальное (000 — не достучались, 5xx) — сбой
             stdout: StdioCollector {
                 onStreamFinished: {
+                    const cut = text.lastIndexOf("\n")
+                    const code = Number(text.slice(cut + 1))
                     let r = null
-                    try {
-                        r = JSON.parse(text)
-                    } catch (e) {}
-                    req.done(r)
+                    if (code === 200) {
+                        try {
+                            r = JSON.parse(text.slice(0, cut))
+                        } catch (e) {}
+                    }
+                    req.done(r, code === 404 || (code === 200 && r !== null))
                     req.destroy()
                 }
             }
@@ -142,7 +169,7 @@ Singleton {
     }
 
     function get(url, done) {
-        const cmd = ["curl", "-sfL", "-m", "15", "-A", "quickshell-lyrics github.com/MichaAI/quickshell"]
+        const cmd = ["curl", "-sL", "-m", "15", "-w", "\n%{http_code}", "-A", "quickshell-lyrics github.com/MichaAI/quickshell"]
         if (Weather.proxy !== "")
             cmd.push("-x", Weather.proxy)
         cmd.push(url)
