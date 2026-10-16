@@ -345,8 +345,10 @@ Item {
             StyledSlider {
                 width: parent.width
                 wavy: true
-                // Перемотка по MPRIS — не чаще четырёх раз в секунду
-                sendEvery: 250
+                // Перемотка по MPRIS — не чаще восьми раз в секунду
+                sendEvery: 125
+                // Своя позиция — в пределах полутора секунд трека
+                holdTolerance: (root.player?.length ?? 0) > 0 ? 1.5 / root.player.length : 0.01
                 colorFrom: root.accentFrom
                 colorTo: root.accentTo
                 moving: root.player?.isPlaying ?? false

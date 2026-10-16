@@ -42,13 +42,32 @@ Item {
         interval: root.sendEvery
         onTriggered: root.send(false)
     }
-    // После отпускания ещё немного держим ручку на месте, пока значение
-    // не вернётся оттуда, куда его отправили, — чтобы не дёрнулась назад
+    // Мышь главнее: после отпускания ручка стоит там, где её бросили,
+    // пока снаружи не придёт значение рядом с ним (не дальше holdTolerance).
+    // Старые значения, которыми источник ещё тянет назад (kdeconnect), ручку
+    // не дёргают. Первые holdMin мс не верим даже совпадению: своё значение
+    // может прийти эхом раньше чужого старого. Не сошлось за holdMax мс —
+    // значит, источник не согласился, показываем его
+    property real holdTolerance: 0.01
+    property int holdMin: 600
+    property int holdMax: 1500
+    function tryUnhold() {
+        if (!unhold.running || settle.running || Math.abs(value - held) > holdTolerance)
+            return
+        unhold.stop()
+        held = NaN
+    }
     Timer {
         id: unhold
-        interval: 300
+        interval: root.holdMax
         onTriggered: root.held = NaN
     }
+    Timer {
+        id: settle
+        interval: root.holdMin
+        onTriggered: root.tryUnhold()
+    }
+    onValueChanged: tryUnhold()
 
     readonly property bool pill: !wavy && Settings.sliderStyle === "pill"
     readonly property real trackH: wavy ? 4 : Theme.sliderSpec[0]
@@ -201,11 +220,13 @@ Item {
             throttle.stop()
             root.send(true)
             unhold.restart()
+            settle.restart()
         }
         onCanceled: {
             throttle.stop()
             root.send(true)
             unhold.restart()
+            settle.restart()
         }
         onWheel: wheel => {
             const d = wheel.angleDelta.y > 0 ? root.wheelStep : -root.wheelStep
