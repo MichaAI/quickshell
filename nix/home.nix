@@ -53,6 +53,7 @@ in
         wl-clipboard
         xdg-utils
         zsh
+        (callPackage ./budsd.nix { })
       ];
       defaultText = lib.literalMD "утилиты, которые зовут бар, лаунчер и лок";
       description = "Что положить в PATH шеллу. niri и терминал — свои, их тут нет.";

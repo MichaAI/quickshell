@@ -18,6 +18,7 @@ let
           ../nix
           ../.claude
           ../tests
+          ../tools/budsd
           ../.qmlls.ini
           ../README.md
         ]

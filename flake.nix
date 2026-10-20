@@ -21,6 +21,8 @@
         default = pkgs.callPackage ./nix/package.nix { };
         # сам конфиг, как он ляжет в ~/.config/quickshell
         config = pkgs.callPackage ./nix/config.nix { };
+        # демон наушников для Bluetooth-попаута
+        budsd = pkgs.callPackage ./nix/budsd.nix { };
       });
 
       formatter = forAll (pkgs: pkgs.nixfmt);
