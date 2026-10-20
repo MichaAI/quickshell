@@ -160,7 +160,15 @@ impl Manager {
                                 values[id] = params["value"].clone();
                             }
                         }
-                        "battery" | "info" => {
+                        // Полный снимок: чего нет — того нет
+                        "battery" => {
+                            let mut b = params.clone();
+                            if let Some(o) = b.as_object_mut() {
+                                o.remove("device");
+                            }
+                            snap.insert("battery".into(), b);
+                        }
+                        "info" => {
                             let entry = snap.entry(method).or_insert(json!({}));
                             for (k, v) in params.as_object().into_iter().flatten() {
                                 entry[k] = v.clone();

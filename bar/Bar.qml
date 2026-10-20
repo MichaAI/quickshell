@@ -667,7 +667,7 @@ Scope {
 
                         readonly property var budsBattery: Buds.ready ? Buds.current.battery ?? {} : {}
                         readonly property var levels: (Buds.current?.caps?.battery ?? [])
-                            .filter(k => k !== "case" && budsBattery[k] !== undefined)
+                            .filter(k => k !== "case" && budsBattery[k])
                             .map(k => budsBattery[k])
                         // Без управляемых наушников — заряд, который отдал BlueZ
                         readonly property var other: Bt.connected.find(d => d.batteryAvailable) ?? null

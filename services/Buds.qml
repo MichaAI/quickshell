@@ -70,12 +70,17 @@ Singleton {
         case "value":
             patch(mac, d => d.values = Object.assign({}, d.values, { [p.id]: p.value }))
             break
-        case "battery":
+        // Батарея — полный снимок: что не пришло (кейс убрали), того нет
+        case "battery": {
+            const b = Object.assign({}, p)
+            delete b.device
+            patch(mac, d => d.battery = b)
+            break
+        }
         case "info": {
-            const key = msg.method
             const add = Object.assign({}, p)
             delete add.device
-            patch(mac, d => d[key] = Object.assign({}, d[key], add))
+            patch(mac, d => d.info = Object.assign({}, d.info, add))
             break
         }
         case "devices":

@@ -628,9 +628,12 @@ impl Nothing {
         Job { wait: &[DUAL_LIST_RET], ..self.job(DUAL_LIST_GET, &[have]) }
     }
 
+    /// Пакет батареи — полный снимок: чего в нём нет (кейс убрали, наушник
+    /// не на связи), того сейчас и нет — null, а не старое значение
     fn battery(&self, p: &[u8], out: &mut Vec<Out>) {
         let Some(&count) = p.first() else { return };
-        let mut b = serde_json::Map::new();
+        let mut b: serde_json::Map<String, Value> =
+            self.battery_keys().iter().map(|k| (k.to_string(), Value::Null)).collect();
         for i in 0..count as usize {
             let Some(pair) = p.get(1 + i * 2..3 + i * 2) else { break };
             let key = match pair[0] {
@@ -643,6 +646,14 @@ impl Nothing {
             b.insert(key.into(), json!({ "level": pair[1] & 0x7F, "charging": pair[1] & 0x80 != 0 }));
         }
         out.push(Out::Notify("battery", Value::Object(b)));
+    }
+
+    fn battery_keys(&self) -> &'static [&'static str] {
+        if self.model.single {
+            &["single"]
+        } else {
+            &["left", "right", "case"]
+        }
     }
 
     fn anc(&mut self, mode: u8, out: &mut Vec<Out>) {
@@ -1110,7 +1121,7 @@ impl Driver for Nothing {
         if m.fit {
             c.push(json!({ "id": "fitTest", "kind": "fitTest", "page": "more", "label": "Тест посадки" }));
         }
-        let battery: &[&str] = if m.single { &["single"] } else { &["left", "right", "case"] };
+        let battery = self.battery_keys();
         json!({
             "driver": "nothing",
             "model": if std::ptr::eq(m, &GENERIC) { "Nothing" } else { m.name },
@@ -1178,6 +1189,21 @@ mod tests {
         let gain = |i: usize| decode_gain(&p[6 + i * 13..10 + i * 13]);
         assert_eq!([gain(2), gain(0), gain(1)], [-3.0, 2.0, 5.0]);
         assert_eq!(f32::from_le_bytes(p[1..5].try_into().unwrap()), -5.0);
+    }
+
+    // Кейс пропал из пакета — значит, его нет, а не «как было»
+    #[test]
+    fn battery_is_a_full_snapshot() {
+        let mut d = probe("CMF Buds 2 Plus", &[]).unwrap();
+        let mut last = |payload: &[u8]| match d.handle(BATTERY_NTFY, payload).pop() {
+            Some(Out::Notify("battery", v)) => v,
+            _ => panic!("нет уведомления battery"),
+        };
+        let full = last(&[3, 0x02, 100, 0x03, 100, 0x04, 30 | 0x80]);
+        assert_eq!(full["case"], json!({ "level": 30, "charging": true }));
+        let buds = last(&[2, 0x02, 99, 0x03, 98]);
+        assert_eq!(buds["case"], Value::Null);
+        assert_eq!(buds["left"]["level"], 99);
     }
 
     #[test]
