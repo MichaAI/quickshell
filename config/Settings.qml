@@ -32,6 +32,10 @@ QtObject {
     readonly property int popoutWing: 14     // радиус "крыльев" попаута к бару
     readonly property int popoutMaxHeight: 480
 
+    // Значки трея, которые прятать: подстрока id или заголовка, без
+    // регистра. blueman — Bluetooth уже своей пилюлей
+    readonly property var trayHidden: ["blueman"]
+
     // Терминал для `>` + Shift+Enter: дальше дописывается команда.
     // foot/kitty/wezterm start — как есть, alacritty/ghostty — с "-e".
     readonly property var terminal: ["kitty"]

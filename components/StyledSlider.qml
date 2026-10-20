@@ -1,3 +1,4 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import "../config"
 
@@ -8,12 +9,20 @@ import "../config"
 //                активной части и есть ручка.
 // wavy — всегда MD3E-волна, как у LinearWavyProgressIndicator: бежит, пока
 // moving, и разглаживается, когда стоит или у самых краёв.
+// steps > 0 — дискретный, как в MD3E: ручка прыгает по steps делениям, на
+// дорожке точки-стопы.
 Item {
     id: root
 
     property real value: 0          // 0..1
     property bool enabled: true
     property real wheelStep: 0.05
+    // false — колесо не трогает, прокрутка уходит списку под слайдером
+    property bool wheelEnabled: true
+    property int steps: 0
+    function snap(v) {
+        return steps > 0 ? Math.round(v * steps) / steps : v
+    }
     property bool wavy: false
     property bool moving: true
     // Текст пузырька над ручкой, пока тянут
@@ -25,7 +34,9 @@ Item {
 
     // Пока тянут, ручка едет за мышью сразу, а наружу (PipeWire, MPRIS)
     // значение уходит не чаще раза в sendEvery мс и только если сдвинулось
-    // хотя бы на sendStep; последнее положение отправляется при отпускании
+    // хотя бы на sendStep; последнее положение отправляется при отпускании.
+    // live: false — только при отпускании (то, что применяется медленно)
+    property bool live: true
     property int sendEvery: 60
     property real sendStep: 0.005
     property real held: NaN         // положение под мышью, пока тянут
@@ -163,16 +174,39 @@ Item {
         color: Theme.surface0
     }
 
-    // Стоп в конце дорожки
+    // Стоп в конце дорожки (у дискретного — свои стопы на каждом делении)
     Rectangle {
         readonly property real pad: root.wavy ? 0 : root.gap
-        visible: !root.pill && x >= root.inactiveStart + 2
+        visible: !root.pill && root.steps === 0 && x >= root.inactiveStart + 2
         x: root.width - pad - width
         anchors.verticalCenter: parent.verticalCenter
         width: 4
         height: 4
         radius: 2
         color: root.colorTo
+    }
+
+    // Стопы делений: на активной части — тёмные, на остальной — акцентные;
+    // у самой ручки прячутся в зазоре
+    Repeater {
+        model: root.steps > 0 && !root.wavy ? root.steps + 1 : 0
+
+        Rectangle {
+            required property int index
+            readonly property real at: root.pill ? root.trackH / 2 + index / root.steps * (root.width - root.trackH)
+                                                 : 2 + index / root.steps * (root.width - 4)
+            readonly property bool active: index / root.steps < root.v
+            // Крайние — с отступом от скругления, как стоп в конце дорожки
+            readonly property real inset: root.pill ? root.trackH / 2 : root.gap + 2
+            visible: root.pill || Math.abs(at - root.cx) > root.gap
+            x: Math.max(inset, Math.min(at, root.width - inset)) - 2
+            anchors.verticalCenter: parent.verticalCenter
+            width: 4
+            height: 4
+            radius: 2
+            color: active ? Theme.crust : root.colorTo
+            opacity: active ? 0.6 : 1
+        }
     }
 
     // Ручка: на нажатии худеет до 2 px
@@ -206,8 +240,8 @@ Item {
             const v = root.pill ? (mx - root.trackH / 2) / (root.width - root.trackH)
                                 : (mx - 2) / (root.width - 4)
             unhold.stop()
-            root.held = Math.max(0, Math.min(1, v))
-            if (!throttle.running)
+            root.held = root.snap(Math.max(0, Math.min(1, v)))
+            if (root.live && !throttle.running)
                 root.send(false)
         }
 
@@ -229,8 +263,13 @@ Item {
             settle.restart()
         }
         onWheel: wheel => {
-            const d = wheel.angleDelta.y > 0 ? root.wheelStep : -root.wheelStep
-            root.moved(Math.max(0, Math.min(1, root.value + d)))
+            if (!root.wheelEnabled) {
+                wheel.accepted = false
+                return
+            }
+            const step = root.steps > 0 ? 1 / root.steps : root.wheelStep
+            const d = wheel.angleDelta.y > 0 ? step : -step
+            root.moved(root.snap(Math.max(0, Math.min(1, root.value + d))))
         }
     }
 }
