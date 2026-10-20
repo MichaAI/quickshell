@@ -120,7 +120,7 @@ Scope {
                     const anchors = {
                         launcher: logoPill, calendar: timePill, weather: weatherPill, system: sysPill,
                         music: musicPill, volume: volumePill, battery: batteryPill,
-                        notifications: notifPill
+                        bluetooth: btPill, notifications: notifPill
                     }
                     return anchors[name]
                 }
@@ -614,11 +614,14 @@ Scope {
                     BarPill {
                         id: trayPill
                         anchors.verticalCenter: parent.verticalCenter
-                        visible: SystemTray.items.values.length > 0
+                        // Апплеты, которые повторяют пилюли шелла (Settings.trayHidden)
+                        readonly property var items: SystemTray.items.values.filter(i => !Settings.trayHidden
+                            .some(h => (i.id + " " + i.title).toLowerCase().includes(h.toLowerCase())))
+                        visible: items.length > 0
                         active: win.shownPopout === "tray"
 
                         Repeater {
-                            model: SystemTray.items
+                            model: trayPill.items
 
                             MouseArea {
                                 id: trayIcon
@@ -645,6 +648,44 @@ Scope {
                                     }
                                 }
                             }
+                        }
+                    }
+
+                    // Bluetooth: значок, а с наушниками — их заряд (левый · правый).
+                    // СКМ — включить/выключить адаптер
+                    BarPill {
+                        id: btPill
+                        anchors.verticalCenter: parent.verticalCenter
+                        visible: Bt.present || Buds.current !== null
+                        active: win.shownPopout === "bluetooth"
+                        onClicked: event => {
+                            if (event.button === Qt.MiddleButton)
+                                Bt.toggle()
+                            else
+                                win.togglePopout("bluetooth", btPill)
+                        }
+
+                        readonly property var budsBattery: Buds.ready ? Buds.current.battery ?? {} : {}
+                        readonly property var levels: (Buds.current?.caps?.battery ?? [])
+                            .filter(k => k !== "case" && budsBattery[k] !== undefined)
+                            .map(k => budsBattery[k])
+                        // Без управляемых наушников — заряд, который отдал BlueZ
+                        readonly property var other: Bt.connected.find(d => d.batteryAvailable) ?? null
+
+                        PillText {
+                            text: Buds.current ? "󰋋" : Bt.icon
+                            color: Buds.ready ? Theme.sapphire
+                                 : !Bt.enabled ? Theme.overlay0
+                                 : Bt.connected.length > 0 ? Theme.sapphire : Theme.overlay1
+                        }
+                        PillText {
+                            visible: btPill.levels.length > 0
+                            text: btPill.levels.map(b => b.level).join(" · ")
+                            color: btPill.levels.some(b => b.charging) ? Theme.green : Theme.text
+                        }
+                        PillText {
+                            visible: btPill.levels.length === 0 && btPill.other !== null
+                            text: Math.round((btPill.other?.battery ?? 0) * 100).toString()
                         }
                     }
 
@@ -823,6 +864,7 @@ Scope {
                         case "music": return musicComp
                         case "volume": return volumeComp
                         case "battery": return batteryComp
+                        case "bluetooth": return bluetoothComp
                         case "tray": return trayComp
                         case "notifications": return notificationsComp
                         default: return null
@@ -838,6 +880,7 @@ Scope {
             Component { id: musicComp; Popouts.MusicPopout {} }
             Component { id: volumeComp; Popouts.VolumePopout {} }
             Component { id: batteryComp; Popouts.BatteryPopout {} }
+            Component { id: bluetoothComp; Popouts.BluetoothPopout {} }
             Component { id: trayComp; Popouts.TrayMenuPopout {} }
             Component { id: notificationsComp; Popouts.NotificationsPopout {} }
         }
