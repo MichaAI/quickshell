@@ -14,6 +14,8 @@ Item {
     property real value: 0          // 0..1
     property bool enabled: true
     property real wheelStep: 0.05
+    // false — колесо не трогает, прокрутка уходит списку под слайдером
+    property bool wheelEnabled: true
     property bool wavy: false
     property bool moving: true
     // Текст пузырька над ручкой, пока тянут
@@ -25,7 +27,9 @@ Item {
 
     // Пока тянут, ручка едет за мышью сразу, а наружу (PipeWire, MPRIS)
     // значение уходит не чаще раза в sendEvery мс и только если сдвинулось
-    // хотя бы на sendStep; последнее положение отправляется при отпускании
+    // хотя бы на sendStep; последнее положение отправляется при отпускании.
+    // live: false — только при отпускании (то, что применяется медленно)
+    property bool live: true
     property int sendEvery: 60
     property real sendStep: 0.005
     property real held: NaN         // положение под мышью, пока тянут
@@ -207,7 +211,7 @@ Item {
                                 : (mx - 2) / (root.width - 4)
             unhold.stop()
             root.held = Math.max(0, Math.min(1, v))
-            if (!throttle.running)
+            if (root.live && !throttle.running)
                 root.send(false)
         }
 
@@ -229,6 +233,10 @@ Item {
             settle.restart()
         }
         onWheel: wheel => {
+            if (!root.wheelEnabled) {
+                wheel.accepted = false
+                return
+            }
             const d = wheel.angleDelta.y > 0 ? root.wheelStep : -root.wheelStep
             root.moved(Math.max(0, Math.min(1, root.value + d)))
         }

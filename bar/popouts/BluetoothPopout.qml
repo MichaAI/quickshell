@@ -248,7 +248,9 @@ Item {
                 width: parent.width
                 readonly property var col: parent
                 value: (col.val - col.min) / Math.max(1, col.max - col.min)
-                wheelStep: 1 / Math.max(1, col.max - col.min)
+                // Наушникам — одно значение, когда отпустили; колесо — списку
+                live: false
+                wheelEnabled: false
                 valueText: v => Math.round(col.min + v * (col.max - col.min))
                 onMoved: v => {
                     const n = Math.round(col.min + v * (col.max - col.min))
@@ -298,7 +300,8 @@ Item {
                         anchors.rightMargin: 8
                         anchors.verticalCenter: parent.verticalCenter
                         value: (band.db - band.lo) / (band.hi - band.lo)
-                        wheelStep: 1 / (band.hi - band.lo)
+                        live: false
+                        wheelEnabled: false
                         valueText: v => {
                             const n = Math.round(band.lo + v * (band.hi - band.lo))
                             return (n > 0 ? "+" : "") + n + " дБ"
