@@ -225,6 +225,7 @@ Item {
         id: levelComp
 
         Column {
+            id: levelCol
             readonly property var c: parent.ctl
             readonly property int min: c.min
             readonly property int max: c.max
@@ -232,30 +233,29 @@ Item {
             spacing: 4
 
             Item {
-                width: parent.width
+                width: levelCol.width
                 height: 16
-                Label { text: parent.parent.c.label }
+                Label { text: levelCol.c.label }
                 Text {
                     anchors.right: parent.right
-                    text: parent.parent.val + " / " + parent.parent.max
+                    text: levelCol.val + " / " + levelCol.max
                     font.family: Theme.font
                     font.pixelSize: 11
                     color: Theme.subtext1
                 }
             }
             StyledSlider {
-                id: lvl
-                width: parent.width
-                readonly property var col: parent
-                value: (col.val - col.min) / Math.max(1, col.max - col.min)
+                width: levelCol.width
+                steps: levelCol.max - levelCol.min
+                value: (levelCol.val - levelCol.min) / Math.max(1, levelCol.max - levelCol.min)
                 // Наушникам — одно значение, когда отпустили; колесо — списку
                 live: false
                 wheelEnabled: false
-                valueText: v => Math.round(col.min + v * (col.max - col.min))
+                valueText: v => Math.round(levelCol.min + v * (levelCol.max - levelCol.min))
                 onMoved: v => {
-                    const n = Math.round(col.min + v * (col.max - col.min))
-                    if (n !== col.val)
-                        Buds.set(col.c.id, n)
+                    const n = Math.round(levelCol.min + v * (levelCol.max - levelCol.min))
+                    if (n !== levelCol.val)
+                        Buds.set(levelCol.c.id, n)
                 }
             }
         }
@@ -299,6 +299,7 @@ Item {
                         anchors.right: dbText.left
                         anchors.rightMargin: 8
                         anchors.verticalCenter: parent.verticalCenter
+                        steps: band.hi - band.lo
                         value: (band.db - band.lo) / (band.hi - band.lo)
                         live: false
                         wheelEnabled: false
