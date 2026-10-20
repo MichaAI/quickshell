@@ -787,6 +787,13 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: 4
 
+            // Наведение — на всю строку, вкладка сверяет свою геометрию: от
+            // клика ширины пружинят, и свой ховер у вкладки залипал
+            HoverHandler {
+                id: tabsHover
+                cursorShape: Qt.PointingHandCursor
+            }
+
             Repeater {
                 model: root.pages
 
@@ -795,13 +802,15 @@ Item {
                     required property string modelData
                     readonly property bool sel: root.tab === modelData
                     readonly property var meta: root.tabMeta[modelData]
+                    readonly property bool hot: tabsHover.hovered && tabsHover.point.position.x >= x
+                        && tabsHover.point.position.x < x + width
 
                     height: 36
                     width: sel ? tabRow.implicitWidth + 28 : 44
                     Behavior on width { Spring {} }
                     radius: sel ? 18 : 12
                     Behavior on radius { Spring {} }
-                    color: sel ? Theme.alpha(Theme.gradEnd, 0.22) : tma.containsMouse ? Theme.cardBg : "transparent"
+                    color: sel ? Theme.alpha(Theme.gradEnd, 0.22) : hot ? Theme.cardBg : "transparent"
                     Behavior on color { ColorAnimation { duration: 120 } }
                     clip: true
 
@@ -825,10 +834,7 @@ Item {
                         }
                     }
                     MouseArea {
-                        id: tma
                         anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
                         onClicked: root.page = tabBtn.modelData
                     }
                 }

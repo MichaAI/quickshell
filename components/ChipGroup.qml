@@ -37,6 +37,14 @@ Item {
         width: root.width
         spacing: 8
 
+        // Наведение — один обработчик на все чипы, чип сверяет с ним свою
+        // геометрию: у выбранного меняется ширина, соседи едут, и свой
+        // ховер у каждого залипал бы
+        HoverHandler {
+            id: hover
+            cursorShape: Qt.PointingHandCursor
+        }
+
         Repeater {
             model: root.options
 
@@ -47,18 +55,22 @@ Item {
                 readonly property bool sel: root.multi ? (root.current ?? []).includes(modelData.id)
                                                        : modelData.id === root.current
 
+                readonly property bool hot: hover.hovered
+                    && hover.point.position.x >= x && hover.point.position.x < x + width
+                    && hover.point.position.y >= y && hover.point.position.y < y + height
+
                 width: content.implicitWidth + 24
                 height: 32
                 radius: sel ? 16 : 8
                 Behavior on radius { Spring {} }
                 Behavior on width { Spring {} }
                 color: sel ? Theme.alpha(Theme.gradEnd, 0.22)
-                     : hover.containsMouse ? Theme.surface0 : "transparent"
+                     : hot ? Theme.surface0 : "transparent"
                 border.width: sel ? 0 : 1
                 border.color: Theme.surface2
                 Behavior on color { ColorAnimation { duration: 120 } }
 
-                scale: hover.pressed ? 0.95 : 1
+                scale: press.pressed ? 0.95 : 1
                 Behavior on scale { Spring { epsilon: 0.002 } }
 
                 Row {
@@ -91,10 +103,8 @@ Item {
                 }
 
                 MouseArea {
-                    id: hover
+                    id: press
                     anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
                     onClicked: root.picked(chip.modelData.id)
                 }
             }

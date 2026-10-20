@@ -41,6 +41,15 @@ Item {
     Row {
         spacing: root.gap
 
+        // Наведение — один обработчик на всю группу, кнопка сверяет с ним
+        // свою геометрию. Свой ховер у каждой кнопки залипал: после клика
+        // ширины пружинят, кнопка уезжает из-под курсора, а Qt пересчитывает
+        // наведение только при движении мыши
+        HoverHandler {
+            id: hover
+            cursorShape: Qt.PointingHandCursor
+        }
+
         Repeater {
             model: root.options
 
@@ -60,7 +69,10 @@ Item {
                 height: root.height
                 Behavior on width { Spring {} }
 
-                scale: hover.pressed ? 0.96 : 1
+                readonly property bool hot: hover.hovered && hover.point.position.x >= x
+                    && hover.point.position.x < x + width
+
+                scale: press.pressed ? 0.96 : 1
                 Behavior on scale { Spring { epsilon: 0.002 } }
 
                 component Shape: Rectangle {
@@ -76,7 +88,7 @@ Item {
                 }
 
                 Shape {
-                    color: hover.containsMouse && !seg.sel ? Theme.surface1 : Theme.surface0
+                    color: seg.hot && !seg.sel ? Theme.surface1 : Theme.surface0
                     Behavior on color { ColorAnimation { duration: 120 } }
                 }
                 Shape {
@@ -117,10 +129,8 @@ Item {
                 }
 
                 MouseArea {
-                    id: hover
+                    id: press
                     anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
                     onClicked: if (!seg.sel) root.picked(seg.modelData.id)
                 }
             }
