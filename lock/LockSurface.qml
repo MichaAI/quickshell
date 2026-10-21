@@ -396,7 +396,7 @@ Item {
                     anchors.left: parent.left
                     anchors.top: parent.top
                     anchors.margins: 18
-                    text: "󰌌  " + (Niri.langShort || "—")
+                    text: "󰌌  " + (Compositor.langShort || "—")
                     fg: Theme.lavender
 
                     property real kick: 0
@@ -409,7 +409,7 @@ Item {
                         spring: Motion.kickSpring; damping: Motion.kickDamping; epsilon: 0.05
                     }
                     Connections {
-                        target: Niri
+                        target: Compositor
                         function onLangShortChanged() {
                             langBadge.kick = 8
                             kickAnim.restart()

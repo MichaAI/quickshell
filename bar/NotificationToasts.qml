@@ -16,7 +16,7 @@ Scope {
             required property var modelData
             screen: modelData
 
-            readonly property string focusedOutput: Niri.focusedWorkspace?.output ?? ""
+            readonly property string focusedOutput: Compositor.focusedOutput
             readonly property bool isTarget: focusedOutput !== ""
                 ? modelData.name === focusedOutput
                 : modelData === Quickshell.screens[0]

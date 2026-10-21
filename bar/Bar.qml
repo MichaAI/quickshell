@@ -147,19 +147,19 @@ Scope {
 
             // Взаимодействие с другими окнами закрывает меню
             Connections {
-                target: Niri
+                target: Compositor
 
                 function onFocusedWindowIdChanged() {
                     // Игнорируем: -1 (фокус на layer-shell) и любые события,
                     // пока курсор на баре/меню — иначе клики внутри закрывают попаут
-                    if (Niri.focusedWindowId === -1 || barHover.hovered)
+                    if (Compositor.focusedWindowId === -1 || barHover.hovered)
                         return
                     win.queuedPopout = ""
                     win.popoutOpen = false
                 }
 
                 function onOverviewOpenChanged() {
-                    if (Niri.overviewOpen) {
+                    if (Compositor.overviewOpen) {
                         win.queuedPopout = ""
                         win.popoutOpen = false
                     }
@@ -392,15 +392,15 @@ Scope {
                     BarPill {
                         id: windowPill
                         anchors.verticalCenter: parent.verticalCenter
-                        visible: Niri.focusedWindow !== null
-                        onClicked: Niri.toggleOverview()
+                        visible: Compositor.focusedWindow !== null
+                        onClicked: Compositor.toggleOverview()
 
                         PillText { text: "Window:"; color: Theme.overlay1 }
                         GradientText {
                             anchors.verticalCenter: parent.verticalCenter
                             pixelSize: Theme.fontSize
                             maxChars: 40
-                            text: Niri.focusedWindow?.title ?? ""
+                            text: Compositor.focusedWindow?.title ?? ""
                         }
                     }
 
@@ -466,10 +466,10 @@ Scope {
 
                     BarPill {
                         anchors.verticalCenter: parent.verticalCenter
-                        visible: (Niri.currentLang ?? "") !== ""
-                        onClicked: Niri.switchLayout()
+                        visible: (Compositor.currentLang ?? "") !== ""
+                        onClicked: Compositor.switchLayout()
 
-                        PillText { text: Niri.langShort }
+                        PillText { text: Compositor.langShort }
                     }
                 }
 

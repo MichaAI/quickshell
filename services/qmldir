@@ -1,6 +1,8 @@
 module MichaAIShell.Services
 
-singleton Niri 1.0 Niri.qml
+singleton Compositor 1.0 Compositor.qml
+NiriBackend 1.0 NiriBackend.qml
+DriftBackend 1.0 DriftBackend.qml
 singleton Time 1.0 Time.qml
 singleton Ui 1.0 Ui.qml
 singleton Audio 1.0 Audio.qml
