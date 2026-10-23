@@ -167,19 +167,19 @@ Scope {
 
             // Взаимодействие с другими окнами закрывает меню
             Connections {
-                target: Niri
+                target: Compositor
 
                 function onFocusedWindowIdChanged() {
                     // Игнорируем: -1 (фокус на layer-shell) и любые события,
                     // пока курсор на баре/меню — иначе клики внутри закрывают попаут
-                    if (Niri.focusedWindowId === -1 || barHover.hovered)
+                    if (Compositor.focusedWindowId === -1 || barHover.hovered)
                         return
                     win.queuedPopout = ""
                     win.popoutOpen = false
                 }
 
                 function onOverviewOpenChanged() {
-                    if (Niri.overviewOpen) {
+                    if (Compositor.overviewOpen) {
                         win.queuedPopout = ""
                         win.popoutOpen = false
                     }
@@ -409,18 +409,108 @@ Scope {
                         PillText { text: Weather.fmt(Weather.temp) }
                     }
 
+                    // Яркость: только тусклый значок, процент выезжает
+                    // при наведении и когда яркость меняют
+                    BarPill {
+                        id: brightPill
+                        anchors.verticalCenter: parent.verticalCenter
+                        visible: Brightness.present
+                        onWheeled: delta => Brightness.change(delta / 120 * 0.05)
+
+                        // Тап на сенсоре/тачпаде оставляет «наведение» навсегда —
+                        // после клика ховер не раскрывает, пока курсор не уйдёт
+                        property bool tapped: false
+                        onHoveredChanged: if (!hovered) tapped = false
+                        onClicked: { tapped = true; brightShow.restart() }
+                        readonly property bool expanded: (hovered && !tapped) || brightShow.running
+
+                        Timer {
+                            id: brightShow
+                            interval: 1500
+                        }
+                        Connections {
+                            target: Brightness
+                            function onPercentChanged() { brightShow.restart() }
+                        }
+
+                        PillText {
+                            text: Brightness.icon
+                            color: brightPill.expanded ? Theme.yellow : Theme.overlay1
+                            Behavior on color { ColorAnimation { duration: 150 } }
+                        }
+                        Item {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: brightPill.expanded ? brightText.implicitWidth : -6
+                            height: brightText.implicitHeight
+                            clip: true
+                            Behavior on width {
+                                Spring {}
+                            }
+
+                            PillText {
+                                id: brightText
+                                text: Brightness.percent.toString()
+                                opacity: brightPill.expanded ? 1 : 0
+                                Behavior on opacity { NumberAnimation { duration: 150 } }
+                            }
+                        }
+                    }
+
+                    // Bluetooth: значок, а с наушниками — их заряд (левый · правый).
+                    // СКМ — включить/выключить адаптер
+                    BarPill {
+                        id: btPill
+                        anchors.verticalCenter: parent.verticalCenter
+                        visible: Bt.present || Buds.current !== null
+                        active: win.shownPopout === "bluetooth"
+                        onClicked: event => {
+                            if (event.button === Qt.MiddleButton)
+                                Bt.toggle()
+                            else
+                                win.togglePopout("bluetooth", btPill)
+                        }
+
+                        readonly property var budsBattery: Buds.ready ? Buds.current.battery ?? {} : {}
+                        readonly property var levels: (Buds.current?.caps?.battery ?? [])
+                            .filter(k => k !== "case" && budsBattery[k])
+                            .map(k => budsBattery[k])
+                        // Без управляемых наушников — заряд, который отдал BlueZ
+                        readonly property var other: Bt.connected.find(d => d.batteryAvailable) ?? null
+
+                        onWheeled: delta => Buds.cycle(delta > 0 ? -1 : 1)
+
+                        Arrow { step: -1 }
+                        PillText {
+                            text: !Buds.current ? Bt.icon
+                                : Buds.current.caps?.kind === "keyboard" ? "󰌌" : "󰋋"
+                            color: Buds.ready ? Theme.sapphire
+                                 : !Bt.enabled ? Theme.overlay0
+                                 : Bt.connected.length > 0 ? Theme.sapphire : Theme.overlay1
+                        }
+                        PillText {
+                            visible: btPill.levels.length > 0
+                            text: btPill.levels.map(b => b.level).join(" · ")
+                            color: btPill.levels.some(b => b.charging) ? Theme.green : Theme.text
+                        }
+                        PillText {
+                            visible: btPill.levels.length === 0 && btPill.other !== null
+                            text: Math.round((btPill.other?.battery ?? 0) * 100).toString()
+                        }
+                        Arrow { step: 1 }
+                    }
+
                     BarPill {
                         id: windowPill
                         anchors.verticalCenter: parent.verticalCenter
-                        visible: Niri.focusedWindow !== null
-                        onClicked: Niri.toggleOverview()
+                        visible: Compositor.focusedWindow !== null
+                        onClicked: Compositor.toggleOverview()
 
                         PillText { text: "Window:"; color: Theme.overlay1 }
                         GradientText {
                             anchors.verticalCenter: parent.verticalCenter
                             pixelSize: Theme.fontSize
                             maxChars: 40
-                            text: Niri.focusedWindow?.title ?? ""
+                            text: Compositor.focusedWindow?.title ?? ""
                         }
                     }
 
@@ -486,10 +576,10 @@ Scope {
 
                     BarPill {
                         anchors.verticalCenter: parent.verticalCenter
-                        visible: (Niri.currentLang ?? "") !== ""
-                        onClicked: Niri.switchLayout()
+                        visible: (Compositor.currentLang ?? "") !== ""
+                        onClicked: Compositor.switchLayout()
 
-                        PillText { text: Niri.langShort }
+                        PillText { text: Compositor.langShort }
                     }
                 }
 
@@ -569,53 +659,6 @@ Scope {
                         }
                     }
 
-                    // Яркость: только тусклый значок, процент выезжает
-                    // при наведении и когда яркость меняют
-                    BarPill {
-                        id: brightPill
-                        anchors.verticalCenter: parent.verticalCenter
-                        visible: Brightness.present
-                        onWheeled: delta => Brightness.change(delta / 120 * 0.05)
-
-                        // Тап на сенсоре/тачпаде оставляет «наведение» навсегда —
-                        // после клика ховер не раскрывает, пока курсор не уйдёт
-                        property bool tapped: false
-                        onHoveredChanged: if (!hovered) tapped = false
-                        onClicked: { tapped = true; brightShow.restart() }
-                        readonly property bool expanded: (hovered && !tapped) || brightShow.running
-
-                        Timer {
-                            id: brightShow
-                            interval: 1500
-                        }
-                        Connections {
-                            target: Brightness
-                            function onPercentChanged() { brightShow.restart() }
-                        }
-
-                        PillText {
-                            text: Brightness.icon
-                            color: brightPill.expanded ? Theme.yellow : Theme.overlay1
-                            Behavior on color { ColorAnimation { duration: 150 } }
-                        }
-                        Item {
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: brightPill.expanded ? brightText.implicitWidth : -6
-                            height: brightText.implicitHeight
-                            clip: true
-                            Behavior on width {
-                                Spring {}
-                            }
-
-                            PillText {
-                                id: brightText
-                                text: Brightness.percent.toString()
-                                opacity: brightPill.expanded ? 1 : 0
-                                Behavior on opacity { NumberAnimation { duration: 150 } }
-                            }
-                        }
-                    }
-
                     BarPill {
                         id: batteryPill
                         anchors.verticalCenter: parent.verticalCenter
@@ -669,49 +712,6 @@ Scope {
                                 }
                             }
                         }
-                    }
-
-                    // Bluetooth: значок, а с наушниками — их заряд (левый · правый).
-                    // СКМ — включить/выключить адаптер
-                    BarPill {
-                        id: btPill
-                        anchors.verticalCenter: parent.verticalCenter
-                        visible: Bt.present || Buds.current !== null
-                        active: win.shownPopout === "bluetooth"
-                        onClicked: event => {
-                            if (event.button === Qt.MiddleButton)
-                                Bt.toggle()
-                            else
-                                win.togglePopout("bluetooth", btPill)
-                        }
-
-                        readonly property var budsBattery: Buds.ready ? Buds.current.battery ?? {} : {}
-                        readonly property var levels: (Buds.current?.caps?.battery ?? [])
-                            .filter(k => k !== "case" && budsBattery[k])
-                            .map(k => budsBattery[k])
-                        // Без управляемых наушников — заряд, который отдал BlueZ
-                        readonly property var other: Bt.connected.find(d => d.batteryAvailable) ?? null
-
-                        onWheeled: delta => Buds.cycle(delta > 0 ? -1 : 1)
-
-                        Arrow { step: -1 }
-                        PillText {
-                            text: !Buds.current ? Bt.icon
-                                : Buds.current.caps?.kind === "keyboard" ? "󰌌" : "󰋋"
-                            color: Buds.ready ? Theme.sapphire
-                                 : !Bt.enabled ? Theme.overlay0
-                                 : Bt.connected.length > 0 ? Theme.sapphire : Theme.overlay1
-                        }
-                        PillText {
-                            visible: btPill.levels.length > 0
-                            text: btPill.levels.map(b => b.level).join(" · ")
-                            color: btPill.levels.some(b => b.charging) ? Theme.green : Theme.text
-                        }
-                        PillText {
-                            visible: btPill.levels.length === 0 && btPill.other !== null
-                            text: Math.round((btPill.other?.battery ?? 0) * 100).toString()
-                        }
-                        Arrow { step: 1 }
                     }
 
                     BarPill {

@@ -79,15 +79,16 @@ Singleton {
         launch(["xdg-open", path])
     }
 
-    // Пипетка niri: курсор-прицел по всему экрану, потом снова лончер
-    // с выбранным цветом в колесе
+    // Пипетка композитора (есть у niri): курсор-прицел по всему экрану,
+    // потом снова лончер с выбранным цветом в колесе
     function pickColor() {
-        picker.running = true
+        if (Compositor.canPickColor)
+            picker.running = true
     }
 
     Process {
         id: picker
-        command: ["niri", "msg", "pick-color"]
+        command: Compositor.pickColorCommand
         stdout: StdioCollector {
             onStreamFinished: {
                 const m = this.text.match(/#[0-9a-fA-F]{6}/)

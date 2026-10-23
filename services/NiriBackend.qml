@@ -1,11 +1,20 @@
-pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
 
-Singleton {
+// niri: поток событий `niri msg --json event-stream` и действия через
+// `niri msg action`. Снаружи — только через Compositor
+Scope {
 
     id: root
+
+    // Слушать сокет, только когда шелл и правда под niri
+    property bool active: false
+
+    readonly property bool hasWorkspaces: true
+    readonly property bool hasCasts: true
+    readonly property bool canPowerOffMonitors: true
+    readonly property var pickColorCommand: ["niri", "msg", "pick-color"]
 
     // ====== Сырые данные с сокета ======
     property var workspaces: []          // [{id, idx, name, output, is_urgent, is_active, is_focused, active_window_id}]
@@ -24,18 +33,10 @@ Singleton {
     readonly property var focusedWorkspace:
         workspaces.find(ws => ws.is_focused) || null
 
+    readonly property string focusedOutput: focusedWorkspace?.output ?? ""
+
     readonly property string currentLang:
         keyboardLayouts.names[keyboardLayouts.currentIdx] ?? ""
-
-    // Коротко для бара и лока: RU / EN / первые две буквы
-    readonly property string langShort: {
-        const l = currentLang
-        if (l.indexOf("Russian") !== -1 || l.indexOf("рус") !== -1)
-            return "RU"
-        if (l.indexOf("English") !== -1)
-            return "EN"
-        return l.substring(0, 2).toUpperCase()
-    }
 
     
     // {workspaceId: {colIndex: [окна, сортированы по строке]}} — под мини-карту лайаута
@@ -63,9 +64,9 @@ Singleton {
     Process {
         id: niriStream
         command: ["niri", "msg", "--json", "event-stream"]
-        running: true
+        running: root.active
 
-        onRunningChanged: if (!running) running = true
+        onRunningChanged: if (!running && root.active) running = true
 
         stdout: SplitParser {
             onRead: line => {
@@ -206,5 +207,19 @@ Singleton {
 
     function toggleOverview() {
         actionProc.exec(["niri", "msg", "action", "toggle-overview"])
+    }
+
+    function quit() {
+        actionProc.exec(["niri", "msg", "action", "quit", "--skip-confirmation"])
+    }
+
+    function powerOffMonitors() {
+        actionProc.exec(["niri", "msg", "action", "power-off-monitors"])
+    }
+
+    // area — выделить мышью, screen — монитор, window — окно в фокусе
+    function screenshot(target) {
+        const action = { area: "screenshot", screen: "screenshot-screen", window: "screenshot-window" }[target]
+        actionProc.exec(["niri", "msg", "action", action])
     }
 }

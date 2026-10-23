@@ -6,9 +6,13 @@ import "../services"
 import "../components"
 
 // Виджет на рабочем столе: день недели и дата (как eww-окно "test").
+// Под niri — в углу каждого монитора. Под driftwm его кладёт на холст
+// правило с position на app_id "quickshell:desktop" в конфиге driftwm, а
+// правила разбираются по одному на поверхность — поэтому копия одна
 Scope {
     Variants {
-        model: Quickshell.screens
+        model: Compositor.name !== "driftwm" ? Quickshell.screens
+            : Quickshell.screens.length > 0 ? [Quickshell.screens[0]] : []
 
         PanelWindow {
             required property var modelData
