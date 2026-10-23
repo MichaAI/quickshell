@@ -656,6 +656,13 @@ Item {
                         }
                     }
                 }
+                Rectangle {
+                    visible: Buds.list.length > 1 && Bt.enabled
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 1
+                    height: 18
+                    color: Theme.surface1
+                }
                 HeadBtn {
                     visible: Bt.enabled
                     label: "󰑓"
