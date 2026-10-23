@@ -613,7 +613,7 @@ Item {
         width: root.implicitWidth - 28
         spacing: 10
 
-        // Шапка: Bluetooth · адаптер            [поиск] [вкл]
+        // Шапка: Bluetooth · адаптер   [устройства budsd] [поиск] [вкл]
         Item {
             id: header
             width: parent.width
@@ -639,6 +639,23 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 8
 
+                // Несколько устройств budsd сразу — какое показывать
+                Row {
+                    visible: Buds.list.length > 1
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 2
+
+                    Repeater {
+                        model: Buds.list
+
+                        HeadBtn {
+                            required property var modelData
+                            label: modelData.caps?.kind === "keyboard" ? "󰌌" : "󰋋"
+                            on: modelData.device === root.buds?.device
+                            onPressed: Buds.selected = modelData.device
+                        }
+                    }
+                }
                 HeadBtn {
                     visible: Bt.enabled
                     label: "󰑓"
@@ -766,15 +783,6 @@ Item {
                             }
                         }
                     }
-                }
-
-                // Несколько устройств budsd сразу — выбрать какое
-                ButtonGroup {
-                    visible: Buds.list.length > 1
-                    width: parent.width
-                    options: Buds.list.map(d => ({ id: d.device, label: d.caps?.model ?? d.name }))
-                    current: root.buds?.device
-                    onPicked: id => Buds.selected = id
                 }
             }
         }
