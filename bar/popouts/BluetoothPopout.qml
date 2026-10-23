@@ -664,7 +664,7 @@ Item {
             }
         }
 
-        // ===== Наушники =====
+        // ===== Наушники или сплит-клавиатура (budsd) =====
         Rectangle {
             id: budsCard
             visible: root.buds !== null
@@ -722,7 +722,7 @@ Item {
                     }
                 }
 
-                // Батарея: левый, правый, кейс — волнистые кольца MD3E
+                // Батарея: левый, правый, кейс (у клавиатуры — половины) — волнистые кольца MD3E
                 Row {
                     visible: (root.buds?.caps?.battery ?? []).length > 0
                     anchors.horizontalCenter: parent.horizontalCenter
@@ -768,7 +768,7 @@ Item {
                     }
                 }
 
-                // Несколько поддерживаемых наушников сразу — выбрать какие
+                // Несколько устройств budsd сразу — выбрать какое
                 ButtonGroup {
                     visible: Buds.list.length > 1
                     width: parent.width

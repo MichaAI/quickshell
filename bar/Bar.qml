@@ -20,6 +20,26 @@ Scope {
         anchors.verticalCenter: parent.verticalCenter
     }
 
+    // Стрелка на Bluetooth-пилюле: переключает наушники/клавиатуру. Свой
+    // клик перехватывает у пилюли, как иконки трея
+    component Arrow: MouseArea {
+        id: arrow
+        property int step: 1
+        visible: Buds.list.length > 1
+        width: arrowText.implicitWidth
+        height: arrowText.implicitHeight
+        anchors.verticalCenter: parent.verticalCenter
+        hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
+        onClicked: Buds.cycle(step)
+
+        PillText {
+            id: arrowText
+            text: arrow.step < 0 ? "‹" : "›"
+            color: arrow.containsMouse ? Theme.text : Theme.overlay1
+        }
+    }
+
     Variants {
         model: Quickshell.screens
 
@@ -672,8 +692,12 @@ Scope {
                         // Без управляемых наушников — заряд, который отдал BlueZ
                         readonly property var other: Bt.connected.find(d => d.batteryAvailable) ?? null
 
+                        onWheeled: delta => Buds.cycle(delta > 0 ? -1 : 1)
+
+                        Arrow { step: -1 }
                         PillText {
-                            text: Buds.current ? "󰋋" : Bt.icon
+                            text: !Buds.current ? Bt.icon
+                                : Buds.current.caps?.kind === "keyboard" ? "󰌌" : "󰋋"
                             color: Buds.ready ? Theme.sapphire
                                  : !Bt.enabled ? Theme.overlay0
                                  : Bt.connected.length > 0 ? Theme.sapphire : Theme.overlay1
@@ -687,6 +711,7 @@ Scope {
                             visible: btPill.levels.length === 0 && btPill.other !== null
                             text: Math.round((btPill.other?.battery ?? 0) * 100).toString()
                         }
+                        Arrow { step: 1 }
                     }
 
                     BarPill {
