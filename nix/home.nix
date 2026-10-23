@@ -49,6 +49,7 @@ in
         findutils
         libqalculate
         procps
+        slurp # скриншот области под driftwm
         util-linux
         wl-clipboard
         xdg-utils
@@ -56,7 +57,7 @@ in
         (callPackage ./budsd.nix { })
       ];
       defaultText = lib.literalMD "утилиты, которые зовут бар, лаунчер и лок";
-      description = "Что положить в PATH шеллу. niri и терминал — свои, их тут нет.";
+      description = "Что положить в PATH шеллу. Композитор и терминал — свои, их тут нет.";
     };
 
     avatar3d = mkOption {

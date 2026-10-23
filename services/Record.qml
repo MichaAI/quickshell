@@ -3,11 +3,11 @@ import Quickshell
 import Quickshell.Services.Pipewire
 import QtQuick
 
-// Кто сейчас пишет экран (трансляции niri) и микрофон (PipeWire)
+// Кто сейчас пишет экран (трансляции композитора) и микрофон (PipeWire)
 Singleton {
     id: root
 
-    readonly property var casts: Niri.casts
+    readonly property var casts: Compositor.casts
     readonly property bool screen: casts.length > 0
 
     // Захват микрофона: связь от источника-устройства к потоку записи.
@@ -34,7 +34,7 @@ Singleton {
         const t = casts[0].target
         let label = "Экран"
         if (t?.Window) {
-            const w = Niri.windows.find(x => x.id === t.Window.id)
+            const w = Compositor.windows.find(x => x.id === t.Window.id)
             label = w?.app_id || "Окно"
         } else if (t?.Output) {
             label = t.Output.name
@@ -78,6 +78,6 @@ Singleton {
     function stopAll() {
         const sessions = new Set(casts.filter(c => c.kind === "PipeWire").map(c => c.session_id))
         for (const id of sessions)
-            Niri.stopCast(id)
+            Compositor.stopCast(id)
     }
 }

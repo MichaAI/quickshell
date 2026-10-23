@@ -22,12 +22,15 @@
 //   devices {list: [{mac, name, connected, self}]}: к чему подключены уши
 //   info    {firmware}
 //
-// Драйверы и описание контролов — в drivers/.
+// Драйверы и описание контролов — в drivers/. Кроме наушников демон ведёт
+// ZMK-сплиты (split.rs): у них нет контролов, только заряд половин, а в caps
+// есть kind: "keyboard" — шелл рисует им значок клавиатуры.
 
 mod bluez;
 mod device;
 mod drivers;
 mod rpc;
+mod split;
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -88,7 +91,11 @@ impl Manager {
         }
         self.register().await;
         match bluez::devices(&self.conn).await {
-            Ok(list) => list.into_iter().for_each(|d| self.spawn(d)),
+            Ok(list) => {
+                for d in list {
+                    self.track(d).await;
+                }
+            }
             Err(e) => eprintln!("budsd: BlueZ: {e}"),
         }
     }
@@ -97,22 +104,29 @@ impl Manager {
         let _ = self.out.send(rpc::notification(method, params));
     }
 
-    fn spawn(&mut self, info: DevInfo) {
+    /// Взять устройство, если оно наше: наушники с драйвером или ZMK-сплит
+    async fn track(&mut self, info: DevInfo) {
         if !info.connected || self.tracked.contains_key(&info.path) {
             return;
         }
-        let Some(driver) = drivers::pick(&info.name, &info.uuids) else { return };
         let (tx, rx) = mpsc::unbounded_channel();
-        let dev = Device {
-            info: info.clone(),
-            profile_error: self.profile_errors.get(driver.uuid()).cloned(),
-            driver,
-            conn: self.conn.clone(),
-            waiters: self.waiters.clone(),
-            rx,
-            mgr: self.dev_tx.clone(),
+        let task = if let Some(driver) = drivers::pick(&info.name, &info.uuids) {
+            let dev = Device {
+                info: info.clone(),
+                profile_error: self.profile_errors.get(driver.uuid()).cloned(),
+                driver,
+                conn: self.conn.clone(),
+                waiters: self.waiters.clone(),
+                rx,
+                mgr: self.dev_tx.clone(),
+            };
+            tokio::spawn(dev.run())
+        } else if let Some(halves) = split::probe(&self.conn, &info).await {
+            let dev = split::Split { info: info.clone(), halves, conn: self.conn.clone(), rx, mgr: self.dev_tx.clone() };
+            tokio::spawn(dev.run())
+        } else {
+            return;
         };
-        let task = tokio::spawn(dev.run());
         let mut snapshot = Map::new();
         snapshot.insert("device".into(), json!(info.mac));
         self.tracked.insert(info.path.clone(), Tracked { info, tx, task, snapshot });
@@ -134,9 +148,9 @@ impl Manager {
         if self.tracked.contains_key(&path) {
             return;
         }
-        // Подключились или BlueZ дочитал сервисы (UUID) — может, это наши
+        // Подключились или BlueZ дочитал сервисы (UUID, GATT) — может, это наши
         if let Ok(Some(info)) = bluez::device(&self.conn, &path).await {
-            self.spawn(info);
+            self.track(info).await;
         }
     }
 
@@ -194,7 +208,7 @@ impl Manager {
             .ok_or_else(|| RpcError::new(rpc::NO_DEVICE, &format!("нет подключённых наушников {mac}")))
     }
 
-    fn request(&mut self, line: &str) {
+    async fn request(&mut self, line: &str) {
         let req = match rpc::parse(line) {
             Ok(r) => r,
             Err(resp) => {
@@ -204,6 +218,22 @@ impl Manager {
         };
         let id = req.id.clone().unwrap_or(Value::Null);
         let p = &req.params;
+        // Заново взять устройство — асинхронно (сплиту надо перечитать GATT),
+        // поэтому не в общем match
+        if req.method == "reconnect" {
+            let reply = match self.by_mac(p).map(|t| t.info.clone()) {
+                Ok(info) => {
+                    self.drop_device(&info.path);
+                    self.track(info).await;
+                    Ok(Value::Null)
+                }
+                Err(e) => Err(e),
+            };
+            if req.id.is_some() {
+                let _ = self.out.send(rpc::response(id, reply));
+            }
+            return;
+        }
         let result: Result<Option<Value>, RpcError> = (|| match req.method.as_str() {
             "list" => Ok(Some(self.tracked.values().map(|t| Value::Object(t.snapshot.clone())).collect())),
             "set" => {
@@ -218,12 +248,6 @@ impl Manager {
                 let cmd = DevCmd::Act { name: req.method.clone(), params: p.clone(), rpc: id.clone() };
                 t.tx.send(cmd).map_err(|_| RpcError::new(rpc::NO_LINK, "нет связи с наушниками"))?;
                 Ok(None)
-            }
-            "reconnect" => {
-                let info = self.by_mac(p)?.info.clone();
-                self.drop_device(&info.path);
-                self.spawn(info);
-                Ok(Some(Value::Null))
             }
             m => Err(RpcError::new(rpc::METHOD_NOT_FOUND, &format!("нет метода {m}"))),
         })();
@@ -314,7 +338,7 @@ async fn main() {
             Ev::Restarted => mgr.rescan().await,
             Ev::Changed(path, props) => mgr.changed(path, props).await,
             Ev::Dev(mac, msg) => mgr.on_device(mac, msg),
-            Ev::Rpc(line) => mgr.request(&line),
+            Ev::Rpc(line) => mgr.request(&line).await,
             Ev::Quit => break,
         }
     }

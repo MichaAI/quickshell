@@ -6,7 +6,8 @@ import QtQuick
 // Наушники с управлением: клиент демона budsd (tools/budsd) по JSON-RPC.
 // Демон сам видит подключённые наушники и шлёт, что они умеют (caps) и
 // что в них сейчас (values, battery…). Модель шелл не знает — попаут
-// рисует контролы из caps.
+// рисует контролы из caps. Ещё демон отдаёт заряд половин сплит-клавиатуры
+// (caps.kind: "keyboard", без контролов).
 //
 // Настройку меняем сразу, не дожидаясь наушников, а если они не
 // подтвердили — откатываем к тому, что в них на самом деле, и шлём failed
@@ -19,9 +20,12 @@ Singleton {
     property string selected: ""
 
     readonly property var list: Object.values(devices)
+    // Без выбора — наушники раньше клавиатуры
     readonly property var current: {
         const pick = list.find(d => d.device === selected)
-        return pick ?? list.find(d => d.status === "ready") ?? list[0] ?? null
+        const buds = list.filter(d => d.caps?.kind !== "keyboard")
+        return pick ?? buds.find(d => d.status === "ready") ?? list.find(d => d.status === "ready")
+            ?? buds[0] ?? list[0] ?? null
     }
     readonly property bool ready: current?.status === "ready"
 
@@ -107,6 +111,14 @@ Singleton {
     }
 
     // ===== Управление =====
+
+    // Следующее (step = 1) или предыдущее (-1) устройство по кругу
+    function cycle(step) {
+        if (list.length < 2)
+            return
+        const i = list.indexOf(current)
+        selected = list[(i + step + list.length) % list.length].device
+    }
 
     function value(id) {
         return current?.values?.[id]

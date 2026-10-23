@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Облачная сессия Claude Code: собрать quickshell, niri и всё для tests/
 # (см. tests/setup.sh). Состояние контейнера кешируется после хука, так
 # что долго — только в первый раз
