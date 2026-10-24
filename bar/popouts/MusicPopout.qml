@@ -57,8 +57,6 @@ Item {
         property bool toggle: false     // переключатель: подсвечен, пока on
         property ControlGroup group
         property int idx: 0
-        // Скрытая держит место: соседи не съезжают, а сама проявляется
-        property bool shown: true
         signal pressed()
 
         readonly property bool down: bma.pressed
@@ -74,11 +72,6 @@ Item {
         Behavior on radius { Spring { epsilon: 0.05 } }
         Behavior on color { ColorAnimation { duration: 150 } }
 
-        opacity: shown ? 1 : 0
-        scale: shown ? 1 : 0.6
-        Behavior on opacity { NumberAnimation { duration: 180 } }
-        Behavior on scale { Spring { epsilon: 0.002 } }
-
         Text {
             id: glyph
             anchors.centerIn: parent
@@ -91,7 +84,6 @@ Item {
         MouseArea {
             id: bma
             anchors.fill: parent
-            enabled: btn.shown
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
             onClicked: btn.pressed()
@@ -262,63 +254,104 @@ Item {
                 }
             }
 
-            Column {
+            // Инфо, справа — кнопка текста песни: в ряду управления она
+            // сбивала его с центра. Место под неё освобождается пружиной
+            Item {
                 width: parent.width - 76
-                anchors.verticalCenter: parent.verticalCenter
-                spacing: 3
+                height: 64
 
-                // Клик копирует, колесо прокручивает длинное
-                ScrollClip {
-                    id: titleClip
-                    maxWidth: parent.width
-                    fadeColor: Theme.popoutBg
-                    clickable: !!root.player
-                    onClicked: { Tools.copy(root.title); titleClip.flash() }
+                Column {
+                    width: parent.width - (Lyrics.available ? lyricsBtn.width + 8 : 0)
+                    Behavior on width { Spring { epsilon: 0.5 } }
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 3
 
-                    GradientText {
-                        id: titleText
-                        pixelSize: 15
-                        from: root.accentFrom
-                        to: root.accentTo
-                        text: root.title
-                        onTextChanged: titleClip.reset()
-                        Behavior on text { TextFade { target: titleText } }
+                    // Клик копирует, колесо прокручивает длинное
+                    ScrollClip {
+                        id: titleClip
+                        maxWidth: parent.width
+                        fadeColor: Theme.popoutBg
+                        clickable: !!root.player
+                        onClicked: { Tools.copy(root.title); titleClip.flash() }
+
+                        GradientText {
+                            id: titleText
+                            pixelSize: 15
+                            from: root.accentFrom
+                            to: root.accentTo
+                            text: root.title
+                            onTextChanged: titleClip.reset()
+                            Behavior on text { TextFade { target: titleText } }
+                        }
+                    }
+                    ScrollClip {
+                        id: artistClip
+                        visible: root.artist !== ""
+                        maxWidth: parent.width
+                        fadeColor: Theme.popoutBg
+                        clickable: true
+                        onClicked: { Tools.copy(root.artist); artistClip.flash() }
+
+                        Text {
+                            id: artistText
+                            text: root.artist
+                            font.family: Theme.font
+                            font.pixelSize: 12
+                            color: Theme.subtext1
+                            onTextChanged: artistClip.reset()
+                            Behavior on text { TextFade { target: artistText } }
+                        }
+                    }
+                    ScrollClip {
+                        id: albumClip
+                        visible: root.album !== ""
+                        maxWidth: parent.width
+                        fadeColor: Theme.popoutBg
+                        clickable: true
+                        onClicked: { Tools.copy(root.album); albumClip.flash() }
+
+                        Text {
+                            id: albumText
+                            text: root.album
+                            font.family: Theme.font
+                            font.pixelSize: 11
+                            color: Theme.overlay1
+                            onTextChanged: albumClip.reset()
+                            Behavior on text { TextFade { target: albumText } }
+                        }
                     }
                 }
-                ScrollClip {
-                    id: artistClip
-                    visible: root.artist !== ""
-                    maxWidth: parent.width
-                    fadeColor: Theme.popoutBg
-                    clickable: true
-                    onClicked: { Tools.copy(root.artist); artistClip.flash() }
+
+                Rectangle {
+                    id: lyricsBtn
+                    readonly property bool shown: Lyrics.available
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    width: 30; height: 30
+                    radius: 15
+                    color: root.showLyrics ? Theme.alpha(root.accentTo, 0.22)
+                         : lma.containsMouse ? Theme.surface1 : Theme.surface0
+                    Behavior on color { ColorAnimation { duration: 150 } }
+                    opacity: shown ? 1 : 0
+                    scale: shown ? (lma.pressed ? 0.9 : 1) : 0.6
+                    visible: opacity > 0.01
+                    Behavior on opacity { NumberAnimation { duration: 180 } }
+                    Behavior on scale { Spring { epsilon: 0.002 } }
 
                     Text {
-                        id: artistText
-                        text: root.artist
+                        anchors.centerIn: parent
+                        text: "󰍡"
                         font.family: Theme.font
-                        font.pixelSize: 12
-                        color: Theme.subtext1
-                        onTextChanged: artistClip.reset()
-                        Behavior on text { TextFade { target: artistText } }
+                        font.pixelSize: 14
+                        color: root.showLyrics ? root.accentTo : Theme.text
                     }
-                }
-                ScrollClip {
-                    id: albumClip
-                    visible: root.album !== ""
-                    maxWidth: parent.width
-                    fadeColor: Theme.popoutBg
-                    clickable: true
-                    onClicked: { Tools.copy(root.album); albumClip.flash() }
-
-                    Text {
-                        id: albumText
-                        text: root.album
-                        font.family: Theme.font
-                        font.pixelSize: 11
-                        color: Theme.overlay1
-                        onTextChanged: albumClip.reset()
-                        Behavior on text { TextFade { target: albumText } }
+                    MouseArea {
+                        id: lma
+                        anchors.fill: parent
+                        enabled: lyricsBtn.shown
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.showLyrics = !root.showLyrics
                     }
                 }
             }
@@ -620,15 +653,6 @@ Item {
                           : s === MprisLoopState.Playlist ? MprisLoopState.Track
                           : MprisLoopState.None
                     }
-                }
-
-                CtlBtn {
-                    group: controls; idx: 5
-                    toggle: true
-                    text: "󰍡"
-                    on: root.showLyrics
-                    shown: Lyrics.available
-                    onPressed: root.showLyrics = !root.showLyrics
                 }
             }
         }
