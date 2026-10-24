@@ -12,8 +12,11 @@ Singleton {
     id: root
 
     readonly property var player: Players.active
+    // Метаданные — из Players.meta: там нет провалов на смене трека, и
+    // текст не сбрасывается и не перезапрашивается на каждом миге
+    readonly property var meta: Players.meta
     readonly property string key: player
-        ? [player.trackArtist, player.trackTitle, player.trackAlbum, Math.round(player.length || 0)].join("\u0001")
+        ? [meta.artist, meta.title, meta.album, meta.length].join("\u0001")
         : ""
 
     // [{ t: секунды или -1, text }]
@@ -101,8 +104,8 @@ Singleton {
     }
 
     function fetch() {
-        const k = key, p = player
-        if (!p || !p.trackTitle)
+        const k = key, p = meta
+        if (!player || !p.title)
             return
         if (cache[k]) {
             show(cache[k])
@@ -110,11 +113,11 @@ Singleton {
         }
         loading = true
         const q = s => encodeURIComponent(s ?? "")
-        const len = Math.round(p.length || 0)
+        const len = p.length
         const base = "https://lrclib.net/api/"
-        let url = base + "get?track_name=" + q(p.trackTitle) + "&artist_name=" + q(p.trackArtist)
-        if (p.trackAlbum)
-            url += "&album_name=" + q(p.trackAlbum)
+        let url = base + "get?track_name=" + q(p.title) + "&artist_name=" + q(p.artist)
+        if (p.album)
+            url += "&album_name=" + q(p.album)
         if (len > 0)
             url += "&duration=" + len
         get(url, (r, ok) => {
@@ -132,9 +135,9 @@ Singleton {
             // Точного совпадения нет — поиск. Яндекс пишет всех исполнителей
             // через запятую и «(prod. …)» в названии, а в LRCLIB трек часто
             // записан только на главного — тогда ищем ещё раз попроще
-            const title = root.cleanTitle(p.trackTitle), artist = root.firstArtist(p.trackArtist)
-            const attempts = [[p.trackTitle, p.trackArtist]]
-            if (title !== p.trackTitle || artist !== p.trackArtist)
+            const title = root.cleanTitle(p.title), artist = root.firstArtist(p.artist)
+            const attempts = [[p.title, p.artist]]
+            if (title !== p.title || artist !== p.artist)
                 attempts.push([title, artist])
             const next = i => {
                 get(base + "search?track_name=" + q(attempts[i][0]) + "&artist_name=" + q(attempts[i][1]), (list, ok2) => {

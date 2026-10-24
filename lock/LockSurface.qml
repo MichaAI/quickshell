@@ -274,11 +274,10 @@ Item {
                         color: Theme.surface0
                         anchors.verticalCenter: parent.verticalCenter
 
-                        Image {
+                        CrossfadeImage {
                             anchors.fill: parent
-                            source: Players.active?.trackArtUrl ?? ""
+                            source: Players.artUrl
                             sourceSize: Qt.size(128, 128)
-                            fillMode: Image.PreserveAspectCrop
                         }
                         Text {
                             anchors.centerIn: parent
@@ -302,9 +301,11 @@ Item {
                             fadeColor: Theme.crust
 
                             GradientText {
+                                id: lockTitleText
                                 pixelSize: 14
                                 text: Players.title
                                 onTextChanged: lockTitle.reset()
+                                Behavior on text { TextFade { target: lockTitleText } }
                             }
                         }
                         ScrollClip {
@@ -314,11 +315,13 @@ Item {
                             fadeColor: Theme.crust
 
                             Text {
+                                id: lockArtistText
                                 text: Players.artist
                                 font.family: Theme.font
                                 font.pixelSize: 11
                                 color: Theme.subtext1
                                 onTextChanged: lockArtist.reset()
+                                Behavior on text { TextFade { target: lockArtistText } }
                             }
                         }
                     }

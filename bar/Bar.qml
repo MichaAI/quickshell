@@ -614,9 +614,11 @@ Scope {
                             fadeColor: musicPill.color
 
                             PillText {
+                                id: pillArtist
                                 text: Players.artist
                                 color: Theme.subtext1
                                 onTextChanged: artistScroll.reset()
+                                Behavior on text { TextFade { target: pillArtist } }
                             }
                         }
                         PillText { text: "–"; color: Theme.overlay0; visible: Players.artist !== "" }
@@ -627,10 +629,12 @@ Scope {
                             fadeColor: musicPill.color
 
                             GradientText {
+                                id: pillTitle
                                 anchors.verticalCenter: parent.verticalCenter
                                 pixelSize: Theme.fontSize
                                 text: Players.title
                                 onTextChanged: titleScroll.reset()
+                                Behavior on text { TextFade { target: pillTitle } }
                             }
                         }
                         PillText { text: "| " + Players.timeText; color: Theme.overlay1 }

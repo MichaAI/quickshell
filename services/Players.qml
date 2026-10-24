@@ -47,7 +47,10 @@ Singleton {
     onCandidateChanged: sync()
     onListChanged: sync()
     onSelectedChanged: sync()
-    Component.onCompleted: sync()
+    Component.onCompleted: {
+        sync()
+        takeMeta(true)
+    }
 
     Timer {
         interval: root.switchDelay
@@ -58,8 +61,45 @@ Singleton {
     readonly property MprisPlayer active: held
 
     readonly property bool playing: active?.isPlaying ?? false
-    readonly property string title: active?.trackTitle || "Ничего не играет"
-    readonly property string artist: active?.trackArtist || ""
+    readonly property string title: meta.title || "Ничего не играет"
+    readonly property string artist: meta.artist
+    readonly property string album: meta.album
+
+    // Метаданные без провалов: на смене трека плеер на миг отдаёт пустое
+    // название и обложку, и всё мигало «Ничего не играет». Пока плеер тот
+    // же, пустое ждём metaGrace — обычно за это время приходит новое.
+    // Другой плеер — сразу. Обложку — отдельно: её присылают и позже
+    readonly property int metaGrace: 1500
+    readonly property var raw: ({
+        title: active?.trackTitle ?? "",
+        artist: active?.trackArtist ?? "",
+        album: active?.trackAlbum ?? "",
+        length: Math.round(active?.length ?? 0),
+        art: active?.trackArtUrl ?? ""
+    })
+    property var meta: ({ title: "", artist: "", album: "", length: 0 })
+    property string artUrl: ""
+    property MprisPlayer metaOf: null
+
+    function takeMeta(force) {
+        const same = active === metaOf
+        metaOf = active
+        if (force || !same || raw.title !== "") {
+            metaGap.stop()
+            meta = { title: raw.title, artist: raw.artist, album: raw.album, length: raw.length }
+        } else {
+            metaGap.restart()
+        }
+        if (force || !same || raw.art !== "") {
+            artGap.stop()
+            artUrl = raw.art
+        } else if (artUrl !== "") {
+            artGap.restart()
+        }
+    }
+    onRawChanged: takeMeta(false)
+    Timer { id: metaGap; interval: root.metaGrace; onTriggered: root.takeMeta(true) }
+    Timer { id: artGap; interval: root.metaGrace; onTriggered: root.artUrl = root.raw.art }
 
     // Тикаем позицию, пока что-то играет
     Timer {

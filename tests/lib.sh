@@ -199,6 +199,7 @@ append(cfg + '/shell.qml', '''
         }
         function copy(text: string): void { Tools.copy(text) }
         function player(): string { return Players.active?.dbusName ?? "none" }
+        function title(): string { return Players.title }
         function selectPlayer(name: string): string {
             const p = Players.list.find(p => p.dbusName === name)
             if (!p) return "нет плеера " + name

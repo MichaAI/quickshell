@@ -27,17 +27,18 @@ Item {
     // Свет обложки рисует бар: он ложится на весь шелл (попаут, бар, уголки)
     // между фоном и содержимым. Отсюда — только источник и где он лежит.
     readonly property Item glowSource: glowRounded
-    readonly property bool glowOn: art.visible && glowSrc.status === Image.Ready
+    readonly property bool glowOn: art.status === Image.Ready && glowSrc.status === Image.Ready
     readonly property point glowPos: Qt.point(col.x + coverRow.x + coverBox.x,
                                               col.y + coverRow.y + coverBox.y)
 
-    readonly property string title: player?.trackTitle || "Ничего не играет"
-    readonly property string artist: player?.trackArtist ?? ""
+    // Метаданные — из Players: без провалов на смене трека
+    readonly property string title: Players.title
+    readonly property string artist: Players.artist
     // У синглов альбом обычно называется как трек — тогда не дублируем
-    readonly property string album: {
-        const a = player?.trackAlbum ?? ""
-        return a === title ? "" : a
-    }
+    readonly property string album: Players.album === title ? "" : Players.album
+
+    // Текущая обложка (из наплыва artFade): её читают пробы и свет
+    readonly property Image art: artFade.image
 
     // Текст песни вместо эквалайзера — кнопкой, если LRCLIB его знает
     property bool showLyrics: false
@@ -56,6 +57,8 @@ Item {
         property bool toggle: false     // переключатель: подсвечен, пока on
         property ControlGroup group
         property int idx: 0
+        // Скрытая держит место: соседи не съезжают, а сама проявляется
+        property bool shown: true
         signal pressed()
 
         readonly property bool down: bma.pressed
@@ -71,6 +74,11 @@ Item {
         Behavior on radius { Spring { epsilon: 0.05 } }
         Behavior on color { ColorAnimation { duration: 150 } }
 
+        opacity: shown ? 1 : 0
+        scale: shown ? 1 : 0.6
+        Behavior on opacity { NumberAnimation { duration: 180 } }
+        Behavior on scale { Spring { epsilon: 0.002 } }
+
         Text {
             id: glyph
             anchors.centerIn: parent
@@ -83,6 +91,7 @@ Item {
         MouseArea {
             id: bma
             anchors.fill: parent
+            enabled: btn.shown
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
             onClicked: btn.pressed()
@@ -133,7 +142,7 @@ Item {
                 Image {
                     id: glowSrc
                     anchors.fill: parent
-                    source: art.source
+                    source: root.art.source
                     sourceSize: Qt.size(48, 48)
                     fillMode: Image.PreserveAspectCrop
                     visible: false
@@ -169,7 +178,7 @@ Item {
                         width: 12; height: 12
                         visible: false
 
-                        readonly property string src: art.status === Image.Ready ? art.source.toString() : ""
+                        readonly property string src: root.art.status === Image.Ready ? root.art.source.toString() : ""
                         property string loaded: ""
                         property real luma: -1
 
@@ -190,7 +199,7 @@ Item {
                             if (src === "" || !isImageLoaded(src))
                                 return
                             const ctx = getContext("2d")
-                            const w = art.implicitWidth, h = art.implicitHeight
+                            const w = root.art.implicitWidth, h = root.art.implicitHeight
                             const c = Math.min(w, h) * 0.4
                             ctx.clearRect(0, 0, width, height)
                             ctx.drawImage(src, (w - c) / 2, (h - c) / 2, c, c, 0, 0, width, height)
@@ -208,7 +217,7 @@ Item {
                         width: 48; height: 48
                         visible: false
 
-                        readonly property string src: Settings.coverColors && art.status === Image.Ready ? art.source.toString() : ""
+                        readonly property string src: Settings.coverColors && root.art.status === Image.Ready ? root.art.source.toString() : ""
                         property string loaded: ""
 
                         onSrcChanged: {
@@ -234,12 +243,10 @@ Item {
                         }
                     }
 
-                    Image {
-                        id: art
+                    CrossfadeImage {
+                        id: artFade
                         anchors.fill: parent
-                        source: root.player?.trackArtUrl ?? ""
-                        fillMode: Image.PreserveAspectCrop
-                        visible: status === Image.Ready
+                        source: Players.artUrl
                     }
                 }
 
@@ -248,7 +255,7 @@ Item {
                     text: "󰝚"
                     font.family: Theme.font
                     font.pixelSize: 24
-                    color: !art.visible || artProbe.luma < 0 ? Theme.surface2
+                    color: root.art.status !== Image.Ready || artProbe.luma < 0 ? Theme.surface2
                          : artProbe.luma > 0.5 ? Theme.crust
                          : Theme.text
                     Behavior on color { ColorAnimation { duration: 200 } }
@@ -269,11 +276,13 @@ Item {
                     onClicked: { Tools.copy(root.title); titleClip.flash() }
 
                     GradientText {
+                        id: titleText
                         pixelSize: 15
                         from: root.accentFrom
                         to: root.accentTo
                         text: root.title
                         onTextChanged: titleClip.reset()
+                        Behavior on text { TextFade { target: titleText } }
                     }
                 }
                 ScrollClip {
@@ -285,11 +294,13 @@ Item {
                     onClicked: { Tools.copy(root.artist); artistClip.flash() }
 
                     Text {
+                        id: artistText
                         text: root.artist
                         font.family: Theme.font
                         font.pixelSize: 12
                         color: Theme.subtext1
                         onTextChanged: artistClip.reset()
+                        Behavior on text { TextFade { target: artistText } }
                     }
                 }
                 ScrollClip {
@@ -301,11 +312,13 @@ Item {
                     onClicked: { Tools.copy(root.album); albumClip.flash() }
 
                     Text {
+                        id: albumText
                         text: root.album
                         font.family: Theme.font
                         font.pixelSize: 11
                         color: Theme.overlay1
                         onTextChanged: albumClip.reset()
+                        Behavior on text { TextFade { target: albumText } }
                     }
                 }
             }
@@ -606,7 +619,7 @@ Item {
                     toggle: true
                     text: "󰍡"
                     on: root.showLyrics
-                    visible: Lyrics.available
+                    shown: Lyrics.available
                     onPressed: root.showLyrics = !root.showLyrics
                 }
             }

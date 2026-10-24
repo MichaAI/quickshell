@@ -27,9 +27,10 @@ pctl() { playerctl -p "$(cat "$RUN/$1.name")" "${@:2}"; }
 start_player() {
     local before name
     before=$(playerctl -l)
-    setsid "$QST/mpv/bin/mpv" --no-config --no-video --ao=null --loop=inf \
+    setsid "$QST/mpv/bin/mpv" --no-config --no-video --ao=null --loop-playlist=inf \
         --script="$QST/mpvScripts.mpris/share/mpv/scripts/mpris.so" \
-        --log-file="$RUN/$1.mpv.log" "av://lavfi:sine" > /dev/null 2>&1 < /dev/null &
+        --log-file="$RUN/$1.mpv.log" "av://lavfi:sine=frequency=440" "av://lavfi:sine=frequency=880" \
+        > /dev/null 2>&1 < /dev/null &
     echo $! > "$RUN/$1.pid"
     for _ in $(seq 50); do
         name=$(playerctl -l | grep -vxF -- "$before" | head -1 || true)
@@ -66,6 +67,23 @@ for _ in $(seq 100); do [ -n "$(qs_ipc test player)" ] && break; sleep 0.2; done
 start_player a
 sleep 1
 expect "играет один — он" a
+
+# Смена трека: название ни на миг не «Ничего не играет» и меняется
+before=$(qs_ipc test title)
+pctl a next
+blank=0
+for _ in $(seq 20); do
+    [ "$(qs_ipc test title)" = "Ничего не играет" ] && blank=$((blank + 1))
+    sleep 0.05
+done
+sleep 0.5
+after=$(qs_ipc test title)
+if [ $blank -eq 0 ] && [ -n "$after" ] && [ "$after" != "$before" ]; then
+    printf '  ok    смена трека — название без провала: %s → %s\n' "$before" "$after"
+else
+    printf '  FAIL  смена трека: «Ничего не играет» %s раз из 20, %s → %s\n' $blank "$before" "$after"
+    fails=$((fails + 1))
+fi
 
 start_player b
 sleep 1
