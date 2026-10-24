@@ -12,6 +12,13 @@
 # /run/systemd/system не стартует: создаём этот маркер сами
 . "$(dirname "$0")/lib.sh"
 
+# На живой машине со своим systemd второй менеджер рядом с настоящим
+# не поднять, а в настоящий пускать тестовый шелл не хочется
+if [ "$(cat /proc/1/comm)" = systemd ]; then
+    log "скоупы: PID 1 — systemd, тест только для контейнера — пропускаю"
+    exit 0
+fi
+
 REV=${1:-}
 SD=$RUN/sd                                   # XDG_RUNTIME_DIR менеджера
 UNIT=qs-test
@@ -52,7 +59,7 @@ sd systemd-run --user --unit=$UNIT --quiet \
     --setenv=PATH="$PATH" --setenv=LANG=$LANG --setenv=HOME="$TEST_HOME" \
     --setenv=XDG_RUNTIME_DIR="$SD" --setenv=WAYLAND_DISPLAY="$NIRI" --setenv=NIRI_SOCKET="$NIRI_SOCKET" \
     --setenv=FONTCONFIG_FILE="$FONTCONFIG_FILE" --setenv=__EGL_VENDOR_LIBRARY_FILENAMES="$__EGL_VENDOR_LIBRARY_FILENAMES" \
-    --setenv=LIBGL_ALWAYS_SOFTWARE=1 \
+    --setenv=LIBGL_ALWAYS_SOFTWARE="${LIBGL_ALWAYS_SOFTWARE:-0}" \
     quickshell -p "$RUN/cfg"
 
 ipc() { XDG_RUNTIME_DIR=$SD WAYLAND_DISPLAY=$NIRI quickshell -p "$RUN/cfg" ipc call "$@" 2>/dev/null; }

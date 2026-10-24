@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Собрать всё для тестов в $QST (по умолчанию /opt/qs-test): quickshell из
+# Собрать всё для тестов в $QST (см. tests/qst.sh): quickshell из
 # флейка этого репо и niri, sway, grim и прочее из nixpkgs. Повторный
 # запуск почти мгновенный — всё уже в сторе.
 #
@@ -8,7 +8,7 @@
 set -euo pipefail
 
 REPO=$(cd "$(dirname "$0")/.." && pwd)
-QST=${QST:-/opt/qs-test}
+. "$REPO/tests/qst.sh"
 NIXPKGS=${NIXPKGS:-https://channels.nixos.org/nixos-unstable/nixexprs.tar.xz}
 mkdir -p "$QST"
 

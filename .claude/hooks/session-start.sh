@@ -11,7 +11,7 @@ fi
 "$CLAUDE_PROJECT_DIR/tests/setup.sh"
 
 # quickshell, niri и прочее — в PATH сессии
-QST=${QST:-/opt/qs-test}
+. "$CLAUDE_PROJECT_DIR/tests/qst.sh"
 path=$QST/quickshell/bin
 for d in "$QST"/*/bin; do path=$path:$d; done
 echo "export PATH=\"$path:\$PATH\"" >> "$CLAUDE_ENV_FILE"
