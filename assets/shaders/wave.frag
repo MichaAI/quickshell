@@ -54,20 +54,33 @@ float wave(float x) {
     return size.y * 0.5 + amp * sin(TAU * (x / wavelength - phase));
 }
 
+float slopeAt(float x) {
+    return amp * TAU / wavelength * cos(TAU * (x / wavelength - phase));
+}
+
 void main() {
     vec2 p = qt_TexCoord0 * size;
     float r = thick * 0.5;
-    float x0 = r, x1 = size.x - r;
+    // Полпикселя от краёв — на сглаживание шапок, иначе его режет край
+    float x0 = r + 0.5, x1 = size.x - r - 0.5;
+
+    // Концы: шапка — круг в конце кривой; тело кончается перпендикуляром
+    // к ней, а не вертикалью — иначе на наклоне край тела торчит из шапки
+    // острым углом
+    vec2 e0 = vec2(x0, wave(x0)), e1 = vec2(x1, wave(x1));
+    vec2 t0 = normalize(vec2(1.0, slopeAt(x0)));
+    vec2 t1 = normalize(vec2(1.0, slopeAt(x1)));
 
     // Расстояние до кривой: по вертикали, поправленное на наклон, а за
-    // концами — до центра круглой шапки
+    // концами — до центра шапки
     float d;
-    if (p.x < x0 || p.x > x1) {
-        float xe = p.x < x0 ? x0 : x1;
-        d = distance(p, vec2(xe, wave(xe)));
-    } else {
-        float slope = amp * TAU / wavelength * cos(TAU * (p.x / wavelength - phase));
-        d = abs(p.y - wave(p.x)) / sqrt(1.0 + slope * slope);
+    if (dot(p - e0, t0) < 0.0)
+        d = distance(p, e0);
+    else if (dot(p - e1, t1) > 0.0)
+        d = distance(p, e1);
+    else {
+        float slope = slopeAt(clamp(p.x, x0, x1));
+        d = abs(p.y - wave(clamp(p.x, x0, x1))) / sqrt(1.0 + slope * slope);
     }
     float a = clamp(r - d + 0.5, 0.0, 1.0);
 

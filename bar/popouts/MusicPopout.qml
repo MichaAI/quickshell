@@ -486,6 +486,14 @@ Item {
             width: parent.width
             spacing: 2
 
+            // Позиция каждый кадр, а не раз в секунду (тикает Players): иначе
+            // ползунок шагает, на коротких треках заметно. Quickshell сам
+            // досчитывает position по часам — тут только будим привязки
+            FrameAnimation {
+                running: root.visible && (root.player?.isPlaying ?? false)
+                onTriggered: root.player.positionChanged()
+            }
+
             StyledSlider {
                 width: parent.width
                 wavy: true

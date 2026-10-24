@@ -321,6 +321,11 @@ Scope {
                                 blurEnabled: true
                                 blur: 1
                                 blurMax: Settings.glowBlur
+                                // Свой отступ сверх автоматического: размытие
+                                // расходится дальше него, и от яркой (белой)
+                                // обложки на краю выхода оставался шов
+                                paddingRect: Qt.rect(Settings.glowBlur, Settings.glowBlur,
+                                                     Settings.glowBlur, Settings.glowBlur)
                                 saturation: Settings.glowSaturation
                                 brightness: Settings.glowBrightness
                                 scale: Settings.glowScale
