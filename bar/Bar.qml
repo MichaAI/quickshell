@@ -340,26 +340,17 @@ Scope {
                             maskSource: shellShape
                             maskThresholdMin: 0.5
                             maskSpreadAtMin: 1
+                            visible: false
                             layer.enabled: shellGlow.visible
                         }
 
-                        // Дизеринг: тайловый шум по альфе света, против полос в градиенте
-                        Image {
-                            id: glowNoise
+                        // Дизеринг перед выводом: против волн-ступеней в мягком
+                        // градиенте света (8-битные слои и экран)
+                        ShaderEffect {
                             anchors.fill: parent
-                            source: Qt.resolvedUrl("../assets/noise.png")
-                            fillMode: Image.Tile
-                            smooth: false
-                            visible: false
-                        }
-                        MultiEffect {
-                            anchors.fill: parent
-                            source: glowNoise
-                            maskEnabled: true
-                            maskSource: glowShaped
-                            maskThresholdMin: 0.5
-                            maskSpreadAtMin: 1
-                            opacity: Dither.glowNoise
+                            property var source: glowShaped
+                            property real amount: Dither.glowDither
+                            fragmentShader: "../assets/shaders/glowdither.frag.qsb"
                         }
                     }
                 }

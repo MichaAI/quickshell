@@ -14,7 +14,8 @@ QtObject {
     readonly property color avatarBright: Theme.rosewater
 
     // ===== Зерно против полос в плавных градиентах =====
-    readonly property real glowNoise: 0.05      // по свету обложки
+    // По свету обложки: шум ±N уровней из 255 по цвету и прозрачности
+    readonly property real glowDither: 1.5
     // По фону экрана блокировки. Шум чёрно-белый, так что 0.01 — это
     // ±1–2 уровня яркости: полосы уходят, а зерна глазом не видно
     readonly property real lockNoise: 0.01
