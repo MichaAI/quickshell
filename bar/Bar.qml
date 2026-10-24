@@ -310,6 +310,9 @@ Scope {
                             anchors.fill: parent
                             visible: false
                             layer.enabled: shellGlow.visible
+                            // Слои света — во float: в 8 битах градиент
+                            // ступенится раньше, чем дойдёт до дизеринга
+                            layer.format: ShaderEffectSource.RGBA16F
 
                             MultiEffect {
                                 readonly property point pos: loader.item?.glowPos ?? Qt.point(0, 0)
@@ -342,6 +345,7 @@ Scope {
                             maskSpreadAtMin: 1
                             visible: false
                             layer.enabled: shellGlow.visible
+                            layer.format: ShaderEffectSource.RGBA16F
                         }
 
                         // Дизеринг перед выводом: против волн-ступеней в мягком
