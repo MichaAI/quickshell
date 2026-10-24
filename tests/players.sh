@@ -91,6 +91,17 @@ qs_ipc test selectPlayer "org.mpris.MediaPlayer2.$(cat "$RUN/b.name")" >/dev/nul
 sleep 0.5
 expect "выбрали второй руками — сразу он" b
 
+qs_ipc test selectPlayer "org.mpris.MediaPlayer2.$(cat "$RUN/a.name")" >/dev/null
+sleep 0.5
+expect "выбрали обратно первый — сразу он" a
+
+pctl a pause
+for p in b a b; do
+    qs_ipc test selectPlayer "org.mpris.MediaPlayer2.$(cat "$RUN/$p.name")" >/dev/null
+    sleep 0.5
+    expect "оба на паузе, выбрали $p — сразу он" $p
+done
+
 stop b
 sleep 1
 expect "выбранный закрыли — сразу первый" a

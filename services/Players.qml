@@ -29,15 +29,25 @@ Singleton {
     property MprisPlayer held: null
     readonly property bool heldAlive: held !== null && list.includes(held)
 
-    // Сразу: плеер пропал или его выбрали руками
-    readonly property bool switchNow: candidate !== held
-        && (!heldAlive || (selected !== null && candidate === selected))
     // С задержкой: показанный замолчал, а другой играет
     readonly property bool switchLater: candidate !== held && heldAlive
         && !held.isPlaying && (candidate?.isPlaying ?? false)
 
-    onSwitchNowChanged: if (switchNow) held = candidate
-    Component.onCompleted: if (switchNow) held = candidate
+    // Сразу: плеер пропал или его выбрали руками. Функцией, а не
+    // свойством с onChanged: из обработчика производные свойства видны
+    // ещё старыми, а флаг, сброшенный в собственном onChanged, залипал
+    // и следующий выбор руками не срабатывал
+    function sync() {
+        if (candidate === held)
+            return
+        const alive = held !== null && list.includes(held)
+        if (!alive || (selected !== null && candidate === selected))
+            held = candidate
+    }
+    onCandidateChanged: sync()
+    onListChanged: sync()
+    onSelectedChanged: sync()
+    Component.onCompleted: sync()
 
     Timer {
         interval: root.switchDelay
