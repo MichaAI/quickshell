@@ -22,9 +22,11 @@ nix() { command nix --extra-experimental-features "nix-command flakes" "$@"; }
 echo "qs-test: quickshell из флейка" >&2
 nix build "$REPO#default" --override-input nixpkgs "$NIXPKGS" --no-write-lock-file -o "$QST/quickshell"
 
-# qt6.* — для qmllint (tests/lint.sh)
+# qt6.* — для qmllint (tests/lint.sh); mpv, playerctl, dbus — фейковые
+# плееры на своей шине (tests/players.sh)
 for p in niri sway grim mesa imagemagick wl-clipboard nerd-fonts.jetbrains-mono \
-         qt6.qtdeclarative qt6.qtquick3d qt6.qtquicktimeline; do
+         qt6.qtdeclarative qt6.qtquick3d qt6.qtquicktimeline \
+         mpv mpvScripts.mpris playerctl dbus; do
     echo "qs-test: $p" >&2
     nix build -f "$NIXPKGS" "$p" -o "$QST/$p"
 done

@@ -80,12 +80,39 @@ stop() {
     rm -f "$RUN/$1.pid"
 }
 
-# Прибить всё, что запускали тесты
+# Прибить всё, что запускали тесты. Срабатывает и на выходе по ошибке,
+# логи остаются в $RUN
 stop_all() {
-    stop qs
-    stop niri
-    stop sway
+    local f
+    for f in "$RUN"/*.pid; do [ -e "$f" ] && stop "$(basename "$f" .pid)"; done
     sleep 0.5
+}
+trap stop_all EXIT
+
+# Своя сессионная шина: шелл не видит плееры, уведомления и прочее
+# настоящей сессии. По умолчанию тесты на шине сессии, если она есть
+start_bus() {
+    export DBUS_SESSION_BUS_ADDRESS=unix:path=$RUN/bus
+    alive bus && return
+    rm -f "$RUN/bus"
+    # Без servicedir: ничего не автозапускается (порталы, keyring) и не
+    # переживает тест
+    cat > "$RUN/bus.conf" <<CONF
+<busconfig>
+  <type>session</type>
+  <listen>unix:path=$RUN/bus</listen>
+  <policy context="default">
+    <allow send_destination="*" eavesdrop="true"/>
+    <allow eavesdrop="true"/>
+    <allow own="*"/>
+  </policy>
+</busconfig>
+CONF
+    setsid "$QST/dbus/bin/dbus-daemon" --nofork --config-file="$RUN/bus.conf" \
+        > "$RUN/bus.log" 2>&1 < /dev/null &
+    echo $! > "$RUN/bus.pid"
+    for _ in $(seq 50); do [ -S "$RUN/bus" ] && return; sleep 0.1; done
+    echo "dbus не поднялся, см. $RUN/bus.log" >&2; exit 1
 }
 
 start_sway() {
@@ -171,6 +198,13 @@ append(cfg + '/shell.qml', '''
             return "ok"
         }
         function copy(text: string): void { Tools.copy(text) }
+        function player(): string { return Players.active?.dbusName ?? "none" }
+        function selectPlayer(name: string): string {
+            const p = Players.list.find(p => p.dbusName === name)
+            if (!p) return "нет плеера " + name
+            Players.selected = p
+            return "ok"
+        }
     }
 ''')
 EOF
