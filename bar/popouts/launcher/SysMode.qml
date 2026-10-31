@@ -4,9 +4,9 @@ import "../../../config"
 import "../../../services"
 import "Match.js" as Match
 
-// Система с клавиатуры: «vol 30», «vol +5», «vol mute», «mic», «br 70»,
-// «bt», «wifi», «mp». Тема — слово-префикс (launcher.topic), arg — что
-// после него. Уровни: число — выставить, ±число — сдвинуть, m/mute —
+// Система с клавиатуры: «q vol 30», «q vol +5», «q vol mute», «q mic»,
+// «q br 70», «q bt», «q wifi», «q mp next». Тема — первое слово после q
+// (launcher.topic), arg — что после него; без темы — список команд. Уровни: число — выставить, ±число — сдвинуть, m/mute —
 // выключить звук, max — 100. Пустой arg — текущее состояние, Ctrl+←→
 // двигает выделенный уровень на 5%. ⏎ — сделать и закрыть, ⇧⏎ — сделать
 // и остаться (крутить дальше).
@@ -27,8 +27,8 @@ Item {
     })
 
     readonly property var info: {
-        const t = topics[topic] ?? topics.vol
-        return { icon: t.icon, color: t.color, hint: t.hint }
+        const t = topics[topic]
+        return t ? { icon: t.icon, color: t.color, hint: t.hint } : launcher.modes.sys
     }
 
     // Громкость приложений видна, только пока их ноды привязаны
@@ -37,18 +37,39 @@ Item {
                : mode.topic === "mic" ? mode.nodes(PwNodeType.AudioSource) : []
     }
 
-    // Пункт в обычном поиске: «vol» без пробела → зайти в тему
-    function entry(word) {
-        const t = topics[launcher.sysWords[word]]
-        return {
-            glyph: t.icon,
-            glyphColor: t.color,
-            title: t.title,
-            sub: t.hint,
-            badge: "⏎ / Tab — " + word + " …",
-            tab: () => launcher.setQuery(word + " "),
-            run: () => launcher.setQuery(word + " ")
+    // «q …» без темы — список команд с текущим состоянием;
+    // ⏎ / Tab — зайти в команду
+    readonly property var order: [["vol", "vol"], ["mic", "mic"], ["br", "br"], ["bt", "bt"], ["wifi", "wifi"], ["media", "mp"]]
+
+    function stateOf(t) {
+        switch (t) {
+        case "vol": return (Audio.muted ? "выкл" : pct(Audio.volume)) + " · " + Audio.sinkName
+        case "mic": return (Audio.micMuted ? "выкл" : pct(Audio.micVolume)) + " · " + Audio.sourceName
+        case "br": return Brightness.present ? Brightness.percent + "%" : "нет подсветки"
+        case "bt": return !Bt.present ? "нет адаптера" : !Bt.enabled ? "выключен" : Bt.connected.length + " подключено"
+        case "wifi": return "сети, подключение, вкл/выкл"
+        case "media": return Players.active ? Players.title + (Players.artist ? " — " + Players.artist : "") : "ничего не играет"
         }
+        return ""
+    }
+
+    function commandItems(a) {
+        return Match.filterBy(order, a.trim(), o => [o[1], topics[o[0]].title]).map(o => {
+            const t = topics[o[0]]
+            const go = () => launcher.setQuery("q " + o[1] + " ")
+            return {
+                glyph: t.icon,
+                glyphColor: t.color,
+                title: o[1] + "   " + t.title,
+                sub: stateOf(o[0]),
+                progress: o[0] === "vol" ? (Audio.muted ? 0 : Audio.volume)
+                    : o[0] === "br" && Brightness.present ? Brightness.value : undefined,
+                badge: "⏎ / Tab — q " + o[1] + " …",
+                ghostSource: o[1],
+                tab: go,
+                run: go
+            }
+        })
     }
 
     function nodes(type) {
@@ -90,7 +111,7 @@ Item {
         case "wifi": return wifiItems(a)
         case "media": return mediaItems(a)
         }
-        return []
+        return commandItems(a)
     }
 
     // Строка уровня: текущее значение с полосой; с arg — что станет

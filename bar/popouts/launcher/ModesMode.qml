@@ -27,12 +27,7 @@ Item {
         { id: "translate", prefix: "tr ", title: "Переводчик", keys: "translate перевод google язык", how: "tr hello   ·   tr de: привет" },
         { id: "gif", prefix: "gif ", title: "Гифки", keys: "gif gifs klipy giphy анимация", how: "gif кот   ·   ⇧⏎ копировать саму гифку" },
         { id: "qr", prefix: "qr ", title: "QR-код", keys: "qr qrcode код ссылка", how: "qr текст   ·   пусто — из буфера" },
-        { id: "sys", topic: "vol", prefix: "vol ", title: "Громкость", keys: "volume звук громкость sound output выход sink", how: "vol 30   ·   vol +5   ·   vol mute   ·   выходы и приложения" },
-        { id: "sys", topic: "mic", prefix: "mic ", title: "Микрофон", keys: "mic microphone микрофон input вход", how: "mic 50   ·   mic mute" },
-        { id: "sys", topic: "br", prefix: "br ", title: "Яркость", keys: "brightness яркость экран backlight", how: "br 70   ·   br +10" },
-        { id: "sys", topic: "bt", prefix: "bt ", title: "Bluetooth", keys: "bluetooth блютуз наушники", how: "bt имя   ·   bt on / off" },
-        { id: "sys", topic: "wifi", prefix: "wifi ", title: "Wi-Fi", keys: "wifi wi-fi сеть network вайфай", how: "wifi сеть   ·   wifi сеть / пароль   ·   wifi off" },
-        { id: "sys", topic: "media", prefix: "mp ", title: "Плеер", keys: "media player music плеер музыка next pause", how: "mp next   ·   mp pause" },
+        { id: "sys", prefix: "q ", title: "Система", keys: "system volume звук громкость mic микрофон brightness яркость bluetooth wifi сеть плеер media", how: "q vol 30   ·   q br +10   ·   q bt   ·   q wifi   ·   q mp next" },
         { id: "history", title: "История запросов", keys: "history история ctrl+r", how: "Ctrl+R, ↑ в пустой строке",
           run: () => launcher.openHistory() },
         { id: "picker", title: "Выбор цвета", keys: "color picker colour колесо цвет", how: "! выбор цвета, rgb(…), #rrggbb",
@@ -42,7 +37,7 @@ Item {
 
     function items() {
         return Match.filterBy(catalog, launcher.arg.trim(), m => [m.title, m.prefix?.trim() ?? "", m.keys]).map(m => {
-            const info = m.topic ? launcher.sysTopics[m.topic] : launcher.modes[m.id]
+            const info = launcher.modes[m.id]
             return {
                 glyph: info.icon,
                 glyphColor: info.color,

@@ -78,7 +78,7 @@ Item {
         translate: { icon: "󰗊", color: Theme.teal,   hint: "Текст для перевода…   (de: — на немецкий)" },
         gif:     { icon: "󰵸", color: Theme.pink,     hint: "Поиск гифок…" },
         qr:      { icon: "󰐲", color: Theme.text,     hint: "Текст для QR…   (пусто — из буфера)" },
-        sys:     { icon: "󰒓", color: Theme.mauve,    hint: "Система…" },
+        sys:     { icon: "󰒓", color: Theme.mauve,    hint: "Система: vol, mic, br, bt, wifi, mp…" },
         modes:   { icon: "󰘳", color: Theme.lavender, hint: "Режим…" }
     })
 
@@ -88,17 +88,23 @@ Item {
         kube: "kube", k8s: "kube", kubectl: "kube", tr: "translate", gif: "gif", qr: "qr"
     })
 
-    // Система: «vol 30», «br +10», «bt», «wifi» — слово задаёт тему SysMode
+    // Система: «q vol 30», «q br +10», «q bt» — первое слово после q
+    // задаёт тему SysMode; без темы — список команд
     readonly property var sysWords: ({
-        vol: "vol", v: "vol", звук: "vol", mic: "mic", мик: "mic",
-        br: "br", bri: "br", яр: "br", bt: "bt", wifi: "wifi", wf: "wifi",
-        mp: "media", media: "media", play: "media"
+        vol: "vol", v: "vol", mic: "mic", br: "br", bt: "bt",
+        wifi: "wifi", wf: "wifi", mp: "media", media: "media"
     })
 
     function parseQuery(q) {
-        const w = q.match(/^([a-zа-яё0-9]+)\s+/)
-        if (w && sysWords[w[1]])
-            return { mode: "sys", topic: sysWords[w[1]], arg: q.slice(w[0].length), cut: w[0].length }
+        if (/^q\s/.test(q)) {
+            const rest = q.slice(1).replace(/^\s+/, "")
+            const c = rest.match(/^(\S+)(\s+|$)/)
+            const topic = c ? sysWords[c[1].toLowerCase()] ?? "" : ""
+            return topic
+                ? { mode: "sys", topic, arg: rest.slice(c[0].length), cut: q.length - rest.length + c[0].length }
+                : { mode: "sys", topic: "", arg: rest, cut: q.length - rest.length }
+        }
+        const w = q.match(/^([a-z0-9]+)\s+/)
         if (w && wordModes[w[1]]) {
             const m = wordModes[w[1]]
             const rest = q.slice(w[0].length)
@@ -214,10 +220,6 @@ Item {
         }
         // Обычный поиск: калькулятор, цвет, приложения, потом действия
         const out = [...calcMode.items(), ...colorItem(/^(rgb|hsl|hsv)a?\(/i.test(arg.trim()) ? arg : ""), ...appsMode.results(arg)]
-        // «vol» без пробела — подсказка зайти в тему
-        const word = arg.trim().toLowerCase()
-        if (sysWords[word] && word.length >= 2)
-            out.push(sysMode.entry(word))
         if (arg.trim().length >= 2)
             out.push(...actionsMode.items(arg.trim()).slice(0, 4))
         return out
@@ -383,7 +385,7 @@ Item {
 
     function modeIcon(q) {
         const m = parseQuery(q).mode
-        if (m === "sys") return sysTopics[parseQuery(q).topic]
+        if (m === "sys") return sysTopics[parseQuery(q).topic] ?? modes.sys
         if (m !== "apps") return modes[m]
         return Calc.looksLikeMath(q) ? modes.calc : modes.apps
     }
@@ -708,7 +710,8 @@ Item {
                     translate: Settings.translateLangs.join(" ⇄ ") + "   ·   ⏎ копировать   ·   ⇧⏎ перевести обратно",
                     gif: "⏎ ссылка   ·   ⇧⏎ гифка в буфер   ·   " + (Settings.gifProvider === "giphy" ? "GIPHY" : "Klipy"),
                     qr: "⏎ копировать картинку   ·   ⇧⏎ открыть",
-                    sys: "⏎ сделать и закрыть   ·   ⇧⏎ сделать и остаться   ·   Ctrl+←→ ±5%",
+                    sys: root.topic === "" ? "⏎ / Tab — выбрать команду   ·   → дописать"
+                        : "⏎ сделать и закрыть   ·   ⇧⏎ сделать и остаться   ·   Ctrl+←→ ±5%",
                     modes: "⏎ перейти в режим"
                 }
                 return hints[root.mode] ?? (n + " результатов   ·   ↑↓ навигация   ·   ⏎ выбрать   ·   Esc закрыть")
