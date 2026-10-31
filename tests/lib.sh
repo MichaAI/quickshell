@@ -203,7 +203,7 @@ append(cfg + '/shell.qml', '''
         function selectPlayer(name: string): string {
             const p = Players.list.find(p => p.dbusName === name)
             if (!p) return "нет плеера " + name
-            Players.selected = p
+            Players.select(p)
             return "ok"
         }
     }

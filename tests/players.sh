@@ -5,8 +5,9 @@
 #   tests/players.sh [ревизия]  — по умолчанию рабочее дерево
 #
 # Плееры — mpv с mpris, тишина из lavfi в никуда (--ao=null), на своей
-# шине: настоящие плееры сессии в тест не попадают. Переключение на
-# другой играющий — через switchDelay (3 с), остальное — сразу
+# шине: настоящие плееры сессии в тест не попадают. Заигравший плеер
+# показывается сразу (через startDelay), с замолчавшего на другой
+# играющий — через stopDelay
 . "$(dirname "$0")/lib.sh"
 
 REV=${1:-}
@@ -87,23 +88,34 @@ fi
 
 start_player b
 sleep 1
-expect "заиграл второй — остаёмся на первом" a
-
-pctl a pause
-sleep 1
-expect "первый на паузе 1 с — ещё он" a
-sleep 3
-expect "первый на паузе 4 с — второй" b
+expect "заиграл второй — сразу он" b
 
 pctl b pause
-sleep 4
-expect "не играет никто — остаёмся на последнем" b
+sleep 0.5
+expect "второй на паузе 0.5 с, первый играет — ещё второй" b
+sleep 1.5
+expect "второй на паузе 2 с — первый" a
 
-pctl a play
-sleep 1
-expect "первый заиграл 1 с назад — ещё второй" b
+pctl a pause
 sleep 3
-expect "первый играет 4 с — он" a
+expect "не играет никто — остаёмся на последнем" a
+
+pctl b play
+sleep 0.8
+expect "второй заиграл — сразу он" b
+
+# Мигнул: заиграл и тут же встал — не переключаемся
+pctl a play; sleep 0.1; pctl a pause
+sleep 1
+expect "первый мигнул — остаёмся на втором" b
+
+# Пауза между треками: показанный на миг замолчал, другой играет
+pctl a play
+sleep 0.8
+expect "первый заиграл — он" a
+pctl a pause; sleep 0.4; pctl a play
+sleep 2
+expect "первый на 0.4 с замолчал, второй играет — остаёмся" a
 
 qs_ipc test selectPlayer "org.mpris.MediaPlayer2.$(cat "$RUN/b.name")" >/dev/null
 sleep 0.5

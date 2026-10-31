@@ -27,7 +27,8 @@ Item {
     // Свет обложки рисует бар: он ложится на весь шелл (попаут, бар, уголки)
     // между фоном и содержимым. Отсюда — только источник и где он лежит.
     readonly property Item glowSource: glowRounded
-    readonly property bool glowOn: art.status === Image.Ready && glowSrc.status === Image.Ready
+    // Свет идёт наплывом вместе с обложкой и на смене трека не гаснет
+    readonly property bool glowOn: artFade.shown && glowSrc.shown
     readonly property point glowPos: Qt.point(col.x + coverRow.x + coverBox.x,
                                               col.y + coverRow.y + coverBox.y)
 
@@ -130,13 +131,22 @@ Item {
 
                 // Источник света для бара (см. glowSource): скруглённая копия
                 // обложки. Скругление до размытия — иначе квадратный свет
-                // заливает срезанные углы и обложка выглядит квадратной
-                Image {
+                // заливает срезанные углы и обложка выглядит квадратной.
+                // Тоже наплывом: на смене трека свет перетекает в новый,
+                // а не гаснет, пока грузится обложка
+                CrossfadeImage {
                     id: glowSrc
                     anchors.fill: parent
-                    source: root.art.source
+                    source: Players.artUrl
                     sourceSize: Qt.size(48, 48)
-                    fillMode: Image.PreserveAspectCrop
+                }
+                // Текстурой для эффекта: слой невидимого элемента бар,
+                // подключившись позже, видел пустым, пока обложка не сменится
+                ShaderEffectSource {
+                    id: glowTex
+                    anchors.fill: parent
+                    sourceItem: glowSrc
+                    hideSource: true
                     visible: false
                 }
                 Rectangle {
@@ -149,14 +159,15 @@ Item {
                 MultiEffect {
                     id: glowRounded
                     anchors.fill: parent
-                    source: glowSrc
+                    source: glowTex
                     maskEnabled: true
                     maskSource: glowMask
                     maskThresholdMin: 0.5
                     maskSpreadAtMin: 1
                     visible: false
-                    // Без обложки источника нет — не гоняем эффект впустую
-                    layer.enabled: glowSrc.status === Image.Ready
+                    // Слой постоянный: включённый в тот же момент, когда бар
+                    // создаёт свой эффект, он доходил до бара пустым
+                    layer.enabled: true
                 }
                 ClippingRectangle {
                     anchors.fill: parent
@@ -174,7 +185,10 @@ Item {
                         property string loaded: ""
                         property real luma: -1
 
+                        // Пока новая обложка грузится, src пуст — держим
+                        // прежнюю яркость, сбрасываем, только если обложки нет
                         onSrcChanged: {
+                            if (src === "" && Players.artUrl !== "") return
                             luma = -1
                             if (loaded !== "")
                                 unloadImage(loaded)
@@ -212,7 +226,10 @@ Item {
                         readonly property string src: Settings.coverColors && root.art.status === Image.Ready ? root.art.source.toString() : ""
                         property string loaded: ""
 
+                        // Как у artProbe: цвета не уходят в тему на время
+                        // загрузки, а сразу перетекают в новые
                         onSrcChanged: {
+                            if (src === "" && Players.artUrl !== "" && Settings.coverColors) return
                             root.cover = null
                             if (loaded !== "")
                                 unloadImage(loaded)
@@ -247,7 +264,7 @@ Item {
                     text: "󰝚"
                     font.family: Theme.font
                     font.pixelSize: 24
-                    color: root.art.status !== Image.Ready || artProbe.luma < 0 ? Theme.surface2
+                    color: artProbe.luma < 0 ? Theme.surface2
                          : artProbe.luma > 0.5 ? Theme.crust
                          : Theme.text
                     Behavior on color { ColorAnimation { duration: 200 } }
@@ -684,7 +701,7 @@ Item {
                     MouseArea {
                         anchors.fill: parent
                         cursorShape: Qt.PointingHandCursor
-                        onClicked: Players.selected = parent.modelData
+                        onClicked: Players.select(parent.modelData)
                     }
                 }
             }
