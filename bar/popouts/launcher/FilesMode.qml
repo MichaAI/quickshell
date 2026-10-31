@@ -35,6 +35,16 @@ Item {
         return map[ext] ?? "󰈔"
     }
 
+    // Ctrl+⏎: файл выделенным в файловом менеджере (FileManager1),
+    // а если его никто не держит — просто открыть папку
+    function showItem(p) {
+        const uri = "file://" + p.split("/").map(encodeURIComponent).join("/")
+        const dir = p.slice(0, p.lastIndexOf("/")) || "/"
+        Tools.run(["busctl", "--user", "call", "org.freedesktop.FileManager1", "/org/freedesktop/FileManager1",
+                   "org.freedesktop.FileManager1", "ShowItems", "ass", "1", uri, ""],
+            code => { if (code !== 0) Tools.open(dir) })
+    }
+
     function item(full, isDir) {
         const name = full.replace(/\/$/, "").split("/").pop()
         return {
@@ -48,7 +58,8 @@ Item {
                 Tools.open(shift && !isDir ? p.slice(0, p.lastIndexOf("/")) || "/" : p)
                 Ui.closePopouts()
             },
-            tab: () => launcher.setQuery(tilde(full.replace(/\/$/, "")) + (isDir ? "/" : ""))
+            tab: () => launcher.setQuery(tilde(full.replace(/\/$/, "")) + (isDir ? "/" : "")),
+            handoff: { app: "файловый менеджер", run: () => mode.showItem(full.replace(/\/$/, "")) }
         }
     }
 

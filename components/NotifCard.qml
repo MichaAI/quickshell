@@ -167,6 +167,33 @@ Rectangle {
                 onLinkActivated: link => Qt.openUrlExternally(link)
             }
 
+            // Прогресс: hint value (0…100), как у notify-send -h int:value:42 —
+            // так его шлют передача файлов, загрузки, закачки nix из лончера
+            Item {
+                readonly property var v: root.notif?.hints.value
+                visible: typeof v === "number" || (typeof v === "string" && v !== "" && !isNaN(Number(v)))
+                width: parent.width
+                height: 12
+
+                ProgressBar {
+                    anchors.left: parent.left
+                    anchors.right: pct.left
+                    anchors.rightMargin: 8
+                    anchors.verticalCenter: parent.verticalCenter
+                    height: 4
+                    value: Number(parent.v) / 100
+                }
+                Text {
+                    id: pct
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: Math.round(Math.max(0, Math.min(100, Number(parent.v)))) + "%"
+                    font.family: Theme.font
+                    font.pixelSize: 10
+                    color: Theme.overlay1
+                }
+            }
+
             // Кнопки действий (кроме default — он на клике по карточке)
             Flow {
                 id: actions

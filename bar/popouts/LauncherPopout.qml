@@ -13,9 +13,14 @@ import "launcher/Match.js" as Match
 //   >  команда zsh             :  окна
 //   !  действия                #  буфер обмена (и цвета #rrggbb)
 //   ~  файлы, ~/ и / — пути    ;  эмодзи и nerd-иконки
-//   kill …  процессы
+//   ,  запуск через nix        ?  список режимов
+//   kill …  процессы           port …  занятые порты
+//   docker …  контейнеры       kube …  поды
+//   tr …  переводчик           gif …  гифки        qr …  QR-код
 // Автодополнение везде одинаковое: серый хвост принимается →,
-// Tab подставляет выбранный пункт списка.
+// Tab подставляет выбранный пункт списка (или открывает его действия).
+// Ctrl+⏎ — передать наработку в полноценное приложение: выражение — в
+// Qalculate, контейнер — в lazydocker, под — в k9s, перевод — в браузер…
 // Здесь — строка ввода, история и список; сами режимы — в launcher/.
 Item {
     id: root
@@ -26,13 +31,34 @@ Item {
     property string query: ""
     property int selIdx: 0
 
-    // Подрежим поверх обычного: null | {kind: "actions", app} | {kind: "picker", back}
+    // Подрежим поверх обычного: null | {kind: "menu", glyph, title, items: () => [...]}
+    // | {kind: "picker", back} | {kind: "history", back}
     property var sub: null
+    readonly property bool inMenu: sub?.kind === "menu"
+
+    // Меню действий пункта (Tab): у приложения, контейнера, пода
+    function openMenu(glyph, title, items) {
+        sub = { kind: "menu", glyph, title, items }
+        selIdx = 0
+    }
+
+    // Опасное — со второго Enter: первый только запоминает ключ, пункт
+    // перекрашивается. Сбрасывается вводом и сменой выделения
+    property string confirmKey: ""
+    function confirmed(key) {
+        if (confirmKey === key) {
+            confirmKey = ""
+            return true
+        }
+        confirmKey = key
+        return false
+    }
+    onSelIdxChanged: confirmKey = ""
 
     // ===== Режим по префиксу =====
 
     readonly property var modes: ({
-        apps:    { icon: "󰍉", color: Theme.mauve,    hint: "Поиск приложений…   (= > : ! # ~ ; $ kill)" },
+        apps:    { icon: "󰍉", color: Theme.mauve,    hint: "Поиск приложений…   (? — все режимы)" },
         calc:    { icon: "󰃬", color: Theme.peach,    hint: "Выражение: 2^10, 10 km to mi, x = 42, plot(sin(x))…" },
         vars:    { icon: "󰫧", color: Theme.peach,    hint: "Переменные калькулятора" },
         shell:   { icon: "󰆍", color: Theme.green,    hint: "Команда zsh…" },
@@ -44,14 +70,40 @@ Item {
         glyphs:  { icon: "󰞅", color: Theme.pink,     hint: "Эмодзи и иконки: кот, heart, nf-md-cat…" },
         kill:    { icon: "󰆴", color: Theme.red,      hint: "Процесс…" },
         picker:  { icon: "󰏘", color: Theme.pink,     hint: "Цвет: #hex, rgb(), hsl()…" },
-        history: { icon: "󰋚", color: Theme.lavender, hint: "Поиск по истории запросов…" }
+        history: { icon: "󰋚", color: Theme.lavender, hint: "Поиск по истории запросов…" },
+        ports:   { icon: "󰈀", color: Theme.sapphire, hint: "Порт или процесс…" },
+        docker:  { icon: "󰡨", color: Theme.blue,     hint: "Контейнер…" },
+        kube:    { icon: "󱃾", color: Theme.blue,     hint: "Под или неймспейс…   (@ — контексты)" },
+        nix:     { icon: "󱄅", color: Theme.blue,     hint: "Программа из nixpkgs и аргументы…" },
+        translate: { icon: "󰗊", color: Theme.teal,   hint: "Текст для перевода…   (de: — на немецкий)" },
+        gif:     { icon: "󰵸", color: Theme.pink,     hint: "Поиск гифок…" },
+        qr:      { icon: "󰐲", color: Theme.text,     hint: "Текст для QR…   (пусто — из буфера)" },
+        sys:     { icon: "󰒓", color: Theme.mauve,    hint: "Система…" },
+        modes:   { icon: "󰘳", color: Theme.lavender, hint: "Режим…" }
     })
 
-    readonly property var parsed: {
-        const q = query
-        if (sub && sub.kind === "picker") return { mode: "picker", arg: q, cut: 0 }
-        if (sub && sub.kind === "history") return { mode: "history", arg: q, cut: 0 }
-        if (/^kill\s/.test(q)) return { mode: "kill", arg: q.slice(5).trim(), cut: 5 }
+    // Режимы со словом-префиксом: «kill …», «docker …» (слово и пробел)
+    readonly property var wordModes: ({
+        kill: "kill", port: "ports", ports: "ports", docker: "docker", dk: "docker",
+        kube: "kube", k8s: "kube", kubectl: "kube", tr: "translate", gif: "gif", qr: "qr"
+    })
+
+    // Система: «vol 30», «br +10», «bt», «wifi» — слово задаёт тему SysMode
+    readonly property var sysWords: ({
+        vol: "vol", v: "vol", звук: "vol", mic: "mic", мик: "mic",
+        br: "br", bri: "br", яр: "br", bt: "bt", wifi: "wifi", wf: "wifi",
+        mp: "media", media: "media", play: "media"
+    })
+
+    function parseQuery(q) {
+        const w = q.match(/^([a-zа-яё0-9]+)\s+/)
+        if (w && sysWords[w[1]])
+            return { mode: "sys", topic: sysWords[w[1]], arg: q.slice(w[0].length), cut: w[0].length }
+        if (w && wordModes[w[1]]) {
+            const m = wordModes[w[1]]
+            const rest = q.slice(w[0].length)
+            return { mode: m, arg: m === "qr" ? rest : rest.trim(), cut: w[0].length }
+        }
         switch (q.charAt(0)) {
         case "=": return { mode: "calc", arg: q.slice(1), cut: 1 }
         case "$": return { mode: "vars", arg: q.slice(1).trim(), cut: 1 }
@@ -60,6 +112,8 @@ Item {
         case "!": return { mode: "actions", arg: q.slice(1).trim(), cut: 1 }
         case "#": return { mode: "clip", arg: q.slice(1), cut: 1 }
         case ";": return { mode: "glyphs", arg: q.slice(1).trim(), cut: 1 }
+        case ",": return { mode: "nix", arg: q.slice(1), cut: 1 }
+        case "?": return { mode: "modes", arg: q.slice(1).trim(), cut: 1 }
         case "/": return { mode: "path", arg: q, cut: 0 }
         case "~":
             if (q.startsWith("~/")) return { mode: "path", arg: q, cut: 0 }
@@ -67,9 +121,18 @@ Item {
         }
         return { mode: "apps", arg: q, cut: 0 }
     }
+
+    readonly property var parsed: {
+        const q = query
+        if (sub && sub.kind === "picker") return { mode: "picker", arg: q, cut: 0 }
+        if (sub && sub.kind === "history") return { mode: "history", arg: q, cut: 0 }
+        return parseQuery(q)
+    }
     readonly property string mode: parsed.mode
     readonly property string arg: parsed.arg
-    readonly property var modeInfo: modes[mode]
+    readonly property string topic: parsed.topic ?? ""
+    readonly property var sysTopics: sysMode.topics
+    readonly property var modeInfo: mode === "sys" ? sysMode.info : modes[mode]
 
     // ===== Режимы =====
 
@@ -82,6 +145,15 @@ Item {
     FilesMode { id: filesMode; launcher: root }
     KillMode { id: killMode; launcher: root }
     GlyphsMode { id: glyphsMode; launcher: root }
+    PortsMode { id: portsMode; launcher: root }
+    DockerMode { id: dockerMode; launcher: root }
+    KubeMode { id: kubeMode; launcher: root }
+    NixMode { id: nixMode; launcher: root }
+    TranslateMode { id: translateMode; launcher: root }
+    GifMode { id: gifMode; launcher: root }
+    QrMode { id: qrMode; launcher: root }
+    SysMode { id: sysMode; launcher: root }
+    ModesMode { id: modesMode; launcher: root }
 
     // ===== Цвета =====
 
@@ -115,8 +187,8 @@ Item {
     // ===== Итоговый список =====
 
     readonly property var results: {
-        if (sub && sub.kind === "actions")
-            return appsMode.actionItems(sub.app)
+        if (inMenu)
+            return sub.items()
         switch (mode) {
         case "picker": return []
         case "history": return historyItems()
@@ -130,15 +202,54 @@ Item {
         case "path": return filesMode.pathItems()
         case "kill": return killMode.items()
         case "glyphs": return glyphsMode.items()
+        case "ports": return portsMode.items()
+        case "docker": return dockerMode.items()
+        case "kube": return kubeMode.items()
+        case "nix": return nixMode.items()
+        case "translate": return translateMode.items()
+        case "gif": return gifMode.items()
+        case "qr": return qrMode.items()
+        case "sys": return sysMode.items()
+        case "modes": return modesMode.items()
         }
         // Обычный поиск: калькулятор, цвет, приложения, потом действия
         const out = [...calcMode.items(), ...colorItem(/^(rgb|hsl|hsv)a?\(/i.test(arg.trim()) ? arg : ""), ...appsMode.results(arg)]
+        // «vol» без пробела — подсказка зайти в тему
+        const word = arg.trim().toLowerCase()
+        if (sysWords[word] && word.length >= 2)
+            out.push(sysMode.entry(word))
         if (arg.trim().length >= 2)
             out.push(...actionsMode.items(arg.trim()).slice(0, 4))
         return out
     }
 
     readonly property var selected: results[selIdx] ?? null
+
+    // ===== Передать в приложение (Ctrl+⏎) =====
+    // {app, run}: у выделенного пункта — свой, иначе — у режима целиком
+    readonly property var handoff: {
+        if (sub && !inMenu) return null
+        if (selected?.handoff) return selected.handoff
+        switch (mode) {
+        case "calc": return calcMode.handoff()
+        case "docker": return dockerMode.handoff()
+        case "kube": return kubeMode.handoff()
+        case "translate": return translateMode.handoff()
+        case "shell":
+            return arg.trim() === "" ? null
+                : { app: Settings.terminal[0], run: () => Zsh.runInTerminal(arg) }
+        }
+        return null
+    }
+
+    function runHandoff() {
+        const h = handoff
+        if (!h) return
+        remember()
+        h.run()
+        // keepOpen — пункт сам закроет лончер, когда доделает (QR сохраняется)
+        if (!h.keepOpen) Ui.closePopouts()
+    }
 
     // ===== Призрачная подсказка (хвост, который допишется по →) =====
 
@@ -175,13 +286,16 @@ Item {
 
     onQueryChanged: {
         actionsMode.confirmId = ""
+        confirmKey = ""
         asyncTimer.restart()
+        netTimer.restart()
         if (mode === "calc" || mode === "apps") calcMode.schedule()
     }
 
     onModeChanged: {
         if (mode === "clip") clipMode.refresh()
         if (mode === "shell") { Zsh.start(); Zsh.refreshHistory() }
+        if (mode === "qr") qrMode.refreshClip()
     }
 
     onResultsChanged: if (selIdx >= results.length) selIdx = 0
@@ -198,8 +312,21 @@ Item {
         onTriggered: {
             if (root.mode === "shell") shellMode.request()
             else if (root.mode === "files") filesMode.request()
+            else if (root.mode === "qr") qrMode.request()
         }
     }
+
+    // Сеть и nix-locate — подольше: не на каждую букву
+    Timer {
+        id: netTimer
+        interval: 350
+        onTriggered: {
+            if (root.mode === "gif") gifMode.request()
+            else if (root.mode === "translate") translateMode.request()
+            else if (root.mode === "nix") nixMode.request()
+        }
+    }
+
 
     Component.onCompleted: {
         const preset = Tools.launcherPreset
@@ -222,8 +349,10 @@ Item {
     property bool histArrows: false   // листание начато простой ↑ — тогда и ↓ листает
 
     // Запрос, который сейчас выполнится — в историю
+    // noHistory у пункта — запрос с секретом (gif key …), не запоминать
     function remember() {
         if (sub && (sub.kind === "history" || sub.kind === "picker")) return
+        if (selected?.noHistory) return
         Tools.addQuery(query)
     }
 
@@ -253,11 +382,9 @@ Item {
     }
 
     function modeIcon(q) {
-        if (/^kill\s/.test(q)) return modes.kill
-        const m = { "=": "calc", "$": "vars", ">": "shell", ":": "windows", "!": "actions",
-                    "#": "clip", ";": "glyphs", "/": "path" }[q.charAt(0)]
-        if (m) return modes[m]
-        if (q.charAt(0) === "~") return q.startsWith("~/") ? modes.path : modes.files
+        const m = parseQuery(q).mode
+        if (m === "sys") return sysTopics[parseQuery(q).topic]
+        if (m !== "apps") return modes[m]
         return Calc.looksLikeMath(q) ? modes.calc : modes.apps
     }
 
@@ -331,7 +458,7 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter
                 width: 20
                 horizontalAlignment: Text.AlignHCenter
-                text: root.sub?.kind === "actions" ? "󰁔" : root.modeInfo.icon
+                text: root.inMenu ? root.sub.glyph : root.modeInfo.icon
                 font.family: Theme.font
                 font.pixelSize: 16
                 color: root.modeInfo.color
@@ -358,7 +485,7 @@ Item {
                         root.resetSel()
                         return
                     }
-                    if (root.sub?.kind === "actions")
+                    if (root.inMenu)
                         root.sub = null
                     if (root.sub?.kind === "picker") {
                         const c = Colors.parse(text)
@@ -418,11 +545,13 @@ Item {
                         break
                     case Qt.Key_Left:
                         if (inPicker && ctrl) { picker.nudge(-2 / 360, 0, 0); break }
-                        if (root.sub?.kind === "actions" && searchInput.cursorPosition === 0) { root.back(); break }
+                        if (ctrl && root.selected?.nudge) { root.selected.nudge(-1); break }
+                        if (root.inMenu && searchInput.cursorPosition === 0) { root.back(); break }
                         event.accepted = false
                         return
                     case Qt.Key_Right:
                         if (inPicker && ctrl) { picker.nudge(2 / 360, 0, 0); break }
+                        if (ctrl && root.selected?.nudge) { root.selected.nudge(1); break }
                         if (searchInput.cursorPosition === searchInput.text.length && root.acceptGhost()) break
                         event.accepted = false
                         return
@@ -445,7 +574,12 @@ Item {
                         return
                     case Qt.Key_Return:
                     case Qt.Key_Enter:
-                        root.runSelected(shift)
+                        if (ctrl) root.runHandoff()
+                        else root.runSelected(shift)
+                        break
+                    case Qt.Key_O:
+                        if (!ctrl) { event.accepted = false; return }
+                        root.runHandoff()
                         break
                     default:
                         event.accepted = false
@@ -469,7 +603,7 @@ Item {
                 Text {
                     anchors.fill: parent
                     visible: searchInput.text === ""
-                    text: root.sub?.kind === "actions" ? root.sub.app.name + " — действия" : root.modeInfo.hint
+                    text: root.inMenu ? root.sub.title + " — действия" : root.modeInfo.hint
                     font.family: Theme.font
                     font.pixelSize: 16
                     font.italic: true
@@ -545,12 +679,14 @@ Item {
         Text {
             width: parent.width
             horizontalAlignment: Text.AlignHCenter
-            elide: Text.ElideRight
-            text: {
+            elide: Text.ElideMiddle
+            text: hint + (root.handoff && !root.sub?.kind?.match(/picker|history/) && root.histPos < 0
+                ? "   ·   Ctrl+⏎ → " + root.handoff.app : "")
+            readonly property string hint: {
                 if (root.sub?.kind === "picker")
                     return "↑↓ формат   ·   ⏎ копировать   ·   Ctrl+←→ оттенок   ·   Ctrl+↑↓ яркость   ·   Esc назад"
-                if (root.sub?.kind === "actions")
-                    return "↑↓ навигация   ·   ⏎ запуск   ·   Esc/⇧Tab назад"
+                if (root.inMenu)
+                    return "↑↓ навигация   ·   ⏎ выполнить   ·   Esc/⇧Tab назад"
                 if (root.sub?.kind === "history")
                     return "⏎ в строку   ·   ⇧⏎ выполнить   ·   ⇧Del удалить   ·   Esc назад"
                 if (root.histPos >= 0)
@@ -563,7 +699,17 @@ Item {
                         : "⏎ копировать   ·   ⇧⏎ в ans   ·   x = 2+2 — переменная   ·   plot(f) — график",
                     shell: "⏎ фон   ·   ⇧⏎ терминал   ·   Tab дополнить   ·   → из истории",
                     path: "⏎ открыть / войти   ·   Tab войти   ·   → дописать",
-                    files: "⏎ открыть   ·   ⇧⏎ папку   ·   Tab в путь"
+                    files: "⏎ открыть   ·   ⇧⏎ папку   ·   Tab в путь",
+                    ports: n + " портов   ·   ⏎ открыть в браузере   ·   ⇧⏎ копировать   ·   ⇧Del TERM",
+                    docker: "⏎ шелл / запустить   ·   Tab действия   ·   обновляется раз в 2 с",
+                    kube: (kubeMode.info.context ? "контекст " + kubeMode.info.context + "   ·   " : "")
+                        + "⏎ логи   ·   Tab действия   ·   kube @ — контексты",
+                    nix: "⏎ запустить   ·   ⇧⏎ в терминале   ·   Tab в строку   ·   nix-index",
+                    translate: Settings.translateLangs.join(" ⇄ ") + "   ·   ⏎ копировать   ·   ⇧⏎ перевести обратно",
+                    gif: "⏎ ссылка   ·   ⇧⏎ гифка в буфер   ·   " + (Settings.gifProvider === "giphy" ? "GIPHY" : "Klipy"),
+                    qr: "⏎ копировать картинку   ·   ⇧⏎ открыть",
+                    sys: "⏎ сделать и закрыть   ·   ⇧⏎ сделать и остаться   ·   Ctrl+←→ ±5%",
+                    modes: "⏎ перейти в режим"
                 }
                 return hints[root.mode] ?? (n + " результатов   ·   ↑↓ навигация   ·   ⏎ выбрать   ·   Esc закрыть")
             }

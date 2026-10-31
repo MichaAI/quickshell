@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import "../../../config"
+import "../../../services"
 import "Match.js" as Match
 
 // «kill …» — процессы по загрузке CPU: TERM или KILL
@@ -31,6 +32,12 @@ Item {
         onTriggered: psProc.running = true
     }
 
+    // Ctrl+⏎: процесс — в htop, только он
+    function handoff(pid) {
+        const t = LauncherState.tui("htop", ["-p", pid])
+        return { app: t.app, run: () => Zsh.runInTerminal(t.cmd) }
+    }
+
     function items() {
         return Match.filterBy(procs, launcher.arg, p => [p.comm, p.args]).slice(0, 100).map(p => ({
             glyph: "󰆴",
@@ -39,6 +46,7 @@ Item {
             sub: p.pid + "   ·   " + p.cpu + "% CPU   ·   " + p.mem.toFixed(0) + " МБ   ·   " + p.args,
             badge: "⏎ TERM   ⇧⏎ KILL",
             ghostSource: p.comm,
+            handoff: mode.handoff(p.pid),
             run: shift => {
                 Quickshell.execDetached(["kill", shift ? "-KILL" : "-TERM", p.pid])
                 psProc.running = true

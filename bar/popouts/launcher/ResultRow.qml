@@ -4,10 +4,13 @@ import Quickshell.Io
 import Quickshell.Widgets
 import "../../../config"
 import "../../../components"
+import "../../../services"
 
 // Строка результата лончера: иконка (приложение / образец цвета /
 // превью из буфера / глиф), заголовок, подпись, подсказка клавиш.
-// У калькулятора с plot(…) под строкой ещё и график.
+// У калькулятора с plot(…) под строкой ещё и график, у QR — картинка
+// (qr: матрица для QrView), у гифок — анимация вместо иконки (thumbUrl:
+// качается curl'ом в кэш, чтобы шла через тот же прокси).
 Rectangle {
     id: row
     required property var modelData
@@ -20,8 +23,10 @@ Rectangle {
 
     readonly property bool big: modelData.big ?? false
     readonly property bool hasPlot: modelData.plot !== undefined
+    readonly property bool hasPreview: (modelData.qr ?? null) !== null
+    readonly property bool hasThumb: (modelData.thumbUrl ?? "") !== ""
 
-    height: hasPlot ? 220 : big ? 60 : 46
+    height: hasPlot ? 220 : hasPreview ? 46 + 210 : hasThumb ? 84 : big ? 60 : 46
     radius: 10
     color: selected ? Theme.cardBg
          : rma.containsMouse ? Theme.alpha(Theme.cardBg, 0.5) : "transparent"
@@ -30,7 +35,18 @@ Rectangle {
     Item {
         id: header
         width: parent.width
-        height: row.hasPlot ? 46 : row.height
+        height: row.hasPlot || row.hasPreview ? 46 : row.height
+    }
+
+    // QR под строкой — в стиле шелла
+    QrView {
+        visible: row.hasPreview
+        anchors.top: header.bottom
+        anchors.left: parent.left
+        anchors.leftMargin: 14
+        width: 200
+        height: 200
+        matrix: row.modelData.qr ?? []
     }
 
     PlotView {
@@ -64,8 +80,8 @@ Rectangle {
         anchors.left: parent.left
         anchors.leftMargin: 14
         anchors.verticalCenter: header.verticalCenter
-        width: row.big ? 36 : 28
-        height: width
+        width: row.hasThumb ? 112 : row.big ? 36 : 28
+        height: row.hasThumb ? 68 : width
 
         // Путь к иконке ищем только для строк на экране,
         // а не для всех приложений разом
@@ -88,7 +104,7 @@ Rectangle {
 
         Text {
             anchors.centerIn: parent
-            visible: (row.modelData.glyph ?? "") !== "" && !clipThumb.visible
+            visible: (row.modelData.glyph ?? "") !== "" && !clipThumb.visible && !gifThumb.visible
             text: row.modelData.glyph ?? ""
             font.family: Theme.font
             font.pixelSize: row.modelData.glyphSize ?? (row.big ? 22 : 18)
@@ -126,12 +142,43 @@ Rectangle {
         }
     }
 
+    // Гифка: скачать в кэш и крутить
+    AnimatedImage {
+        id: gifThumb
+        parent: iconBox
+        anchors.fill: parent
+        visible: status === AnimatedImage.Ready
+        fillMode: Image.PreserveAspectCrop
+        asynchronous: true
+        playing: visible
+        property string file: ""
+        source: file !== "" ? "file://" + file : ""
+
+        Process {
+            id: fetch
+            property string target: ""
+            onExited: (code, _s) => { if (code === 0) gifThumb.file = fetch.target }
+        }
+
+        Component.onCompleted: {
+            const url = row.modelData.thumbUrl ?? ""
+            if (url === "") return
+            const dir = Quickshell.env("XDG_RUNTIME_DIR") || "/tmp"
+            fetch.target = dir + "/qs-gif/" + Qt.md5(url) + "." + (url.match(/\.(gif|webp)(\?|$)/)?.[1] ?? "gif")
+            fetch.exec(["sh", "-c",
+                't=$1; shift; mkdir -p "${t%/*}" && { [ -s "$t" ] || { "$@" -o "$t.part" && mv "$t.part" "$t"; }; }',
+                "qs", fetch.target, ...Tools.curl([url])])
+        }
+    }
+
     Column {
         anchors.left: iconBox.right
         anchors.leftMargin: 12
         anchors.right: parent.right
         anchors.rightMargin: badge.shown ? badge.implicitWidth + 20 : 12
         anchors.verticalCenter: header.verticalCenter
+        // Над полосой прогресса — чуть выше, чтобы подпись её не задевала
+        anchors.verticalCenterOffset: isNaN(row.modelData.progress ?? NaN) ? 0 : -3
         spacing: 1
 
         GradientText {
@@ -159,6 +206,20 @@ Rectangle {
             font.pixelSize: 11
             color: row.modelData.subColor ?? Theme.overlay1
         }
+    }
+
+    // Прогресс (закачка nix, поиск): доля 0…1, -1 — сколько всего, неизвестно
+    ProgressBar {
+        readonly property real v: row.modelData.progress ?? NaN
+        visible: !isNaN(v)
+        value: isNaN(v) ? 0 : v
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: header.bottom
+        anchors.leftMargin: 54
+        anchors.rightMargin: 14
+        anchors.bottomMargin: 4
+        height: 3
     }
 
     Text {

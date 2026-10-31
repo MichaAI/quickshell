@@ -52,8 +52,7 @@ Item {
     }
 
     function openActions(app) {
-        launcher.sub = { kind: "actions", app: app }
-        launcher.selIdx = 0
+        launcher.openMenu("󰁔", app.name, () => mode.actionItems(app))
     }
 
     // Подрежим «действия приложения»

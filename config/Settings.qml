@@ -53,6 +53,18 @@ QtObject {
     readonly property string weatherProxy: ""
     readonly property int weatherRefreshMin: 20
 
+    // ===== Лончер: сетевые режимы =====
+    // Гифки (gif …): "klipy" (ключ — partner.klipy.com) или "giphy"
+    // (developers.giphy.com). Ключи бесплатные. Сюда ключ лучше не писать
+    // (уйдёт в стор): «gif key <ключ>» в лаунчере сохранит его в файл,
+    // а для sops/agenix есть опция home-manager gif.keyFile
+    readonly property string gifProvider: "klipy"
+    readonly property string gifKey: ""
+    // Переводчик (tr …): с первого языка — на второй, с остальных — на первый
+    readonly property var translateLangs: ["ru", "en"]
+    // Прокси для гифок и переводчика, как у curl -x; "" — напрямую
+    readonly property string netProxy: ""
+
     // ===== Свет обложки (из попаута музыки на весь шелл) =====
     readonly property int glowBlur: 64          // радиус размытия, px
     readonly property real glowScale: 1.3       // во сколько раз свет больше обложки

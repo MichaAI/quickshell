@@ -24,6 +24,14 @@ Item {
         }
     }
 
+    // Ctrl+⏎: запись — во внешнюю программу: раскодировать в файл и xdg-open
+    function openExternally(line, ext) {
+        const dir = (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/qs-cliphist"
+        const f = dir + "/" + line.slice(0, line.indexOf("\t")) + "." + ext
+        Tools.run(["sh", "-c", 'mkdir -p "${2%/*}" && printf "%s" "$1" | cliphist decode > "$2"', "qs", line, f],
+            code => { if (code === 0) Tools.open(f) })
+    }
+
     function items() {
         const arg = launcher.arg
         const lq = arg.toLowerCase()
@@ -44,6 +52,7 @@ Item {
                 title: img ? "Картинка " + img[2] : preview.replace(/\s+/g, " ").slice(0, 200),
                 sub: img ? preview.replace(/^\[\[ binary data /, "").replace(/ \]\]$/, "") : "",
                 badge: "⏎ копировать   ⇧Del удалить",
+                handoff: { app: img ? "просмотрщик" : "редактор", run: () => mode.openExternally(line, img ? img[1] : "txt") },
                 run: () => {
                     Tools.launch(["sh", "-c", 'printf "%s" "$1" | cliphist decode | wl-copy', "qs", line], "wl-copy")
                     Ui.closePopouts()

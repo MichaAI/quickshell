@@ -21,6 +21,16 @@ Item {
         return ""
     }
 
+    // Ctrl+⏎: выражение — в полноценный Qalculate
+    function handoff() {
+        const e = expr()
+        if (e === "") return null
+        for (const app of ["qalculate-gtk", "qalculate-qt"])
+            if (LauncherState.has(app))
+                return { app: "Qalculate!", run: () => Tools.launch([app, e]) }
+        return { app: "qalc в терминале", run: () => Zsh.runInTerminal("qalc -i " + Zsh._quote(e)) }
+    }
+
     function schedule() {
         timer.restart()
     }
@@ -102,6 +112,7 @@ Item {
                 glyph: asg ? "󰫧" : "󰃬",
                 glyphColor: Theme.peach,
                 title: asg ? asg + " = " + calc.value : calc.value,
+                handoff: mode.handoff(),
                 sub: asg ? "⏎ сохранить переменную" : calc.input,
                 badge: asg ? "" : "⏎ копировать   ⇧⏎ в ans",
                 run: shift => {

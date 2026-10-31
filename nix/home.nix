@@ -47,8 +47,12 @@ in
         curl
         fd
         findutils
+        iproute2 # ss для «port …» в лаунчере
         libqalculate
+        libnotify # notify-send: уведомления лончера, прогресс закачек nix
+        nix-index # nix-locate для «,программа» (базу строит сам nix-index)
         procps
+        qrencode
         slurp # скриншот области под driftwm
         util-linux
         wl-clipboard
@@ -98,6 +102,18 @@ in
           текстом — логин и пароль сюда лучше не класть.
         '';
       };
+    };
+
+    gif.keyFile = mkOption {
+      type = types.nullOr types.str;
+      default = null;
+      example = lib.literalExpression "config.sops.secrets.klipy.path";
+      description = ''
+        Путь к файлу с ключом Klipy или GIPHY (для «gif …» в лаунчере),
+        например секрет sops-nix или agenix. Читается при запуске, в стор
+        попадает только путь. Без него ключ можно вставить прямо в
+        лаунчере: gif key <ключ>.
+      '';
     };
 
     settings = mkOption {
@@ -165,6 +181,7 @@ in
         QS_WEATHER_LOCATION = cfg.weather.location;
         QS_WEATHER_PROVIDER = cfg.weather.provider;
         QS_WEATHER_PROXY = cfg.weather.proxy;
+        QS_GIF_KEY_FILE = cfg.gif.keyFile;
       };
     };
 
