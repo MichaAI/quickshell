@@ -1,3 +1,7 @@
+// Рендер через Vulkan: на той же картинке чуть меньше процессора и
+// ~50 МБ памяти, чем GL. Вернуть GL — убрать строку.
+//@ pragma Env QSG_RHI_BACKEND=vulkan
+
 import QtQuick
 import Quickshell
 import Quickshell.Io
