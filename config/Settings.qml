@@ -27,6 +27,14 @@ QtObject {
     // видно последнее, клик по шапке раскрывает остальные
     readonly property bool notifGroups: false
 
+    // Простой (services/Idle.qml): через сколько секунд без ввода лок и
+    // сон, 0 — не делать. За idleWarnSec до лока экран темнеет — любое
+    // движение отменяет. idleWhilePlaying — не засыпать, пока играет плеер
+    readonly property int idleLockSec: 300
+    readonly property int idleWarnSec: 10
+    readonly property int idleSuspendSec: 600
+    readonly property bool idleWhilePlaying: true
+
     readonly property int screenRadius: 14   // внутренние углы к краям монитора
     readonly property int popoutRadius: 16
     readonly property int popoutWing: 14     // радиус "крыльев" попаута к бару

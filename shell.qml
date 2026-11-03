@@ -13,6 +13,7 @@ ShellRoot {
     ScreenCorners {}
     DesktopWidget {}
     NotificationToasts {}
+    IdleWarning {}
     Lock {}
 
     // niri: `qs ipc call <launcher|calendar|weather|system|music|volume|battery|bluetooth|notifications> <toggle|open|close>`
@@ -60,6 +61,16 @@ ShellRoot {
     }
 
     // niri: `qs ipc call notifs <toggleDnd|clear>`
+    IpcHandler {
+        target: "idle"
+        function toggle(): void {
+            Idle.toggle()
+        }
+        function status(): string {
+            return Idle.describe()
+        }
+    }
+
     // OSD руками: qs ipc call osd trigger volume|mic|brightness
     IpcHandler {
         target: "osd"

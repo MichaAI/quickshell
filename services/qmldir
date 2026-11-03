@@ -25,3 +25,4 @@ singleton Buds 1.0 Buds.qml
 singleton LauncherState 1.0 LauncherState.qml
 singleton NixRun 1.0 NixRun.qml
 singleton Osd 1.0 Osd.qml
+singleton Idle 1.0 Idle.qml

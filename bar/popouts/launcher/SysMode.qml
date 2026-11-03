@@ -23,7 +23,8 @@ Item {
         br:    { icon: "󰃠", color: Theme.yellow,   title: "Яркость",    hint: "Яркость: 70, +10, -10, max" },
         bt:    { icon: "󰂯", color: Theme.blue,     title: "Bluetooth",  hint: "Bluetooth: устройство…   (on / off)" },
         wifi:  { icon: "󰖩", color: Theme.teal,     title: "Wi-Fi",      hint: "Wi-Fi: сеть…   (сеть / пароль, on / off)" },
-        media: { icon: "󰝚", color: Theme.pink,     title: "Плеер",      hint: "Плеер: play, next, prev…" }
+        media: { icon: "󰝚", color: Theme.pink,     title: "Плеер",      hint: "Плеер: play, next, prev…" },
+        idle:  { icon: "󰅶", color: Theme.peach,    title: "Не засыпать", hint: "Простой: ⏎ — не засыпать / разрешить" }
     })
 
     readonly property var info: {
@@ -39,7 +40,7 @@ Item {
 
     // «q …» без темы — список команд с текущим состоянием;
     // ⏎ / Tab — зайти в команду
-    readonly property var order: [["vol", "vol"], ["mic", "mic"], ["br", "br"], ["bt", "bt"], ["wifi", "wifi"], ["media", "mp"]]
+    readonly property var order: [["vol", "vol"], ["mic", "mic"], ["br", "br"], ["bt", "bt"], ["wifi", "wifi"], ["media", "mp"], ["idle", "idle"]]
 
     function stateOf(t) {
         switch (t) {
@@ -49,6 +50,7 @@ Item {
         case "bt": return !Bt.present ? "нет адаптера" : !Bt.enabled ? "выключен" : Bt.connected.length + " подключено"
         case "wifi": return "сети, подключение, вкл/выкл"
         case "media": return Players.active ? Players.title + (Players.artist ? " — " + Players.artist : "") : "ничего не играет"
+        case "idle": return (Idle.caffeine ? "включено · " : "") + Idle.describe()
         }
         return ""
     }
@@ -111,6 +113,7 @@ Item {
         case "bt": return btItems(a)
         case "wifi": return wifiItems(a)
         case "media": return mediaItems(a)
+        case "idle": return idleItems()
         }
         return commandItems(a)
     }
@@ -400,5 +403,16 @@ Item {
             })
         }
         return out
+    }
+
+    function idleItems() {
+        return [{
+            glyph: "󰅶",
+            glyphColor: Idle.caffeine ? Theme.peach : Theme.overlay1,
+            title: Idle.caffeine ? "Разрешить засыпать" : "Не засыпать",
+            sub: Idle.describe(),
+            badge: "⏎ переключить",
+            run: act(() => Idle.toggle())
+        }]
     }
 }

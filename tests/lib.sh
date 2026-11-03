@@ -163,6 +163,13 @@ make_config() {
             | tar -c --ignore-failed-read -T - 2>/dev/null) | tar -x -C "$RUN/cfg"
     fi
     for f in ${OVERLAY:-}; do cp "$REPO/$f" "$RUN/cfg/$f"; done
+    # Простой в тестах выключен: niri без ввода «простаивает», и шелл
+    # залочил бы экран посреди теста, а то и усыпил настоящую машину
+    # (systemctl sleep). Тест простоя включает его сам через set_setting
+    if grep -q "idleSuspendSec" "$RUN/cfg/config/Settings.qml"; then
+        set_setting idleLockSec 0
+        set_setting idleSuspendSec 0
+    fi
 }
 
 # Подставить значение в config/Settings.qml копии: set_setting lockSpinMs 0

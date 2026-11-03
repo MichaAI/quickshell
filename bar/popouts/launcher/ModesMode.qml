@@ -27,7 +27,7 @@ Item {
         { id: "translate", prefix: "tr ", title: "Переводчик", keys: "translate перевод google язык", how: "tr hello   ·   tr de: привет" },
         { id: "gif", prefix: "gif ", title: "Гифки", keys: "gif gifs klipy giphy анимация", how: "gif кот   ·   ⇧⏎ копировать саму гифку" },
         { id: "qr", prefix: "qr ", title: "QR-код", keys: "qr qrcode код ссылка", how: "qr текст   ·   пусто — из буфера" },
-        { id: "sys", prefix: "q ", title: "Система", keys: "system volume звук громкость mic микрофон brightness яркость bluetooth wifi сеть плеер media", how: "q vol 30   ·   q br +10   ·   q bt   ·   q wifi   ·   q mp next" },
+        { id: "sys", prefix: "q ", title: "Система", keys: "system volume звук громкость mic микрофон brightness яркость bluetooth wifi сеть плеер media idle простой сон кофе", how: "q vol 30   ·   q br +10   ·   q bt   ·   q wifi   ·   q mp next" },
         { id: "history", title: "История запросов", keys: "history история ctrl+r", how: "Ctrl+R, ↑ в пустой строке",
           run: () => launcher.openHistory() },
         { id: "picker", title: "Выбор цвета", keys: "color picker colour колесо цвет", how: "! выбор цвета, rgb(…), #rrggbb",

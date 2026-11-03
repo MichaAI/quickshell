@@ -122,6 +122,13 @@ Scope {
                 }
             }
 
+            // Запрет простоя (services/Idle.qml) — нужен видимый surface,
+            // бар есть всегда
+            IdleInhibitor {
+                window: win
+                enabled: Idle.inhibited
+            }
+
             // Ввод принимают только бар и открытое меню — остальное прозрачно
             mask: Region {
                 item: barRect
@@ -740,6 +747,19 @@ Scope {
                                     }
                                 }
                             }
+                        }
+                    }
+
+                    // «Не засыпать» включено руками — клик выключает
+                    BarPill {
+                        id: caffeinePill
+                        anchors.verticalCenter: parent.verticalCenter
+                        visible: Idle.caffeine
+                        onClicked: Idle.toggle()
+
+                        PillText {
+                            text: "󰅶"
+                            color: Theme.peach
                         }
                     }
 

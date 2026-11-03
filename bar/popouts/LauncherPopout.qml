@@ -92,7 +92,8 @@ Item {
     // задаёт тему SysMode; без темы — список команд
     readonly property var sysWords: ({
         vol: "vol", v: "vol", mic: "mic", br: "br", bt: "bt",
-        wifi: "wifi", wf: "wifi", mp: "media", media: "media"
+        wifi: "wifi", wf: "wifi", mp: "media", media: "media",
+        idle: "idle", caf: "idle", coffee: "idle", sleep: "idle"
     })
 
     function parseQuery(q) {
