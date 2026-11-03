@@ -14,10 +14,13 @@ Singleton {
 
     readonly property var player: Players.active
     // Метаданные — из Players.meta: там нет провалов на смене трека, и
-    // текст не сбрасывается и не перезапрашивается на каждом миге
+    // текст не сбрасывается и не перезапрашивается на каждом миге.
+    // Длины в ключе нет: у потоков и радио она растёт каждую секунду, и
+    // текст перезапрашивался бы по кругу. Для подбора по длительности её
+    // берёт сам fetch
     readonly property var meta: Players.meta
     readonly property string key: player
-        ? [meta.artist, meta.title, meta.album, meta.length].join("\u0001")
+        ? [meta.artist, meta.title, meta.album].join("\u0001")
         : ""
 
     // [{ t: секунды или -1, text }]
