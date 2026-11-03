@@ -1,0 +1,3 @@
+target/
+# пишет cxx-qt-build при сборке
+.qmlls.ini

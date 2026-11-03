@@ -1,9 +1,11 @@
 # quickshell, которому видно всё, что зовёт конфиг: утилиты в PATH,
 # плагины картинок для обоев (webp и т.п.) и, для 3D-авы на локе,
 # QtQuick3D с QtQuick.Timeline и balsam. Сам qs тоже в PATH: конфиг зовёт
-# его через Process
+# его через Process. И QML-плагин MichaAI.Mpris (расширение плеера) — тем
+# же Qt, что и quickshell
 {
   lib,
+  callPackage,
   symlinkJoin,
   makeWrapper,
   quickshell,
@@ -15,11 +17,12 @@
 }:
 
 let
-  qml = lib.optionals with3d [
+  qml3d = lib.optionals with3d [
     qt6.qtquick3d
     qt6.qtquicktimeline
   ];
-  plugins = [ qt6.qtimageformats ] ++ qml;
+  qml = [ (callPackage ./mprisext.nix { inherit qt6; }) ] ++ qml3d;
+  plugins = [ qt6.qtimageformats ] ++ qml3d;
 in
 symlinkJoin {
   name = "quickshell-wrapped-${quickshell.version}";
@@ -36,7 +39,7 @@ symlinkJoin {
           "--prefix PATH : ${lib.makeBinPath (runtimeInputs ++ lib.optional with3d qt6.qtquick3d)}"
           "--prefix QT_PLUGIN_PATH : ${lib.makeSearchPath qt6.qtbase.qtPluginPrefix plugins}"
         ]
-        ++ lib.optional with3d "--prefix QML_IMPORT_PATH : ${lib.makeSearchPath qt6.qtbase.qtQmlPrefix qml}"
+        ++ [ "--prefix QML_IMPORT_PATH : ${lib.makeSearchPath qt6.qtbase.qtQmlPrefix qml}" ]
         ++ lib.mapAttrsToList (k: v: "--set ${k} ${lib.escapeShellArg v}") env;
     in
     ''

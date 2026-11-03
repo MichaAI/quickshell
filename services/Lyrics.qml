@@ -3,8 +3,9 @@ import Quickshell
 import Quickshell.Io
 import QtQuick
 
-// Тексты песен с LRCLIB (lrclib.net, бесплатно и без ключа) для того, что
-// играет сейчас (Players.active). Синхронный текст — строки со временем,
+// Тексты песен для того, что играет сейчас (Players.active): от самого
+// плеера (PlayerExt, LRC), а если он не дал — с LRCLIB (lrclib.net,
+// бесплатно и без ключа). Синхронный текст — строки со временем,
 // иначе просто текст. Запрос — curl (через прокси погоды, если он задан);
 // ответ сервера (есть текст или точно нет) запоминается на сессию, а сбой
 // (сеть, «сервер занят») — нет: тот же трек переспрашиваем чуть позже.
@@ -28,6 +29,13 @@ Singleton {
     readonly property string plain: lines.map(l => l.text).join("\n")
 
     property var cache: ({})
+
+    // Текст от плеера главнее LRCLIB: пришёл — показываем его, даже если
+    // LRCLIB уже что-то нашёл
+    readonly property string fromPlayer: PlayerExt.lyrics
+    readonly property var playerRes: fromPlayer !== ""
+        ? parse({ syncedLyrics: fromPlayer, plainLyrics: fromPlayer }) : null
+    onPlayerResChanged: if (playerRes && playerRes.lines.length > 0) show(playerRes)
 
     // Индекс строки, которая звучит в момент pos (секунды); -1 — ещё ни одной
     function lineAt(pos) {
@@ -66,6 +74,8 @@ Singleton {
     }
 
     function show(res) {
+        if (playerRes && playerRes.lines.length > 0)
+            res = playerRes
         lines = res.lines
         synced = res.synced
         loading = false
@@ -107,6 +117,9 @@ Singleton {
         const k = key, p = meta
         if (!player || !p.title)
             return
+        // Плеер уже дал текст — в сеть не ходим
+        if (playerRes && playerRes.lines.length > 0)
+            return show(playerRes)
         if (cache[k]) {
             show(cache[k])
             return

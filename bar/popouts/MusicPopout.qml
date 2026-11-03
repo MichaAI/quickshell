@@ -41,7 +41,7 @@ Item {
     // Текущая обложка (из наплыва artFade): её читают пробы и свет
     readonly property Image art: artFade.image
 
-    // Текст песни вместо эквалайзера — кнопкой, если LRCLIB его знает
+    // Текст песни вместо эквалайзера — кнопкой, если его дал плеер или знает LRCLIB
     property bool showLyrics: false
     readonly property bool lyricsOn: showLyrics && Lyrics.available
 
@@ -54,6 +54,7 @@ Item {
     component CtlBtn: Rectangle {
         id: btn
         property alias text: glyph.text
+        property string svg: ""         // иконка от плеера (PlayerExt) вместо глифа
         property bool on: true
         property bool toggle: false     // переключатель: подсвечен, пока on
         property ControlGroup group
@@ -63,7 +64,7 @@ Item {
         readonly property bool down: bma.pressed
         onDownChanged: group.press(idx, down)
 
-        width: 44 + group.shift(idx)
+        width: group.base + group.shift(idx)
         height: 36
         radius: group.pressedIdx === idx ? 10 : height / 2
         anchors.verticalCenter: parent.verticalCenter
@@ -73,13 +74,24 @@ Item {
         Behavior on radius { Spring { epsilon: 0.05 } }
         Behavior on color { ColorAnimation { duration: 150 } }
 
+        readonly property color fg: btn.toggle && btn.on ? btn.group.accent
+                                  : btn.on ? Theme.text : Theme.overlay0
+
         Text {
             id: glyph
+            visible: btn.svg === ""
             anchors.centerIn: parent
             font.family: Theme.font
             font.pixelSize: 16
-            color: btn.toggle && btn.on ? btn.group.accent
-                 : btn.on ? Theme.text : Theme.overlay0
+            color: btn.fg
+        }
+
+        Image {
+            visible: btn.svg !== ""
+            anchors.centerIn: parent
+            width: 18; height: 18
+            sourceSize: Qt.size(36, 36)
+            source: PlayerExt.icon(btn.svg, btn.fg)
         }
 
         MouseArea {
@@ -94,6 +106,7 @@ Item {
     // Ряд кнопок, который знает, какая нажата
     component ControlGroup: Row {
         property color accent: Theme.mauve
+        property int base: 44
         property int pressedIdx: -1
         function press(i, down) {
             if (down)
@@ -595,9 +608,19 @@ Item {
                 anchors.centerIn: parent
                 spacing: 6
                 accent: root.accentTo
+                // С кнопками плеера по краям ряд не влезает — все уже
+                base: PlayerExt.leftIcon !== "" || PlayerExt.rightIcon !== "" ? 36 : 44
 
+                // Кнопки расширения плеера (PlayerExt): иконка и действие — его
                 CtlBtn {
                     group: controls; idx: 0
+                    svg: PlayerExt.leftIcon
+                    visible: svg !== ""
+                    onPressed: PlayerExt.left()
+                }
+
+                CtlBtn {
+                    group: controls; idx: 1
                     toggle: true
                     text: "󰒝"
                     on: root.player?.shuffle ?? false
@@ -606,7 +629,7 @@ Item {
                 }
 
                 CtlBtn {
-                    group: controls; idx: 1
+                    group: controls; idx: 2
                     text: "󰒮"
                     on: root.player?.canGoPrevious ?? false
                     onPressed: if (root.player?.canGoPrevious) root.player.previous()
@@ -646,19 +669,19 @@ Item {
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
                         onClicked: root.player?.togglePlaying()
-                        onPressedChanged: controls.press(2, pressed)
+                        onPressedChanged: controls.press(3, pressed)
                     }
                 }
 
                 CtlBtn {
-                    group: controls; idx: 3
+                    group: controls; idx: 4
                     text: "󰒭"
                     on: root.player?.canGoNext ?? false
                     onPressed: if (root.player?.canGoNext) root.player.next()
                 }
 
                 CtlBtn {
-                    group: controls; idx: 4
+                    group: controls; idx: 5
                     toggle: true
                     text: root.player?.loopState === MprisLoopState.Track ? "󰑘" : "󰑖"
                     on: (root.player?.loopState ?? MprisLoopState.None) !== MprisLoopState.None
@@ -670,6 +693,13 @@ Item {
                           : s === MprisLoopState.Playlist ? MprisLoopState.Track
                           : MprisLoopState.None
                     }
+                }
+
+                CtlBtn {
+                    group: controls; idx: 6
+                    svg: PlayerExt.rightIcon
+                    visible: svg !== ""
+                    onPressed: PlayerExt.right()
                 }
             }
         }

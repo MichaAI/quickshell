@@ -6,7 +6,9 @@
 
 qs=$(nix-store -q --references "$(readlink -f "$QST/quickshell")" | grep -- '-quickshell-[0-9]' | head -1)
 imports=()
-for d in "$QST/qt6.qtdeclarative" "$qs" "$QST/qt6.qtquick3d" "$QST/qt6.qtquicktimeline"; do
+# QML-плагин MichaAI.Mpris (tools/mprisext) — его кладёт в обёртку package.nix
+mprisext=$(nix-store -q --references "$(readlink -f "$QST/quickshell")" | grep -- '-mprisext-' | head -1 || true)
+for d in "$QST/qt6.qtdeclarative" "$qs" "$QST/qt6.qtquick3d" "$QST/qt6.qtquicktimeline" ${mprisext:+"$mprisext"}; do
     imports+=(-I "$(readlink -f "$d")/lib/qt-6/qml")
 done
 
