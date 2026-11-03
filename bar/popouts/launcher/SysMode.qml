@@ -24,7 +24,7 @@ Item {
         bt:    { icon: "󰂯", color: Theme.blue,     title: "Bluetooth",  hint: "Bluetooth: устройство…   (on / off)" },
         wifi:  { icon: "󰖩", color: Theme.teal,     title: "Wi-Fi",      hint: "Wi-Fi: сеть…   (сеть / пароль, on / off)" },
         media: { icon: "󰝚", color: Theme.pink,     title: "Плеер",      hint: "Плеер: play, next, prev…" },
-        idle:  { icon: "󰅶", color: Theme.peach,    title: "Не засыпать", hint: "Простой: ⏎ — не засыпать / разрешить" }
+        idle:  { icon: "󰅶", color: Theme.peach,    title: "Простой", hint: "Простой: лок и сон / только лок / не засыпать" }
     })
 
     readonly property var info: {
@@ -50,7 +50,7 @@ Item {
         case "bt": return !Bt.present ? "нет адаптера" : !Bt.enabled ? "выключен" : Bt.connected.length + " подключено"
         case "wifi": return "сети, подключение, вкл/выкл"
         case "media": return Players.active ? Players.title + (Players.artist ? " — " + Players.artist : "") : "ничего не играет"
-        case "idle": return (Idle.caffeine ? "включено · " : "") + Idle.describe()
+        case "idle": return Idle.modes[Idle.mode].title + " · " + Idle.describe()
         }
         return ""
     }
@@ -406,13 +406,16 @@ Item {
     }
 
     function idleItems() {
-        return [{
-            glyph: "󰅶",
-            glyphColor: Idle.caffeine ? Theme.peach : Theme.overlay1,
-            title: Idle.caffeine ? "Разрешить засыпать" : "Не засыпать",
-            sub: Idle.describe(),
-            badge: "⏎ переключить",
-            run: act(() => Idle.toggle())
-        }]
+        return ["auto", "lock", "awake"].map(m => {
+            const cur = m === Idle.mode
+            return {
+                glyph: Idle.modes[m].icon,
+                glyphColor: cur ? Theme.peach : Theme.overlay1,
+                title: Idle.modes[m].title,
+                sub: cur ? Idle.describe() : "",
+                badge: cur ? "" : "⏎ включить",
+                run: act(() => Idle.setMode(m))
+            }
+        })
     }
 }

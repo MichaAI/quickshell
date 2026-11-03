@@ -750,15 +750,16 @@ Scope {
                         }
                     }
 
-                    // «Не засыпать» включено руками — клик выключает
+                    // Простой не по умолчанию (без сна / не засыпать) —
+                    // клик возвращает «лок и сон»
                     BarPill {
                         id: caffeinePill
                         anchors.verticalCenter: parent.verticalCenter
-                        visible: Idle.caffeine
-                        onClicked: Idle.toggle()
+                        visible: Idle.mode !== "auto"
+                        onClicked: Idle.setMode("auto")
 
                         PillText {
-                            text: "󰅶"
+                            text: Idle.modes[Idle.mode].icon
                             color: Theme.peach
                         }
                     }

@@ -13,15 +13,27 @@ import "../config"
 Singleton {
     id: root
 
-    property bool caffeine: false
+    // Режим: auto — лок, потом сон; lock — только лок; awake — ничего
+    property string mode: "auto"
+    readonly property bool caffeine: mode === "awake"
     readonly property bool playing: Settings.idleWhilePlaying && Players.playingList.length > 0
     readonly property bool inhibited: caffeine || playing
+    readonly property var modes: ({
+        auto: { icon: "󰒲", title: "Лок и сон" },
+        lock: { icon: "󰌾", title: "Только лок, без сна" },
+        awake: { icon: "󰅶", title: "Не засыпать" }
+    })
 
     readonly property bool warning: warnMon.isIdle && !lockMon.isIdle
     readonly property int warnSec: Math.min(Settings.idleWarnSec, Math.max(0, Settings.idleLockSec - 1))
 
+    function setMode(m) {
+        if (modes[m]) mode = m
+    }
+
+    // Не засыпать ↔ лок и сон
     function toggle() {
-        caffeine = !caffeine
+        mode = caffeine ? "auto" : "awake"
     }
 
     // «лок через 5 мин, сон через 10» / почему не заснёт
@@ -31,7 +43,7 @@ Singleton {
         const fmt = s => s % 60 === 0 ? s / 60 + " мин" : s + " с"
         const parts = []
         if (Settings.idleLockSec > 0) parts.push("лок через " + fmt(Settings.idleLockSec))
-        if (Settings.idleSuspendSec > 0) parts.push("сон через " + fmt(Settings.idleSuspendSec))
+        if (Settings.idleSuspendSec > 0 && mode === "auto") parts.push("сон через " + fmt(Settings.idleSuspendSec))
         return parts.length ? parts.join(", ") : "простой выключен"
     }
 
@@ -52,7 +64,7 @@ Singleton {
 
     IdleMonitor {
         id: sleepMon
-        enabled: Settings.idleSuspendSec > 0
+        enabled: Settings.idleSuspendSec > 0 && root.mode === "auto"
         timeout: Math.max(1, Settings.idleSuspendSec)
         respectInhibitors: true
         onIsIdleChanged: if (isIdle) Quickshell.execDetached(["systemctl", "sleep"])

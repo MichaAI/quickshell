@@ -71,8 +71,12 @@ ShellRoot {
         function toggle(): void {
             Idle.toggle()
         }
+        // auto | lock | awake
+        function set(mode: string): void {
+            Idle.setMode(mode)
+        }
         function status(): string {
-            return Idle.describe()
+            return Idle.mode + ": " + Idle.describe()
         }
     }
 
