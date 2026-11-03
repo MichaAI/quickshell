@@ -63,6 +63,7 @@ Item {
                 title: o[1] + "   " + t.title,
                 sub: stateOf(o[0]),
                 progress: o[0] === "vol" ? (Audio.muted ? 0 : Audio.volume)
+                    : o[0] === "mic" ? (Audio.micMuted ? 0 : Audio.micVolume)
                     : o[0] === "br" && Brightness.present ? Brightness.value : undefined,
                 badge: "⏎ / Tab — q " + o[1] + " …",
                 ghostSource: o[1],

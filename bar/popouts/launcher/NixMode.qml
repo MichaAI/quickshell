@@ -136,6 +136,7 @@ Item {
                 title: j.spec.title + ((j.spec.args ?? []).length ? " " + j.spec.args.join(" ") : ""),
                 sub: NixRun.status(j),
                 progress: j.expected > 0 ? j.done / j.expected : -1,
+                progressWavy: true,
                 badge: "запустится само   ⇧Del отменить",
                 run: () => {},
                 del: () => NixRun.cancel(j)

@@ -215,6 +215,7 @@ Rectangle {
         visible: !isNaN(v)
         value: isNaN(v) ? 0 : v
         target: row.modelData.progressTarget ?? NaN
+        wavy: row.modelData.progressWavy ?? false
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: header.bottom

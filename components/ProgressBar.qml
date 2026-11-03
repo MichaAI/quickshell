@@ -9,7 +9,9 @@ import "../config"
 //            бегущих отрезка, тайминги как в Compose (1750 мс);
 //   target — куда значение сейчас поменяется (NaN — никуда). Разница
 //            рисуется отдельным отрезком: прибавка — полупрозрачной
-//            заливкой, убыль — контуром.
+//            заливкой, убыль — контуром;
+//   wavy   — заливка волной, как у LinearWavyProgressIndicator (идёт
+//            работа: закачка). Бежит, пока moving, у краёв разглаживается.
 Item {
     id: root
 
@@ -19,6 +21,8 @@ Item {
     property color from: Theme.gradStart
     property color to: Theme.gradEnd
     property color trackColor: Theme.surface0
+    property bool wavy: false
+    property bool moving: true
 
     implicitHeight: 4
     implicitWidth: 160
@@ -89,6 +93,8 @@ Item {
             width: s?.w ?? 0
             height: root.height
             radius: height / 2
+            // Заливку волной рисует wave ниже
+            opacity: s?.kind === "active" && wave.visible ? 0 : 1
             color: s?.kind === "track" ? root.trackColor
                  : s?.kind === "up" ? Theme.alpha(root.to, 0.4)
                  : s?.kind === "down" ? "transparent" : root.to
@@ -101,6 +107,34 @@ Item {
                 from: root.from
                 to: root.to
             }
+        }
+    }
+
+    // Волна вместо сплошной заливки. Выходит за высоту полосы на амплитуду
+    ShaderEffect {
+        id: wave
+        readonly property var seg: !root.indeterminate && root.segs.length > 0
+            && root.segs[0].kind === "active" ? root.segs[0] : null
+        visible: root.wavy && seg !== null && width > thick
+        x: seg?.x ?? 0
+        width: seg?.w ?? 0
+        height: thick + 2 * 2 + 2
+        y: (root.height - height) / 2
+
+        property size size: Qt.size(width, height)
+        property real amp: root.wavy && root.moving && root.value > 0.05 && root.value < 0.95 ? 2 : 0
+        property real wavelength: 32
+        property real phase: 0
+        property real thick: root.height
+        property color c0: root.from
+        property color c1: root.to
+        fragmentShader: Qt.resolvedUrl("../assets/shaders/wave.frag.qsb")
+
+        Behavior on amp { NumberAnimation { duration: 500; easing.type: Easing.OutCubic } }
+
+        FrameAnimation {
+            running: wave.visible && wave.amp > 0
+            onTriggered: wave.phase = (wave.phase + frameTime) % 1
         }
     }
 

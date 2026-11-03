@@ -182,6 +182,7 @@ Rectangle {
                     anchors.verticalCenter: parent.verticalCenter
                     height: 4
                     value: Number(parent.v) / 100
+                    wavy: Number(parent.v) < 100
                 }
                 Text {
                     id: pct
