@@ -170,6 +170,9 @@ make_config() {
         set_setting idleLockSec 0
         set_setting idleSuspendSec 0
     fi
+    # Polkit-агент — системный, на всю сессию: тестовый шелл не должен
+    # перехватывать окна прав у живого
+    sed -i '/^    PolkitDialog {}$/d' "$RUN/cfg/shell.qml"
 }
 
 # Подставить значение в config/Settings.qml копии: set_setting lockSpinMs 0
