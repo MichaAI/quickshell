@@ -126,7 +126,8 @@ Item {
             title: o.title + "   " + (o.muted ? "выкл" : pct(o.value))
                 + (target !== null ? "  →  " + pct(target) : lv?.mute ? "  →  " + (o.muted ? "вкл" : "выкл") : ""),
             sub: o.sub,
-            progress: target ?? o.value,
+            progress: o.muted ? 0 : o.value,
+            progressTarget: target ?? (lv?.mute ? (o.muted ? o.value : 0) : undefined),
             badge: lv ? "⏎ применить   ⇧⏎ и остаться" : (o.canMute ? "⏎ вкл/выкл звук   " : "") + "Ctrl+←→ ±5%",
             nudge: d => o.set(Math.max(0, Math.min(1, o.value + d * 0.05))),
             run: act(() => {

@@ -208,18 +208,20 @@ Rectangle {
         }
     }
 
-    // Прогресс (закачка nix, поиск): доля 0…1, -1 — сколько всего, неизвестно
+    // Прогресс (закачка nix, поиск, уровни): доля 0…1, -1 — сколько всего,
+    // неизвестно; progressTarget — куда значение поменяется по ⏎
     ProgressBar {
         readonly property real v: row.modelData.progress ?? NaN
         visible: !isNaN(v)
         value: isNaN(v) ? 0 : v
+        target: row.modelData.progressTarget ?? NaN
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: header.bottom
         anchors.leftMargin: 54
         anchors.rightMargin: 14
-        anchors.bottomMargin: 4
-        height: 3
+        anchors.bottomMargin: 3
+        height: 4
     }
 
     Text {
