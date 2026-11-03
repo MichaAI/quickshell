@@ -9,6 +9,10 @@ Item {
     implicitWidth: 380
     implicitHeight: col.implicitHeight + 28
 
+    // Диск SysStat меряет, только пока его смотрят
+    Component.onCompleted: SysStat.viewers++
+    Component.onDestruction: SysStat.viewers--
+
     component Card: Rectangle {
         default property alias content: inner.data
         width: col.width
