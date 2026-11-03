@@ -11,7 +11,7 @@ Scope {
     Variants {
         model: Quickshell.screens
 
-        PanelWindow {
+        PanelWindow { // qmllint disable uncreatable-type
             id: toastWin
             required property var modelData
             screen: modelData
@@ -25,7 +25,7 @@ Scope {
             // Окно фиксированного размера во всю высоту: ресайз layer-surface
             // на каждом кадре анимации дёргал всплывашки. Ввод — только по стопке.
             anchors { top: true; right: true; bottom: true }
-            margins { top: 8; right: 8; bottom: 8 }
+            margins { top: 8; right: 8; bottom: 8 } // qmllint disable missing-property
             // Слева запас: всплывашка влетает на пружине и на перелёте
             // проскакивает левее своего места — без запаса её обрезало бы
             implicitWidth: 380 + 32

@@ -14,12 +14,12 @@ Scope {
         model: Compositor.name !== "driftwm" ? Quickshell.screens
             : Quickshell.screens.length > 0 ? [Quickshell.screens[0]] : []
 
-        PanelWindow {
+        PanelWindow { // qmllint disable uncreatable-type
             required property var modelData
             screen: modelData
 
             anchors { right: true; bottom: true }
-            margins { right: 48; bottom: 72 }
+            margins { right: 48; bottom: 72 } // qmllint disable missing-property
             implicitWidth: content.implicitWidth + 32
             implicitHeight: content.implicitHeight + 32
             exclusionMode: ExclusionMode.Ignore

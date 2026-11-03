@@ -141,7 +141,7 @@ Singleton {
         id: clearTimer
         property real deadline: 0
         onTriggered: {
-            for (const n of [...server.trackedNotifications.values])
+            for (const n of [...server.trackedNotifications.values]) // qmllint disable missing-property
                 n.dismiss()
             root.popups = []
         }

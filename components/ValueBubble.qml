@@ -17,15 +17,15 @@ PopupWindow {
 
     readonly property int pad: 40   // запас по бокам: пузырёк у края не обрезается
 
-    anchor.item: target
-    anchor.rect.x: -pad
+    anchor.item: target // qmllint disable missing-property
+    anchor.rect.x: -pad // qmllint disable unqualified unresolved-type
     anchor.rect.y: handleTop
     anchor.rect.width: 1
     anchor.rect.height: 1
-    anchor.edges: Edges.Top | Edges.Left
-    anchor.gravity: Edges.Top | Edges.Right
+    anchor.edges: Edges.Top | Edges.Left // qmllint disable missing-property
+    anchor.gravity: Edges.Top | Edges.Right // qmllint disable missing-property
     // Не двигать окно от края экрана: иначе пузырёк съедет с ручки
-    anchor.adjustment: PopupAdjustment.None
+    anchor.adjustment: PopupAdjustment.None // qmllint disable missing-property
     implicitWidth: (target?.width ?? 0) + 2 * pad
     implicitHeight: 12 + 30 + 6
     color: "transparent"

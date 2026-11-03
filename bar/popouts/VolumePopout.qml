@@ -14,6 +14,7 @@ Item {
     PwObjectTracker { objects: Audio.streams }
 
     component VolRow: Item {
+        id: volRow
         property alias icon: ico.text
         property alias iconColor: ico.color
         property string label: ""
@@ -38,7 +39,7 @@ Item {
                 anchors.fill: parent
                 anchors.margins: -4
                 cursorShape: Qt.PointingHandCursor
-                onClicked: parent.parent.mutePressed()
+                onClicked: volRow.mutePressed()
             }
         }
 
@@ -53,7 +54,7 @@ Item {
 
             Text {
                 width: parent.width
-                text: parent.parent.label
+                text: volRow.label
                 elide: Text.ElideRight
                 font.family: Theme.font
                 font.pixelSize: 11
@@ -62,8 +63,8 @@ Item {
             }
             StyledSlider {
                 width: parent.width
-                value: parent.parent.value
-                onMoved: v => parent.parent.moved(v)
+                value: volRow.value
+                onMoved: v => volRow.moved(v)
             }
         }
 

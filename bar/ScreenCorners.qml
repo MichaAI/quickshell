@@ -9,7 +9,7 @@ Scope {
     Variants {
         model: Quickshell.screens
 
-        PanelWindow {
+        PanelWindow { // qmllint disable uncreatable-type
             id: cornersWin
             required property var modelData
             screen: modelData

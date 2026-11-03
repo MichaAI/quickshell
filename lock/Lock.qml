@@ -1,3 +1,4 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -173,7 +174,7 @@ Scope {
     LazyLoader {
         active: root.needShot
 
-        PanelWindow {
+        PanelWindow { // qmllint disable uncreatable-type
             id: shotWin
             anchors { top: true; left: true }
             implicitWidth: 1
@@ -197,9 +198,12 @@ Scope {
                 source: "Avatar3D.qml"
                 asynchronous: true
                 onLoaded: {
+                    // Avatar3D — по строке, без типа: иначе лок зависел бы от QtQuick3D
+                    // qmllint disable missing-property
                     shot.item.still = true
                     shot.item.scene = Qt.binding(() => root.avatarScene !== "" ? "file://" + root.avatarScene : "")
                     shot.item.model = Qt.binding(() => "file://" + root.avatarModel)
+                    // qmllint enable missing-property
                 }
                 onStatusChanged: if (status === Loader.Error) root.shotFailed = true
             }

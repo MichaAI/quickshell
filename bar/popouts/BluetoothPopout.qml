@@ -41,6 +41,11 @@ Item {
 
     // ===== Мелкие детали =====
 
+    // Хозяин контрола наушников: компонент берёт свой ctl у родителя
+    component CtlLoader: Loader {
+        property var ctl
+    }
+
     component HeadBtn: Rectangle {
         property alias label: t.text
         property bool on: false
@@ -116,7 +121,7 @@ Item {
 
         Column {
             id: choice
-            readonly property var c: parent.ctl
+            readonly property var c: (parent as CtlLoader)?.ctl
             readonly property bool chipStyle: c.style === "chips"
             spacing: 6
 
@@ -211,7 +216,7 @@ Item {
 
         ToggleRow {
             id: row
-            readonly property var c: parent.ctl
+            readonly property var c: (parent as CtlLoader)?.ctl
             icon: c.icon ?? ""
             label: c.label
             note: c.note ?? ""
@@ -226,7 +231,7 @@ Item {
 
         Column {
             id: levelCol
-            readonly property var c: parent.ctl
+            readonly property var c: (parent as CtlLoader)?.ctl
             readonly property int min: c.min
             readonly property int max: c.max
             readonly property int val: root.values[c.id] ?? min
@@ -266,7 +271,7 @@ Item {
 
         Column {
             id: bandsCol
-            readonly property var c: parent.ctl
+            readonly property var c: (parent as CtlLoader)?.ctl
             readonly property var val: root.values[c.id] ?? [0, 0, 0]
             spacing: 2
 
@@ -337,7 +342,7 @@ Item {
 
         Column {
             id: gest
-            readonly property var c: parent.ctl
+            readonly property var c: (parent as CtlLoader)?.ctl
             property string side: c.sides[0].id
             property string open: ""
             spacing: 6
@@ -463,7 +468,7 @@ Item {
         id: devicesComp
 
         Column {
-            readonly property var c: parent.ctl
+            readonly property var c: (parent as CtlLoader)?.ctl
             spacing: 4
 
             Label { text: parent.c.label }
@@ -524,7 +529,7 @@ Item {
 
         Column {
             id: rc
-            readonly property var c: parent.ctl
+            readonly property var c: (parent as CtlLoader)?.ctl
             // Звенящие стороны: наушники сами о звоне не сообщают
             property var ringing: []
             spacing: 6
@@ -561,7 +566,7 @@ Item {
 
         Column {
             id: fc
-            readonly property var c: parent.ctl
+            readonly property var c: (parent as CtlLoader)?.ctl
             property bool running: false
             property var result: null
             spacing: 6
@@ -883,9 +888,9 @@ Item {
                     Repeater {
                         model: root.tab === "devices" ? [] : root.controls.filter(c => c.page === root.tab && root.shown(c))
 
-                        Loader {
+                        CtlLoader {
                             required property var modelData
-                            readonly property var ctl: modelData
+                            ctl: modelData
                             width: pageCol.width
                             sourceComponent: root.kinds[modelData.kind] ?? null
                         }
@@ -917,8 +922,8 @@ Item {
                                 id: dev
                                 required property BluetoothDevice modelData
                                 readonly property bool busy: modelData.pairing
-                                    || modelData.state === BluetoothDeviceState.Connecting
-                                    || modelData.state === BluetoothDeviceState.Disconnecting
+                                    || modelData.state === BluetoothDeviceState.Connecting // qmllint disable unresolved-type
+                                    || modelData.state === BluetoothDeviceState.Disconnecting // qmllint disable unresolved-type
 
                                 width: parent.width
                                 height: 48

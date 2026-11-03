@@ -15,7 +15,6 @@ Item {
     id: root
 
     property real value: 0          // 0..1
-    property bool enabled: true
     property real wheelStep: 0.05
     // false — колесо не трогает, прокрутка уходит списку под слайдером
     property bool wheelEnabled: true

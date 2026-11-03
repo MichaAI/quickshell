@@ -8,7 +8,7 @@ Singleton {
 
     // playerctld — не плеер, а зеркало последнего активного (для
     // playerctl на горячих клавишах): в списке он двойник настоящего
-    readonly property var list: Mpris.players.values.filter(p => p.dbusName !== "org.mpris.MediaPlayer2.playerctld")
+    readonly property var list: Mpris.players.values.filter(p => p.dbusName !== "org.mpris.MediaPlayer2.playerctld") // qmllint disable missing-property
 
     // Кого показывать, если показанного нет (закрыли) или на старте
     function fallback() {

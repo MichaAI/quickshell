@@ -8,14 +8,14 @@ import QtQuick
 Singleton {
     id: root
 
-    readonly property BluetoothAdapter adapter: Bluetooth.defaultAdapter
+    readonly property BluetoothAdapter adapter: Bluetooth.defaultAdapter // qmllint disable unresolved-type
     readonly property bool present: adapter !== null
     readonly property bool enabled: adapter?.enabled ?? false
     readonly property bool scanning: adapter?.discovering ?? false
 
     // Подключённые, потом спаренные, потом найденные поиском. Найденные
     // без имени (только адрес) не показываем — их не узнать
-    readonly property var devices: (adapter?.devices.values ?? [])
+    readonly property var devices: (adapter?.devices.values ?? []) // qmllint disable missing-property
         .filter(d => d.paired || d.connected || (d.name !== "" && d.name.replace(/[-_]/g, ":") !== d.address))
         .sort((a, b) => (b.connected - a.connected) || (b.paired - a.paired) || a.name.localeCompare(b.name))
     readonly property var connected: devices.filter(d => d.connected)

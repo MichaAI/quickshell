@@ -1,3 +1,4 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import "../../config"
 import "../../services"
@@ -109,14 +110,15 @@ Item {
             Repeater {
                 model: 7
                 Item {
+                    id: dayName
                     required property int index
                     width: 32; height: 20
                     Text {
                         anchors.centerIn: parent
-                        text: Qt.locale().dayName((index + 1) % 7, Locale.ShortFormat)
+                        text: Qt.locale().dayName((dayName.index + 1) % 7, Locale.ShortFormat)
                         font.family: Theme.font
                         font.pixelSize: 11
-                        color: index >= 5 ? Theme.red : Theme.overlay1
+                        color: dayName.index >= 5 ? Theme.red : Theme.overlay1
                     }
                 }
             }

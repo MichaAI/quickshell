@@ -1,3 +1,4 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 
 // Обрезает содержимое по maxWidth и прокручивает его по горизонтали

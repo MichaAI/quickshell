@@ -27,7 +27,7 @@ Singleton {
     // при этом происходит прямо внутри обработки pipewire-события, после чего
     // quickshell дёргает pw_node_enum_params() на уже уничтоженном proxy и падает
     // с SIGSEGV. Ловилось на Stream/Input/Audio (микрофон в OBS и т.п.).
-    readonly property var streams: Pipewire.nodes.values
+    readonly property var streams: Pipewire.nodes.values // qmllint disable missing-property
         .filter(n => n.type === PwNodeType.AudioOutStream)
 
     PwObjectTracker {

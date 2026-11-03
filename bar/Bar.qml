@@ -864,7 +864,7 @@ Scope {
                 Instantiator {
                     model: popoutFrame.revealTargets
                     delegate: PopoutReveal {
-                        container: loader.item
+                        container: loader.item as Item
                         edge: popoutFrame.height
                         full: popoutFrame.contentH
                         open: win.popoutOpen

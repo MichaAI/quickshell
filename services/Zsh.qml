@@ -1,3 +1,4 @@
+pragma ComponentBehavior: Bound
 pragma Singleton
 import Quickshell
 import Quickshell.Io
@@ -184,7 +185,7 @@ Singleton {
             command: ["script", "-qfec",
                 "stty cols 120 rows 40 2>/dev/null; exec zsh -ic " + root._quote(cmd),
                 "/dev/null"]
-            environment: ({ SHELL: "/bin/sh", TERM: "xterm-256color" })
+            environment: ({ SHELL: "/bin/sh", TERM: "xterm-256color" }) // qmllint disable incompatible-type
             workingDirectory: Quickshell.env("HOME")
             stdout: SplitParser {
                 splitMarker: ""
