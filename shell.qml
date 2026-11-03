@@ -60,6 +60,14 @@ ShellRoot {
     }
 
     // niri: `qs ipc call notifs <toggleDnd|clear>`
+    // OSD руками: qs ipc call osd trigger volume|mic|brightness
+    IpcHandler {
+        target: "osd"
+        function trigger(kind: string): void {
+            Osd.show(kind)
+        }
+    }
+
     IpcHandler {
         target: "notifs"
 

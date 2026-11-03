@@ -49,8 +49,20 @@ Singleton {
         onLoaded: root.max = parseInt(text()) || 0
     }
 
-    // sysfs не сообщает об изменениях, поэтому опрашиваем:
-    // яркость могут поменять клавишами мимо нас
+    // Яркость могут поменять клавишами мимо нас. Ядро шлёт uevent на каждое
+    // изменение (и с клавиш, и записью в sysfs) — перечитываем сразу; опрос
+    // ниже — запасной, если udevadm нет или он упал
+    Process {
+        running: root.device !== ""
+        command: ["udevadm", "monitor", "--udev", "-s", "backlight"]
+        stdout: SplitParser {
+            onRead: line => {
+                if (line.includes(root.device))
+                    cur.reload()
+            }
+        }
+    }
+
     FileView {
         id: cur
         path: root.device !== "" ? root.dir + "brightness" : ""

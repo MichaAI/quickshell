@@ -274,6 +274,31 @@ Scope {
                     radius: popoutFrame.wing
                     flipX: true
                 }
+
+                // OSD: фон и крылья, как у попаута
+                Rectangle {
+                    visible: osdFrame.visible
+                    x: osdFrame.x
+                    y: osdFrame.y
+                    width: osdFrame.width
+                    height: osdFrame.height
+                    color: Theme.popoutBg
+                    bottomLeftRadius: osdFrame.corner
+                    bottomRightRadius: osdFrame.corner
+                }
+                InnerCorner {
+                    visible: osdFrame.visible
+                    x: osdFrame.x - width
+                    y: Settings.barHeight
+                    radius: osdFrame.wing
+                    flipX: true
+                }
+                InnerCorner {
+                    visible: osdFrame.visible
+                    x: osdFrame.x + osdFrame.width
+                    y: Settings.barHeight
+                    radius: osdFrame.wing
+                }
             }
 
             // ===== Свет обложки =====
@@ -912,6 +937,37 @@ Scope {
             Component { id: bluetoothComp; Popouts.BluetoothPopout {} }
             Component { id: trayComp; Popouts.TrayMenuPopout {} }
             Component { id: notificationsComp; Popouts.NotificationsPopout {} }
+
+            // ===== OSD =====
+            // Громкость, микрофон, яркость (services/Osd.qml): выезжает
+            // из-под бара по центру на сфокусированном экране, пока нет попаута
+            Item {
+                id: osdFrame
+
+                readonly property bool here: Compositor.focusedOutput !== ""
+                    ? perScreen.modelData.name === Compositor.focusedOutput
+                    : perScreen.modelData === Quickshell.screens[0]
+                readonly property bool open: Osd.shown && here && !win.popoutOpen
+                readonly property real wing: Math.min(Settings.popoutWing, height)
+                readonly property real corner: Math.min(Settings.popoutRadius, height / 2)
+
+                x: Math.round((win.width - width) / 2)
+                y: Settings.barHeight
+                width: osdContent.implicitWidth
+                height: open ? osdContent.implicitHeight : 0
+                visible: height > 0.5
+                clip: true
+
+                Behavior on height { Spring { bouncy: osdFrame.open } }
+
+                // Прижато к низу: выезжает из-под бара, а не раскрывается
+                OsdContent {
+                    id: osdContent
+                    anchors.bottom: parent.bottom
+                    width: parent.width
+                    height: implicitHeight
+                }
+            }
         }
 
         // Прозрачный ловец кликов на весь экран: клик мимо меню закрывает его.
