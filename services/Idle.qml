@@ -16,7 +16,9 @@ Singleton {
     // Режим: auto — лок, потом сон; lock — только лок; awake — ничего
     property string mode: "auto"
     readonly property bool caffeine: mode === "awake"
-    readonly property bool playing: Settings.idleWhilePlaying && Players.playingList.length > 0
+    // Не засыпать, пока играет плеер (переключается в «q idle»)
+    property bool whilePlaying: Settings.idleWhilePlaying
+    readonly property bool playing: whilePlaying && Players.playingList.length > 0
     readonly property bool inhibited: caffeine || playing
     readonly property var modes: ({
         auto: { icon: "󰒲", title: "Лок и сон" },

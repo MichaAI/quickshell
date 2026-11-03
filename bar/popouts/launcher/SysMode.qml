@@ -416,6 +416,13 @@ Item {
                 badge: cur ? "" : "⏎ включить",
                 run: act(() => Idle.setMode(m))
             }
-        })
+        }).concat([{
+            glyph: "󰝚",
+            glyphColor: Idle.whilePlaying ? Theme.pink : Theme.overlay1,
+            title: "Не засыпать под музыку   " + (Idle.whilePlaying ? "вкл" : "выкл"),
+            sub: Idle.whilePlaying ? "пока играет плеер — ни лока, ни сна" : "засыпаю, даже если играет",
+            badge: "⏎ переключить   ⇧⏎ и остаться",
+            run: act(() => { Idle.whilePlaying = !Idle.whilePlaying })
+        }])
     }
 }
