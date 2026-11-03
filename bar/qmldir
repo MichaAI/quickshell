@@ -6,3 +6,4 @@ DesktopWidget 1.0 DesktopWidget.qml
 NotificationToasts 1.0 NotificationToasts.qml
 PopoutReveal 1.0 PopoutReveal.qml
 IdleWarning 1.0 IdleWarning.qml
+PolkitDialog 1.0 PolkitDialog.qml

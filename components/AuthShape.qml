@@ -1,7 +1,6 @@
 import QtQuick
 import "../config"
-import "../components"
-import "../components/Shapes.js" as Shapes
+import "Shapes.js" as Shapes
 
 // Индикатор проверки пароля поверх поля ввода (лежит на поле, размер —
 // как у поля). Пока PAM думает — фигура MD3E LoadingIndicator чуть больше

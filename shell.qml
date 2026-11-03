@@ -14,6 +14,7 @@ ShellRoot {
     DesktopWidget {}
     NotificationToasts {}
     IdleWarning {}
+    PolkitDialog {}
     Lock {}
 
     // niri: `qs ipc call <launcher|calendar|weather|system|music|volume|battery|bluetooth|notifications> <toggle|open|close>`
