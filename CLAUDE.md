@@ -7,7 +7,8 @@
   касается того, что грузит или показывает лок:
   - `lock/` целиком;
   - компоненты лока: `components/MorphShape.qml`, `MorphText.qml`,
-    `GradientText.qml`, `ScrollClip.qml`, `Spring.qml`, `Shapes.js`;
+    `GradientText.qml`, `ScrollClip.qml`, `Spring.qml`, `Shapes.js`,
+    `PasswordField.qml`, `AuthShape.qml` (их же берёт окно polkit);
   - то, что они тянут: `assets/digits/Digits.js`, `assets/noise.png`,
     шейдеры `morph`, `dither`;
   - сервисы, которые читает лок: `services/Niri.qml`, `Players.qml`,
