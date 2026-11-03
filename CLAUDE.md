@@ -10,7 +10,7 @@
     `GradientText.qml`, `ScrollClip.qml`, `Spring.qml`, `Shapes.js`,
     `PasswordField.qml`, `AuthShape.qml` (их же берёт окно polkit);
   - то, что они тянут: `assets/digits/Digits.js`, `assets/noise.png`,
-    шейдеры `morph`, `dither`;
+    шейдеры `morph`, `dither`, `gradtext`;
   - сервисы, которые читает лок: `services/Niri.qml`, `Players.qml`,
     `Time.qml`, `Ui.qml`;
   - `config/Theme.qml`, `config/Settings.qml`, `shell.qml`.
