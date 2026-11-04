@@ -193,13 +193,14 @@ Scope {
                 }
             }
 
-            // Автозакрытие, когда мышь ушла с бара и меню.
-            // Поверх всего (z) — иначе MouseArea внутри меню перехватывают
-            // hover и barHover.hovered ложно падает в false
-            Item {
-                anchors.fill: parent
-                z: 1000
-                HoverHandler { id: barHover; blocking: false }
+            // Автозакрытие, когда мышь ушла с бара и меню. Курсор ловят
+            // HoverHandler'ы на самих barRect и popoutFrame: родитель видит
+            // наведение вместе с детьми. Не отдельным слоем поверх всего:
+            // в Qt 6 он, даже неблокирующий, забирает наведение у соседей,
+            // и внутри меню никто его не получает (графики лончера, строки)
+            QtObject {
+                id: barHover
+                readonly property bool hovered: barRectHover.hovered || popoutHover.hovered
             }
 
             Timer {
@@ -395,6 +396,7 @@ Scope {
             // ===== Бар =====
             Rectangle {
                 id: barRect
+                HoverHandler { id: barRectHover }
                 width: parent.width
                 height: Settings.barHeight
                 color: "transparent"   // фон — в backdrop
@@ -792,6 +794,7 @@ Scope {
             // ===== Попаут =====
             Item {
                 id: popoutFrame
+                HoverHandler { id: popoutHover }
 
                 readonly property real contentW: Math.ceil(loader.item?.implicitWidth ?? 200)
                 readonly property real contentH: Math.min(
