@@ -29,11 +29,17 @@ Item {
         sound: { icon: "󰎈", label: "Звук" },
         gestures: { icon: "󰆽", label: "Жесты" },
         more: { icon: "󰒓", label: "Ещё" },
+        codec: { icon: "󰓃", label: "Кодек" },
         devices: { icon: "󰂯", label: "Устройства" }
     })
-    readonly property var pages: buds
-        ? ["noise", "sound", "gestures", "more"].filter(p => controls.some(c => c.page === p)).concat(["devices"])
-        : []
+    // Кодек — не настройка наушников, а связи: своя вкладка, и без budsd
+    readonly property bool hasCodec: BtAudio.dev !== null && BtAudio.dev.profiles.length > 1
+    readonly property var pages: {
+        const own = buds ? ["noise", "sound", "gestures", "more"].filter(p => controls.some(c => c.page === p)) : []
+        if (own.length === 0 && !hasCodec)
+            return []
+        return own.length > 0 ? own.concat(hasCodec ? ["codec", "devices"] : ["devices"]) : ["devices", "codec"]
+    }
     property string page: ""
     readonly property string tab: pages.includes(page) ? page : (pages[0] ?? "devices")
 
@@ -801,56 +807,6 @@ Item {
             }
         }
 
-        // ===== Кодек и качество LDAC (PipeWire, любые наушники) =====
-        Rectangle {
-            id: codecCard
-            readonly property var d: BtAudio.dev
-            function codecName(c) { return c.toUpperCase().replace("_", "-") }
-            visible: d !== null && d.profiles.length > 1
-            width: parent.width
-            height: codecCol.implicitHeight + 24
-            radius: 16
-            color: Theme.cardBg
-
-            Column {
-                id: codecCol
-                x: 14
-                y: 12
-                width: parent.width - 28
-                spacing: 6
-
-                Label { text: "Кодек" }
-                ButtonGroup {
-                    width: parent.width
-                    options: (codecCard.d?.profiles ?? []).map(p => ({
-                        id: String(p.index), label: codecCard.codecName(p.codec)
-                    }))
-                    current: String(codecCard.d?.profile ?? "")
-                    onPicked: id => BtAudio.setCodec(Number(id))
-                }
-
-                // Варианты — какие отдал PipeWire; у LDAC подписываем битрейтом
-                Label {
-                    visible: BtAudio.quality !== null
-                    topPadding: 4
-                    text: "Качество " + codecCard.codecName(codecCard.d?.codec ?? "")
-                        + (codecCard.d?.codec === "ldac" ? ", кбит/с" : "")
-                }
-                ButtonGroup {
-                    visible: BtAudio.quality !== null
-                    width: parent.width
-                    options: (BtAudio.quality?.options ?? []).map(o => ({
-                        id: o.id,
-                        label: o.id === "auto" ? "Авто"
-                            : codecCard.d?.codec === "ldac" ? ({ hq: "990", sq: "660", mq: "330" })[o.id] ?? o.id
-                            : o.id.toUpperCase()
-                    }))
-                    current: BtAudio.quality?.current ?? ""
-                    onPicked: id => BtAudio.setQuality(id)
-                }
-            }
-        }
-
         // ===== Вкладки =====
         // Выбранная — пилюля с подписью, остальные — только значок
         Row {
@@ -924,7 +880,6 @@ Item {
                 width: parent.width
                 readonly property real maxH: Settings.popoutMaxHeight - 28 - header.height - col.spacing
                     - (budsCard.visible ? budsCard.height + col.spacing : 0)
-                    - (codecCard.visible ? codecCard.height + col.spacing : 0)
                     - (tabs.visible ? tabs.height + col.spacing : 0)
                 height: Math.min(pageCol.implicitHeight, maxH)
                 contentHeight: pageCol.implicitHeight
@@ -946,6 +901,46 @@ Item {
                             ctl: modelData
                             width: pageCol.width
                             sourceComponent: root.kinds[modelData.kind] ?? null
+                        }
+                    }
+
+                    // Кодек и его качество (PipeWire, любые наушники)
+                    Column {
+                        id: codecCol
+                        readonly property var d: BtAudio.dev
+                        function codecName(c) { return c.toUpperCase().replace("_", "-") }
+                        visible: root.tab === "codec"
+                        width: parent.width
+                        spacing: 6
+
+                        Label { text: "Кодек" }
+                        ButtonGroup {
+                            width: parent.width
+                            options: (codecCol.d?.profiles ?? []).map(p => ({
+                                id: String(p.index), label: codecCol.codecName(p.codec)
+                            }))
+                            current: String(codecCol.d?.profile ?? "")
+                            onPicked: id => BtAudio.setCodec(Number(id))
+                        }
+
+                        // Варианты — какие отдал PipeWire; у LDAC подписываем битрейтом
+                        Label {
+                            visible: BtAudio.quality !== null
+                            topPadding: 4
+                            text: "Качество " + codecCol.codecName(codecCol.d?.codec ?? "")
+                                + (codecCol.d?.codec === "ldac" ? ", кбит/с" : "")
+                        }
+                        ButtonGroup {
+                            visible: BtAudio.quality !== null
+                            width: parent.width
+                            options: (BtAudio.quality?.options ?? []).map(o => ({
+                                id: o.id,
+                                label: o.id === "auto" ? "Авто"
+                                    : codecCol.d?.codec === "ldac" ? ({ hq: "990", sq: "660", mq: "330" })[o.id] ?? o.id
+                                    : o.id.toUpperCase()
+                            }))
+                            current: BtAudio.quality?.current ?? ""
+                            onPicked: id => BtAudio.setQuality(id)
                         }
                     }
 
