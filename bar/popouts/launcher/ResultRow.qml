@@ -49,7 +49,10 @@ Rectangle {
         matrix: row.modelData.qr ?? []
     }
 
+    // Над MouseArea строки: иначе та забирает наведение и значений под
+    // курсором не видно. Клики график не ловит — они уходят строке
     PlotView {
+        z: 1
         visible: row.hasPlot
         anchors.top: header.bottom
         anchors.left: parent.left

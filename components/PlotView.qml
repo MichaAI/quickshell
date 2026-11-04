@@ -292,21 +292,18 @@ Item {
             font.family: Theme.font; font.pixelSize: 9; color: Theme.overlay1
         }
 
-        // Значения под курсором: у полярного — ближайшая точка, у остальных —
-        // у каждой линии точка с ближайшим x
-        MouseArea {
+        // Курсор — HoverHandler, а не MouseArea: он не забирает наведение
+        // у того, что под графиком (строка лончера с кликом и «лапкой»)
+        HoverHandler {
             id: hover
-            anchors.fill: parent
-            hoverEnabled: true
-            acceptedButtons: Qt.NoButton
         }
 
         // Что под курсором: [{si, x, y, th?, r?}]. Полярный — ближайшая точка;
         // функции — значение ровно под курсором (между соседними точками),
         // так у всех линий один x; данные — точка с ближайшим x
         readonly property var hits: {
-            if (!hover.containsMouse || !root.plot || root.series.length === 0) return []
-            const mx = hover.mouseX, my = hover.mouseY
+            if (!hover.hovered || !root.plot || root.series.length === 0) return []
+            const mx = hover.point.position.x, my = hover.point.position.y
             if (root.polar) {
                 let best = null, bd = Infinity
                 root.series.forEach((s, si) => {
