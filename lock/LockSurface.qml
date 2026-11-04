@@ -2,7 +2,6 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Effects
 import QtQuick.Window
-import Quickshell
 import Quickshell.Widgets
 import "../config"
 import "../services"
