@@ -26,7 +26,8 @@ Singleton {
         raw = Math.round(p / 100 * max)
         Quickshell.execDetached(["brightnessctl", "-q", "-d", device, "set", p + "%"])
         // Не перечитывать sysfs, пока brightnessctl не успел записать
-        poll.restart()
+        if (poll.running)
+            poll.restart()
     }
 
     function change(delta) {
@@ -51,8 +52,9 @@ Singleton {
 
     // Яркость могут поменять клавишами мимо нас. Ядро шлёт uevent на каждое
     // изменение (и с клавиш, и записью в sysfs) — перечитываем сразу; опрос
-    // ниже — запасной, если udevadm нет или он упал
+    // ниже — запасной, только если udevadm нет или он упал
     Process {
+        id: udev
         running: root.device !== ""
         command: ["udevadm", "monitor", "--udev", "-s", "backlight"]
         stdout: SplitParser {
@@ -72,7 +74,7 @@ Singleton {
 
     Timer {
         id: poll
-        running: root.present
+        running: root.present && !udev.running
         interval: 1000
         repeat: true
         onTriggered: cur.reload()
