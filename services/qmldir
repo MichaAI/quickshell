@@ -22,6 +22,7 @@ singleton Lyrics 1.0 Lyrics.qml
 singleton PlayerExt 1.0 PlayerExt.qml
 singleton Bt 1.0 Bt.qml
 singleton Buds 1.0 Buds.qml
+singleton BtAudio 1.0 BtAudio.qml
 singleton LauncherState 1.0 LauncherState.qml
 singleton NixRun 1.0 NixRun.qml
 singleton Osd 1.0 Osd.qml

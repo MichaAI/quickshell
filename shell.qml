@@ -10,8 +10,13 @@ import "./services"
 import "./lock"
 
 ShellRoot {
-    // Приложения поднимаем сразу, чтобы первый лончер не ждал скан .desktop
-    Component.onCompleted: Apps.list
+    // Приложения поднимаем сразу, чтобы первый лончер не ждал скан .desktop.
+    // BtAudio — тоже: запомненное качество LDAC он ставит при подключении
+    // наушников, не дожидаясь, пока откроют попаут Bluetooth
+    Component.onCompleted: {
+        Apps.list
+        BtAudio.dev
+    }
 
     Bar {}
     ScreenCorners {}

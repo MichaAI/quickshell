@@ -38,6 +38,8 @@ Item {
     readonly property string tab: pages.includes(page) ? page : (pages[0] ?? "devices")
 
     Component.onDestruction: Bt.scan(false)
+    // Кодек мог смениться не нами (wpctl, pavucontrol)
+    Component.onCompleted: BtAudio.refresh()
 
     // ===== Мелкие детали =====
 
@@ -799,6 +801,56 @@ Item {
             }
         }
 
+        // ===== Кодек и качество LDAC (PipeWire, любые наушники) =====
+        Rectangle {
+            id: codecCard
+            readonly property var d: BtAudio.dev
+            function codecName(c) { return c.toUpperCase().replace("_", "-") }
+            visible: d !== null && d.profiles.length > 1
+            width: parent.width
+            height: codecCol.implicitHeight + 24
+            radius: 16
+            color: Theme.cardBg
+
+            Column {
+                id: codecCol
+                x: 14
+                y: 12
+                width: parent.width - 28
+                spacing: 6
+
+                Label { text: "Кодек" }
+                ButtonGroup {
+                    width: parent.width
+                    options: (codecCard.d?.profiles ?? []).map(p => ({
+                        id: String(p.index), label: codecCard.codecName(p.codec)
+                    }))
+                    current: String(codecCard.d?.profile ?? "")
+                    onPicked: id => BtAudio.setCodec(Number(id))
+                }
+
+                // Варианты — какие отдал PipeWire; у LDAC подписываем битрейтом
+                Label {
+                    visible: BtAudio.quality !== null
+                    topPadding: 4
+                    text: "Качество " + codecCard.codecName(codecCard.d?.codec ?? "")
+                        + (codecCard.d?.codec === "ldac" ? ", кбит/с" : "")
+                }
+                ButtonGroup {
+                    visible: BtAudio.quality !== null
+                    width: parent.width
+                    options: (BtAudio.quality?.options ?? []).map(o => ({
+                        id: o.id,
+                        label: o.id === "auto" ? "Авто"
+                            : codecCard.d?.codec === "ldac" ? ({ hq: "990", sq: "660", mq: "330" })[o.id] ?? o.id
+                            : o.id.toUpperCase()
+                    }))
+                    current: BtAudio.quality?.current ?? ""
+                    onPicked: id => BtAudio.setQuality(id)
+                }
+            }
+        }
+
         // ===== Вкладки =====
         // Выбранная — пилюля с подписью, остальные — только значок
         Row {
@@ -872,6 +924,7 @@ Item {
                 width: parent.width
                 readonly property real maxH: Settings.popoutMaxHeight - 28 - header.height - col.spacing
                     - (budsCard.visible ? budsCard.height + col.spacing : 0)
+                    - (codecCard.visible ? codecCard.height + col.spacing : 0)
                     - (tabs.visible ? tabs.height + col.spacing : 0)
                 height: Math.min(pageCol.implicitHeight, maxH)
                 contentHeight: pageCol.implicitHeight
