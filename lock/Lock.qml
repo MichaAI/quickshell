@@ -121,6 +121,8 @@ Scope {
             return
         text = ""
         error = ""
+        capsTyped = null    // с прошлого лока Caps могли переключить
+        capsFind.running = true
         modelProbe.running = true
         lockStarted = Date.now()
         persist.locked = true
@@ -256,8 +258,12 @@ Scope {
         id: frameClean
     }
 
-    // Модель ищем и при старте — в логе сразу видно, нашлась ли она
-    Component.onCompleted: modelProbe.running = true
+    // Модель ищем и при старте — в логе сразу видно, нашлась ли она.
+    // Светодиоды Caps — тоже: лок мог пережить перезагрузку шелла
+    Component.onCompleted: {
+        modelProbe.running = true
+        capsFind.running = true
+    }
 
     function submit() {
         if (busy || text === "")
@@ -372,21 +378,38 @@ Scope {
         }
     }
 
-    // Caps Lock видно только по светодиоду в sysfs: Wayland его не сообщает
+    // Caps Lock видно только по светодиоду в sysfs: Wayland его не сообщает.
+    // Светодиоды ищем раз за лок (клавиатуру могли подключить), потом
+    // только перечитываем файлы — без процесса на каждый опрос
+    property var capsLeds: []
     Process {
-        id: capsProbe
-        command: ["sh", "-c", "cat /sys/class/leds/*::capslock/brightness 2>/dev/null"]
+        id: capsFind
+        command: ["sh", "-c", 'for f in /sys/class/leds/*::capslock/brightness; do [ -e "$f" ] && echo "$f"; done']
         stdout: StdioCollector {
-            onStreamFinished: root.capsLed = this.text.split("\n").some(s => parseInt(s) > 0)
+            onStreamFinished: root.capsLeds = this.text.split("\n").filter(s => s !== "")
+        }
+    }
+
+    Instantiator {
+        id: capsViews
+        model: root.capsLeds
+        delegate: FileView {
+            required property string modelData
+            path: modelData
+            printErrors: false
+            onLoaded: root.capsLed = [...Array(capsViews.count).keys()]
+                .some(i => parseInt(capsViews.objectAt(i)?.text() ?? "") > 0)
         }
     }
 
     Timer {
-        running: sessionLock.locked
+        running: sessionLock.locked && capsViews.count > 0
         interval: 250
         repeat: true
-        triggeredOnStart: true
-        onTriggered: capsProbe.running = true
+        onTriggered: {
+            for (let i = 0; i < capsViews.count; i++)
+                capsViews.objectAt(i)?.reload()
+        }
     }
 
     Connections {
