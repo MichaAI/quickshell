@@ -90,6 +90,18 @@ Item {
         return main.map(s => s.label).join("   ·   ")
     }
 
+    // Несколько линий — их имена цветами линий: это и есть легенда, полосы
+    // под графиком нет. Цвета — как PlotView.seriesColor. Со своим title
+    // и в mono цветом не различить — там легенда остаётся в углу графика
+    function plotTitleRich(p) {
+        const main = p.series.filter(s => !s.im)
+        if (main.length < 2 || p.opts.title || p.opts.mono) return ""
+        const esc = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+        const color = i => i === 0 ? Theme.gradStart : Theme.series[(i - 1) % Theme.series.length]
+        return main.map((s, i) => "<font color='" + color(i) + "'>" + esc(s.label) + "</font>")
+            .join("<font color='" + Theme.overlay0 + "'>   ·   </font>")
+    }
+
     function plural(n, one, few, many) {
         const a = n % 10, b = n % 100
         return a === 1 && b !== 11 ? one : a >= 2 && a <= 4 && (b < 12 || b > 14) ? few : many
@@ -123,6 +135,7 @@ Item {
                 plot: plotData,
                 glyph: "󰄧",
                 title: plotTitle(plotData),
+                titleRich: plotTitleRich(plotData),
                 sub: plotSub(plotData),
                 badge: "⏎ открыть в gnuplot",
                 run: () => {

@@ -15,10 +15,15 @@ Item {
     readonly property bool polar: opts.style === "polar"
     readonly property real lw: opts.linewidth > 0 ? opts.linewidth : 2
 
-    // Легенда: у нескольких линий — полосой снизу, по просьбе — в углу
+    // Имена линий уже в заголовке строки, их цветами (лончер) — своя
+    // легенда не нужна, если в нём видно все линии (мнимые части — нет)
+    property bool titleLegend: false
+
+    // Легенда в углу: где попросили, а у нескольких линий без легенды
+    // в заголовке — слева сверху (справа сверху значения под курсором)
     readonly property string legendAt: opts.legend === "none" ? ""
-        : opts.legend ? (opts.legend === "outside" ? "below" : opts.legend)
-        : series.length > 1 ? "below" : ""
+        : opts.legend && opts.legend !== "outside" && opts.legend !== "below" ? opts.legend
+        : series.length > 1 && !(titleLegend && !series.some(s => s.im)) ? "top left" : ""
 
     // Конечное число; null (из JSON и т.п.) — нет, хотя isFinite(null) === true
     function fin(v) { return typeof v === "number" && isFinite(v) }
@@ -120,11 +125,10 @@ Item {
         color: Theme.alpha(Theme.crust, 0.6)
     }
 
-    // Поле графика; легенда «below» — полосой под ним
+    // Поле графика
     Item {
         id: area
         anchors.fill: parent
-        anchors.bottomMargin: root.legendAt === "below" ? legendRow.height + 8 : 0
         onWidthChanged: canvas.requestPaint()
         onHeightChanged: canvas.requestPaint()
 
@@ -357,9 +361,19 @@ Item {
             }
         }
 
+        // Подложка: иначе подпись сливается с линией, что идёт под ней
+        Rectangle {
+            visible: readout.visible
+            anchors.fill: readout
+            anchors.margins: -3
+            anchors.leftMargin: -5; anchors.rightMargin: -5
+            radius: 5
+            color: Theme.alpha(Theme.crust, 0.85)
+        }
         Text {
+            id: readout
             visible: area.hits.length > 0
-            anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 4
+            anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 8
             textFormat: Text.StyledText
             text: {
                 const h = area.hits
@@ -380,7 +394,7 @@ Item {
 
         // Легенда в углу
         Rectangle {
-            visible: root.legendAt !== "" && root.legendAt !== "below"
+            visible: root.legendAt !== ""
             x: root.legendAt.endsWith("left") ? 6 : parent.width - width - 6
             y: root.legendAt.startsWith("top") ? 18 : parent.height - height - 18
             width: legendCol.width + 12
@@ -391,23 +405,10 @@ Item {
                 id: legendCol
                 x: 6; y: 4
                 Repeater {
-                    model: root.legendAt !== "below" ? root.series : []
+                    model: root.legendAt !== "" ? root.series : []
                     LegendItem {}
                 }
             }
-        }
-    }
-
-    // Легенда полосой
-    Flow {
-        id: legendRow
-        visible: root.legendAt === "below"
-        anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom
-        anchors.margins: 6
-        spacing: 12
-        Repeater {
-            model: root.legendAt === "below" ? root.series : []
-            LegendItem {}
         }
     }
 

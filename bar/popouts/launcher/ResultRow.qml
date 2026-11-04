@@ -25,6 +25,8 @@ Rectangle {
     readonly property bool hasPlot: modelData.plot !== undefined
     readonly property bool hasPreview: (modelData.qr ?? null) !== null
     readonly property bool hasThumb: (modelData.thumbUrl ?? "") !== ""
+    // Заголовок с разметкой (имена линий графика их цветами) — без градиента
+    readonly property bool richTitle: (modelData.titleRich ?? "") !== ""
 
     height: hasPlot ? 220 : hasPreview ? 46 + 210 : hasThumb ? 84 : big ? 60 : 46
     radius: 10
@@ -61,6 +63,7 @@ Rectangle {
         anchors.margins: 12
         anchors.topMargin: 0
         plot: row.modelData.plot ?? null
+        titleLegend: row.richTitle
     }
 
     Rectangle {
@@ -185,15 +188,16 @@ Rectangle {
         spacing: 1
 
         GradientText {
-            visible: row.selected && !row.big
+            visible: row.selected && !row.big && !row.richTitle
             pixelSize: 14
             maxChars: 56
             text: row.modelData.title ?? ""
         }
         Text {
-            visible: !row.selected || row.big
+            visible: !row.selected || row.big || row.richTitle
             width: parent.width
-            text: row.modelData.title ?? ""
+            text: row.richTitle ? row.modelData.titleRich : row.modelData.title ?? ""
+            textFormat: row.richTitle ? Text.StyledText : Text.PlainText
             elide: Text.ElideRight
             font.family: Theme.font
             font.pixelSize: row.big ? 20 : 14
