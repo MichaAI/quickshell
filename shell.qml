@@ -1,6 +1,11 @@
 // Рендер через Vulkan: на той же картинке чуть меньше процессора и
 // ~50 МБ памяти, чем GL. Вернуть GL — убрать строку.
 //@ pragma Env QSG_RHI_BACKEND=vulkan
+// Mailbox вместо FIFO: в FIFO present ждёт frame callback без тайм-аута,
+// а поверхности лока после разлочки niri его может не прислать — поток
+// рендера встаёт, и шелл виснет на уничтожении окна. Процессора и кадров
+// mailbox не добавляет (niri сам отдаёт буферы в такт экрану)
+//@ pragma Env MESA_VK_WSI_PRESENT_MODE=mailbox
 
 import QtQuick
 import Quickshell
