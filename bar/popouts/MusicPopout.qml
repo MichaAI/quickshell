@@ -219,10 +219,12 @@ Item {
                             if (src === "" || !isImageLoaded(src))
                                 return
                             const ctx = getContext("2d")
-                            const w = root.art.implicitWidth, h = root.art.implicitHeight
-                            const c = Math.min(w, h) * 0.4
+                            // Центральные 40%: вся обложка растянута так, что
+                            // в холст попадает только середина. Размер картинки
+                            // не нужен — art декодирована ужатой (sourceSize)
+                            const s = width / 0.4
                             ctx.clearRect(0, 0, width, height)
-                            ctx.drawImage(src, (w - c) / 2, (h - c) / 2, c, c, 0, 0, width, height)
+                            ctx.drawImage(src, (width - s) / 2, (height - s) / 2, s, s)
                             const d = ctx.getImageData(0, 0, width, height).data
                             let sum = 0
                             for (let i = 0; i < d.length; i += 4)
@@ -266,10 +268,13 @@ Item {
                         }
                     }
 
+                    // Декодируем сразу под размер на экране: 400×400 и больше,
+                    // ужатые GPU в 64×64 без мипмапов, рябят и мылятся
                     CrossfadeImage {
                         id: artFade
                         anchors.fill: parent
                         source: Players.artUrl
+                        sourceSize: Qt.size(width * Screen.devicePixelRatio, height * Screen.devicePixelRatio)
                     }
                 }
 
