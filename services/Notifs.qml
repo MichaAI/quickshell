@@ -50,15 +50,25 @@ Singleton {
             root.times[n.id] = new Date()
             root.timesChanged()
 
-            n.closed.connect(() => root.dropPopup(n))
+            n.closed.connect(() => {
+                root.dropPopup(n)
+                delete root.times[n.id]
+            })
 
             if (n.lastGeneration)
                 return
             root.unread = true
-            if (root.suppressed)
+            // Всплывашки не будет — transient некому снять из центра
+            if (root.suppressed || (root.dnd && n.urgency !== NotificationUrgency.Critical)) {
+                if (n.transient)
+                    n.expire()
                 return
-            if (!root.dnd || n.urgency === NotificationUrgency.Critical)
-                root.popups = [n, ...root.popups].slice(0, 5)
+            }
+            const all = [n, ...root.popups]
+            root.popups = all.slice(0, 5)
+            // Вытесненные из стопки истекают как всплывашки
+            for (const p of all.slice(5))
+                root.popupExpired(p)
         }
     }
 
@@ -150,7 +160,8 @@ Singleton {
     function toggleDnd() {
         dnd = !dnd
         if (dnd)
-            popups = popups.filter(n => n.urgency === NotificationUrgency.Critical)
+            for (const n of popups.filter(n => n.urgency !== NotificationUrgency.Critical))
+                popupExpired(n)
     }
 
     readonly property string icon: dnd ? "󰂛"
