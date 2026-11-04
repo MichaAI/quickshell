@@ -71,9 +71,29 @@ Singleton {
     }
 
     // wl-copy остаётся жить и раздаёт буфер обмена — тоже в свою scope,
-    // иначе рестарт шелла стирал бы скопированное
+    // иначе рестарт шелла стирал бы скопированное. Текст — через stdin:
+    // аргументом больше 128 КБ (MAX_ARG_STRLEN) не пролезает, и копирование
+    // молча не случалось. wl-copy дочитывает stdin, уходит в фон и выходит
     function copy(text) {
-        launch(["wl-copy", "--", text])
+        const p = copyComp.createObject(root, {
+            command: ["sh", "-c", root.scopeScript, "qs", "wl-copy", "wl-copy"], text
+        })
+        p.running = true
+    }
+
+    Component {
+        id: copyComp
+
+        Process {
+            id: cp
+            required property string text
+            stdinEnabled: true
+            onStarted: {
+                cp.write(cp.text)
+                cp.stdinEnabled = false     // EOF
+            }
+            onExited: cp.destroy()
+        }
     }
 
     function open(path) {
