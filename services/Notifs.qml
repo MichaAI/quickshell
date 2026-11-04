@@ -21,6 +21,16 @@ Singleton {
 
     readonly property int popupTimeout: 6000
 
+    // Сколько висит всплывашка, мс; 0 — до клика. Критичные висят всегда,
+    // остальные — сколько просило приложение (notify-send -t), а без
+    // просьбы (-1) — popupTimeout. 0 от приложения по спецификации — «не
+    // истекать»
+    function timeoutOf(n) {
+        if (n.urgency === NotificationUrgency.Critical)
+            return 0
+        return n.expireTimeout >= 0 ? n.expireTimeout : popupTimeout
+    }
+
     // Открыт попаут бара: новые не всплывают, висящие уезжают (но остаются в центре)
     readonly property bool suppressed: Ui.openPopouts > 0
     signal hidePopupsRequested()

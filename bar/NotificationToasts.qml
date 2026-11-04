@@ -56,9 +56,9 @@ Scope {
                         slide: 1
 
                         Timer {
-                            interval: Notifs.popupTimeout
-                            // Критичные висят до клика
-                            running: !toast.hovered && !toast.critical && !toast.leaving
+                            interval: Notifs.timeoutOf(toast.modelData)
+                            // 0 — висит до клика (критичные и те, что просили)
+                            running: interval > 0 && !toast.hovered && !toast.leaving
                             onTriggered: toast.leave(() => Notifs.popupExpired(toast.modelData))
                         }
 
