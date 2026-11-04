@@ -41,6 +41,9 @@ QtObject {
     // Градиент для "интересных штук"
     readonly property color gradStart: "#f38ba8"
     readonly property color gradEnd: "#cba6f7"
+    // Линии графика после первой (она — градиентом выше): по кругу,
+    // подальше от красного с сиреневым
+    readonly property var series: [peach, green, sky, yellow, teal, blue, pink, lavender]
 
     readonly property string font: "JetBrainsMono Nerd Font"
     // Дисплейный шрифт для заголовков и крупных цифр, грузится из assets.

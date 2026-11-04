@@ -698,7 +698,7 @@ Item {
                 const n = root.results.length
                 const hints = {
                     apps: n + " результатов   ·   ⏎ запуск   ·   Tab действия   ·   ↑ / Ctrl+R история",
-                    calc: calcMode.plotData ? "⏎ открыть в gnuplot   ·   plot(f, от, до)   ·   наведи — значение"
+                    calc: calcMode.plotData ? "⏎ открыть в gnuplot   ·   plot([f, g], от, до, опции)   ·   наведи — значения"
                         : "⏎ копировать   ·   ⇧⏎ в ans   ·   x = 2+2 — переменная   ·   plot(f) — график",
                     shell: "⏎ фон   ·   ⇧⏎ терминал   ·   Tab дополнить   ·   → из истории",
                     path: "⏎ открыть / войти   ·   Tab войти   ·   → дописать",

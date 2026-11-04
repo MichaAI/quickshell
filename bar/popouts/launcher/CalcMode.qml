@@ -81,6 +81,31 @@ Item {
             }, true)
     }
 
+    // Заголовок графика: title из опций, иначе линии через «·»
+    function plotTitle(p) {
+        if (p.opts.title) return p.opts.title
+        const main = p.series.filter(s => !s.im)
+        const y = p.opts.style === "polar" ? "r = " : "y = "
+        if (main.length === 1) return main[0].data ? main[0].label : y + main[0].label
+        return main.map(s => s.label).join("   ·   ")
+    }
+
+    function plural(n, one, few, many) {
+        const a = n % 10, b = n % 100
+        return a === 1 && b !== 11 ? one : a >= 2 && a <= 4 && (b < 12 || b > 14) ? few : many
+    }
+
+    function plotSub(p) {
+        const v = p.opts.style === "polar" ? "θ" : p.opts.variable
+        const parts = []
+        if (p.series.some(s => s.fn)) parts.push(v + " от " + Calc.fmtNum(p.min) + " до " + Calc.fmtNum(p.max))
+        const pts = p.series.filter(s => s.data).reduce((a, s) => a + s.ys.length, 0)
+        if (pts > 0) parts.push(pts + " " + plural(pts, "точка", "точки", "точек"))
+        const lines = p.series.filter(s => !s.im).length
+        if (lines > 1) parts.push(lines + " " + plural(lines, "линия", "линии", "линий"))
+        return parts.join("   ·   ")
+    }
+
     // Точный ответ стоит показывать, только если он отличается от обычного
     // и в ответе нет единиц/валют — "(78125/12573) mi" никому не нужен
     function exactDiffers() {
@@ -97,8 +122,8 @@ Item {
             out.push({
                 plot: plotData,
                 glyph: "󰄧",
-                title: "y = " + plotData.f,
-                sub: "x от " + plotData.min + " до " + plotData.max,
+                title: plotTitle(plotData),
+                sub: plotSub(plotData),
                 badge: "⏎ открыть в gnuplot",
                 run: () => {
                     Tools.launch(["qalc", plotData.input])

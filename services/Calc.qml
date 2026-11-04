@@ -144,31 +144,370 @@ Singleton {
             .replace(/∞/g, "inf")
     }
 
-    // График: plot(f, от, до) → точки через genvector, без gnuplot.
-    // callback({f, min, max, xs, ys}) или null
+    // График: plot(…) как в qalc, но точки считает genvector, а рисует
+    // лончер (PlotView), без gnuplot. Первый аргумент — выражение, вектор
+    // выражений (несколько линий), вектор чисел (y по номерам) или матрица
+    // пар x y; дальше от, до и опции qalc (samples, step, variable, style,
+    // smooth, ymin, ymax, xlog, ylog, complex, linewidth, legend, title…).
+    // callback({series: [{label, xs, ys, th?, r?, im?, fn?}], min, max, opts}) или null
     function plot(text, callback) {
-        const m = text.trim().match(/^plot\s*\((.*)$/i)
+        const m = text.trim().match(/^plot\s*\(([\s\S]*)$/i)
         if (!m) { callback(null); return }
         // Закрывающую скобку plot( … ) можно не дописывать
         let body = m[1]
         if ((body.match(/\(/g) ?? []).length < (body.match(/\)/g) ?? []).length)
             body = body.replace(/\)\s*$/, "")
+        if (hasSideEffects(body)) { callback(null); return }
         const args = _splitArgs(body)
-        const f = (args[0] ?? "").trim()
-        // Недописанный предел — по умолчанию, а не 0
-        const num = (a, d) => (a ?? "").trim() === "" ? d : Number(_plainNum(_decimalComma(a)))
-        let lo = num(args[1], -10), hi = num(args[2], 10)
-        if (f === "" || hasSideEffects(f) || isNaN(lo) || isNaN(hi) || lo === hi) { callback(null); return }
-        if (lo > hi) [lo, hi] = [hi, lo]
-        const n = 241
-        // \x — «неизвестная x» в qalc: иначе переменная x = 42 превратит график в прямую
-        const fx = f.replace(/(^|[^\\\w])x(?!\w)/g, "$1\\x")
-        evaluate("genvector(" + fx + ", " + lo + ", " + hi + ", " + n + ", \\x)", res => {
-            const ys = res.replace(/^\[|\]$/g, "").trim().split(/\s+/).map(v => Number(_plainNum(v)))
-            if (ys.length !== n || ys.every(y => !isFinite(y))) { callback(null); return }
-            const xs = ys.map((_, i) => lo + (hi - lo) * i / (n - 1))
-            callback({ f: f, min: lo, max: hi, xs: xs, ys: ys })
+        // Опция на месте пределов (plot([1 2 3], boxes)) — qalc тут ругается,
+        // а мы считаем пределы пропущенными
+        const optAt = args.findIndex((a, i) => i > 0 && i < 3 && _isPlotOption(a))
+        if (optAt > 0) args.splice(optAt, 0, ...Array(3 - optAt).fill(""))
+        const o = _plotOptions(args.slice(3))
+        const a0 = _stripY((args[0] ?? "").trim())
+        if (a0 === "") { callback(null); return }
+
+        // Переменная графика уходит в qalc «неизвестной» \<буква>: иначе
+        // переменная x = 42 превратит график в прямую. Буква — та же или
+        // любая, которой в выражении нет, чтобы не спутать с чужими x, y…
+        const v = o.variable
+        // Перед именем может стоять цифра (3x — это 3·x), но не буква;
+        // «\x» qalc — та же переменная
+        const word = w => new RegExp("(^|[^\\\\A-Za-z_])\\\\?" + w.replace(/\W/g, "\\$&") + "(?!\\w)", "g")
+        const hasVar = s => word(v).test(s)
+        const sym = v.length === 1 && /[a-z]/i.test(v) ? v
+            : "xtuvwsabcdpq".split("").find(c => !word(c).test(body)) ?? "x"
+        const subst = (s, by) => s.replace(word(v), (_, pre) => pre + by)
+
+        // Линии: функции переменной и наборы данных — в порядке, как написаны
+        let specs
+        const inner = _bracketInner(a0)
+        if (inner !== null && !_hasTopLevel(inner, ";")) {
+            const elems = _vectorElements(inner).map(e => _stripY(e.trim())).filter(e => e !== "")
+            specs = elems.some(e => hasVar(e) || e.startsWith("["))
+                ? elems.map(e => hasVar(e) ? { fn: e } : { data: e })
+                : [{ data: a0 }]
+        } else {
+            specs = [hasVar(a0) ? { fn: a0 } : { data: a0 }]
+        }
+        const fns = specs.filter(s => s.fn !== undefined)
+        const datas = specs.filter(s => s.data !== undefined)
+
+        // Все числа из аргументов (пределы, шаг, ymin/ymax) считает qalc одним
+        // запросом: «2pi», «-e» и т.п. тоже годятся. Пустой предел — по умолчанию
+        const arg = (a, d) => _decimalComma((a ?? "").trim()) || d
+        const nums = [arg(args[1], "-10"), arg(args[2], "10"), o.step || "0",
+                      o.ymin || "0", o.ymax || "0"]
+        evaluate("[" + nums.map(s => "(" + s + ")").join(", ") + "]", res => {
+            const n = _parseVector(res).map(c => c.im === 0 ? c.re : NaN)
+            if (n.length !== 5) { callback(null); return }
+            let [lo, hi, step] = n
+            if (fns.length > 0 && (!isFinite(lo) || !isFinite(hi) || lo === hi)) { callback(null); return }
+            if (lo > hi) [lo, hi] = [hi, lo]
+            o.yLo = o.ymin ? n[3] : NaN
+            o.yHi = o.ymax ? n[4] : NaN
+
+            let waiting = (fns.length > 0 ? 1 : 0) + datas.length
+            let failed = false
+            const done = ok => {
+                if (!ok) failed = true
+                if (--waiting > 0) return
+                const series = failed ? [] : specs.flatMap(s => s.result ?? [])
+                if (series.length === 0 || series.every(s => s.ys.every(y => !isFinite(y)))) {
+                    callback(null)
+                    return
+                }
+                // Полярный: x — угол, y — радиус
+                if (o.style === "polar")
+                    for (const s of series) {
+                        s.th = s.xs
+                        s.r = s.ys
+                        s.xs = s.th.map((t, i) => s.r[i] * Math.cos(t))
+                        s.ys = s.th.map((t, i) => s.r[i] * Math.sin(t))
+                    }
+                callback({ series: series, min: lo, max: hi, opts: o })
+            }
+
+            // Функции — одним genvector на все: строки — x, столбцы — линии.
+            // xlog — точки равномерно по логарифму, иначе слева их почти нет
+            if (fns.length > 0) {
+                const logX = o.xlog && lo > 0
+                const useStep = step > 0 && !logX && (hi - lo) / step <= 5000
+                const L = logX ? Math.log10(lo) : lo, H = logX ? Math.log10(hi) : hi
+                const samples = Math.max(2, Math.min(5000, o.samples || 241))
+                const exprs = fns.map(s => _decimalComma(subst(s.fn, logX ? "(10^\\" + sym + ")" : "\\" + sym)))
+                const vec = exprs.length === 1 ? exprs[0] : "[" + exprs.join(", ") + "]"
+                evaluate("matrix2vector(genvector(" + vec + ", " + L + ", " + H + ", "
+                         + (useStep ? step : samples) + ", \\" + sym + (useStep ? ", 1" : "") + "))", r => {
+                    const vals = r === "" ? [] : _parseVector(r)
+                    const k = fns.length, rows = vals.length / k
+                    if (rows < 1 || rows !== Math.floor(rows)) { done(false); return }
+                    const xs = Array.from({ length: rows }, (_, i) => {
+                        const t = useStep ? L + step * i : L + (H - L) * i / Math.max(1, rows - 1)
+                        return logX ? Math.pow(10, t) : t
+                    })
+                    fns.forEach((s, j) => {
+                        const col = Array.from({ length: rows }, (_, i) => vals[i * k + j])
+                        // Без complex комплексные значения — дыры, как у qalc
+                        s.result = [{ label: s.fn, xs: xs, fn: true,
+                                      ys: col.map(c => c.im === 0 || o.complex ? c.re : NaN) }]
+                        // С complex — ещё и мнимая часть, пунктиром того же цвета
+                        if (o.complex && col.some(c => c.im !== 0 && isFinite(c.im)))
+                            s.result.push({ label: "Im " + s.fn, xs: xs, fn: true, im: true,
+                                            ys: col.map(c => c.im) })
+                    })
+                    done(true)
+                })
+            }
+
+            // Данные: размер и числа построчно, разбираем, когда придёт и то, и другое
+            const many = specs.length > 1
+            const counters = { vector: 0, matrix: 0 }
+            for (const s of datas) {
+                const e = _decimalComma(s.data)
+                const got = {}
+                const both = () => {
+                    if (got.dims === undefined || got.vals === undefined) return
+                    // Число, а не набор, — горизонтальной линией, как у qalc
+                    const c = got.vals[0]
+                    if (got.vals.length === 1 && c.im === 0 && isFinite(lo) && isFinite(hi) && lo < hi)
+                        s.result = [{ label: s.data, xs: [lo, hi], ys: [c.re, c.re], fn: true }]
+                    else
+                        s.result = _dataSeries(s.data, got.dims, got.vals, many, counters)
+                    done(true)
+                }
+                evaluate("[rows(" + e + "), columns(" + e + ")]", r => {
+                    const d = _parseVector(r).map(c => c.re)
+                    got.dims = d.length === 2 ? d : [0, 0]
+                    both()
+                })
+                evaluate("matrix2vector(" + e + ")", r => {
+                    got.vals = r === "" ? [] : _parseVector(r)
+                    both()
+                })
+            }
         })
+    }
+
+    // Набор данных → линии, как у qalc: матрица из двух столбцов — пары x y,
+    // вектор — y по номерам, матрица шире — каждая строка своей линией
+    function _dataSeries(src, dims, cvals, many, counters) {
+        const [rows, cols] = dims
+        const vals = cvals.map(c => c.im === 0 ? c.re : NaN)
+        if (vals.length === 0 || rows * cols !== vals.length) return []
+        const name = (kind, word) => {
+            const i = ++counters[kind]
+            return many ? word + (i > 1 ? " " + i : "") : src
+        }
+        if (cols === 2 && rows > 1)
+            return [{ label: name("matrix", "Матрица"), data: true,
+                      xs: vals.filter((_, i) => i % 2 === 0), ys: vals.filter((_, i) => i % 2 === 1) }]
+        if (rows === 1 || cols === 1)
+            return [{ label: name("vector", "Вектор"), data: true,
+                      xs: vals.map((_, i) => i + 1), ys: vals }]
+        const out = []
+        for (let r = 0; r < rows; r++)
+            out.push({ label: "Строка " + (r + 1), data: true,
+                       xs: Array.from({ length: cols }, (_, i) => i + 1),
+                       ys: vals.slice(r * cols, (r + 1) * cols) })
+        return out
+    }
+
+    // Опции plot() после пределов — как их понимает qalc: «имя значение» одним
+    // аргументом или двумя, у флагов значение можно опустить, у именованных
+    // значений — имя опции; первое число — samples (целое > 10) или step
+    readonly property var _plotNames: [
+        ["persistent", "persistent"], ["smoothing", "smooth"], ["smooth", "smooth"],
+        ["style", "style"], ["type", "style"], ["step size", "step"], ["step", "step"],
+        ["samples", "samples"], ["rate", "samples"], ["color", "color"], ["grid", "grid"],
+        ["title", "title"], ["legend", "legend"], ["key", "legend"],
+        ["y-label", "ylabel"], ["y label", "ylabel"], ["ylabel", "ylabel"],
+        ["x-label", "xlabel"], ["x label", "xlabel"], ["xlabel", "xlabel"],
+        ["line width", "linewidth"], ["linewidth", "linewidth"], ["lw", "linewidth"],
+        ["monochrome", "mono"], ["mono", "mono"],
+        ["y-min", "ymin"], ["y min", "ymin"], ["ymin", "ymin"],
+        ["y-max", "ymax"], ["y max", "ymax"], ["ymax", "ymax"],
+        ["logscale y", "ylog"], ["y-log", "ylog"], ["y log", "ylog"], ["ylog", "ylog"],
+        ["logscale x", "xlog"], ["x-log", "xlog"], ["x log", "xlog"], ["xlog", "xlog"],
+        ["logscale", "logscale"], ["variable", "variable"], ["var", "variable"],
+        ["complex", "complex"], ["real", "real"]
+    ]
+    readonly property var _plotStyles: ["lines", "points", "linespoints", "boxes", "histogram",
+                                        "steps", "candlesticks", "dots", "polar"]
+    readonly property var _plotLegends: ["none", "top-left", "top-right", "bottom-left",
+                                         "bottom-right", "below", "outside"]
+
+    function _plotOptions(list) {
+        const o = { variable: "x", style: "lines", smooth: "none", samples: 0, step: "",
+                    ymin: "", ymax: "", xlog: false, ylog: false, complex: false, grid: true,
+                    mono: false, linewidth: 0, legend: "", title: "", xlabel: "", ylabel: "" }
+        const flag = v => v === "" || Number(v) !== 0
+        const style = v => {
+            const s = { histeps: "histogram", bars: "boxes" }[v] ?? v
+            if (_plotStyles.includes(s)) return s
+            const i = Number(v)
+            return Number.isInteger(i) && i >= 0 && i < 8 ? _plotStyles[i] : ""
+        }
+        const smooth = v => ({ none: "none", "0": "none", splines: "splines", csplines: "splines",
+                               "1": "splines", bezier: "bezier", "2": "bezier" })[v] ?? ""
+        const legend = v => {
+            const s = v.replace(/\s+/g, "-").replace(/^(top|bottom)(left|right)$/, "$1-$2")
+            if (_plotLegends.includes(s)) return s
+            const i = Number(v)
+            return Number.isInteger(i) && i >= 0 && i < 6 ? _plotLegends[i] : ""
+        }
+        const apply = (key, raw) => {
+            const v = raw.trim().toLowerCase()
+            switch (key) {
+            case "samples": if (Number(v) >= 1) o.samples = Math.round(Number(v)); o.step = ""; break
+            case "step": o.step = raw.trim() || "1"; break
+            case "variable":
+                o.variable = ({ "0": "x", "1": "y", "2": "z" })[v] ?? raw.trim().replace(/^\\/, "")
+                break
+            case "style": o.style = style(v) || (v === "" ? "points" : o.style); break
+            case "smooth": o.smooth = smooth(v) || (v === "" ? "splines" : o.smooth); break
+            case "legend": o.legend = legend(v) || (v === "" ? "below" : o.legend); break
+            case "ymin": o.ymin = raw.trim(); break
+            case "ymax": o.ymax = raw.trim(); break
+            case "xlog": o.xlog = flag(v); break
+            case "ylog": o.ylog = flag(v); break
+            case "logscale": o.xlog = o.ylog = flag(v); break
+            case "complex": o.complex = flag(v); break
+            case "real": o.complex = !flag(v); break
+            case "grid": o.grid = flag(v); break
+            case "mono": o.mono = flag(v); break
+            case "color": o.mono = !flag(v); break
+            case "linewidth": if (Number(v) > 0 && Number(v) < 100) o.linewidth = Number(v); break
+            case "title": case "xlabel": case "ylabel":
+                o[key] = raw.trim().replace(/^"(.*)"$/, "$1").replace(/^'(.*)'$/, "$1")
+                break
+            }
+        }
+        // Флаги, которые включаются одним именем
+        const valueless = ["persistent", "smooth", "style", "grid", "legend", "xlog", "ylog",
+                           "logscale", "complex", "real", "mono", "color"]
+        const textual = ["title", "xlabel", "ylabel"]
+        let pending = ""
+        list.forEach((a, idx) => {
+            const s = a.trim()
+            if (s === "") return
+            if (textual.includes(pending)) { apply(pending, s); pending = ""; return }
+            const low = s.toLowerCase()
+            const hit = _plotNames.find(([n]) => low === n || low.startsWith(n + " "))
+            if (hit) {
+                const rest = s.slice(hit[0].length).trim()
+                if (rest !== "") { apply(hit[1], rest); pending = "" }
+                else {
+                    if (valueless.includes(hit[1])) apply(hit[1], "")
+                    pending = hit[1]
+                }
+                return
+            }
+            if (pending !== "") { apply(pending, s); pending = ""; return }
+            // Значение без имени: стиль, сглаживание, легенда, переменная, число
+            if (style(low) && isNaN(Number(low))) o.style = style(low)
+            else if (smooth(low) && isNaN(Number(low))) o.smooth = smooth(low)
+            else if (legend(low) && isNaN(Number(low))) o.legend = legend(low)
+            else if (/^\\?[xyz]$/.test(low)) o.variable = low.replace("\\", "")
+            else if (idx === 0) {
+                const num = Number(_plainNum(s))
+                if (Number.isInteger(num) && num > 10) o.samples = num
+                else o.step = s
+            }
+        })
+        return o
+    }
+
+    function _isPlotOption(a) {
+        const low = a.trim().toLowerCase()
+        return low !== "" && (_plotNames.some(([n]) => low === n || low.startsWith(n + " "))
+            || _plotStyles.includes(low) || ["histeps", "bars", "splines", "csplines", "bezier"].includes(low)
+            || _plotLegends.includes(low))
+    }
+
+    // "y = x^2" → "x^2", как у qalc
+    function _stripY(s) {
+        return s.replace(/^y\s*=(?!=)\s*/, "")
+    }
+
+    // "[…]" целиком в одних скобках → содержимое, иначе null
+    function _bracketInner(s) {
+        if (!s.startsWith("[") || !s.endsWith("]")) return null
+        let depth = 0
+        for (let i = 0; i < s.length; i++) {
+            if (s[i] === "[" || s[i] === "(") depth++
+            else if (s[i] === "]" || s[i] === ")") depth--
+            if (depth === 0 && i < s.length - 1) return null
+        }
+        return s.slice(1, -1)
+    }
+
+    function _hasTopLevel(s, ch) {
+        let depth = 0
+        for (const c of s) {
+            if (c === "(" || c === "[") depth++
+            else if (c === ")" || c === "]") depth--
+            else if (c === ch && depth === 0) return true
+        }
+        return false
+    }
+
+    // Элементы вектора: через запятую, а без запятых — через пробел, как
+    // в qalc: «[x^2 -x]» — два элемента, «[x - 2]» и «[x ^2]» — один
+    function _vectorElements(inner) {
+        if (_hasTopLevel(inner, ",")) return _splitArgs(inner)
+        const chunks = []
+        let depth = 0, cur = ""
+        for (const c of inner) {
+            if (c === "(" || c === "[") depth++
+            else if (c === ")" || c === "]") depth--
+            if (/\s/.test(c) && depth === 0) {
+                if (cur !== "") chunks.push(cur)
+                cur = ""
+            } else cur += c
+        }
+        if (cur !== "") chunks.push(cur)
+        const out = []
+        const op = /[-+*\/^×·÷=<>%]$/
+        for (const ch of chunks) {
+            const joins = out.length > 0 && (op.test(out[out.length - 1])
+                || /^[+*\/^×·÷=<>%]/.test(ch) || /^[-−]$/.test(ch))
+            if (joins) out[out.length - 1] += " " + ch
+            else out.push(ch)
+        }
+        return out
+    }
+
+    // Ответ qalc «[a  b  (c + di)  (1 / 0)…]» → [{re, im}]; не число — NaN
+    function _parseVector(res) {
+        let s = res.trim()
+        if (s.startsWith("[") && s.endsWith("]")) s = s.slice(1, -1)
+        const out = []
+        let depth = 0, cur = ""
+        for (const c of s) {
+            if (c === "(" || c === "[") depth++
+            else if (c === ")" || c === "]") depth--
+            if (/\s/.test(c) && depth === 0) {
+                if (cur !== "") out.push(_parseComplex(cur))
+                cur = ""
+            } else cur += c
+        }
+        if (cur !== "") out.push(_parseComplex(cur))
+        return out
+    }
+
+    function _parseComplex(tok) {
+        let t = _plainNum(tok).replace(/\s+/g, "")
+        while (t.startsWith("(") && t.endsWith(")")) t = t.slice(1, -1)
+        const num = "(?:\\d+\\.?\\d*|\\.\\d+)(?:e[-+]?\\d+)?"
+        let m
+        if (new RegExp("^[-+]?" + num + "$").test(t)) return { re: Number(t), im: 0 }
+        if (/^[-+]?∞$/.test(t)) return { re: t.startsWith("-") ? -Infinity : Infinity, im: 0 }
+        if ((m = t.match(new RegExp("^([-+]?)(" + num + ")?i$"))))
+            return { re: 0, im: (m[1] === "-" ? -1 : 1) * (m[2] ? Number(m[2]) : 1) }
+        if ((m = t.match(new RegExp("^([-+]?" + num + ")([-+])(" + num + ")?i$"))))
+            return { re: Number(m[1]), im: (m[2] === "-" ? -1 : 1) * (m[3] ? Number(m[3]) : 1) }
+        return { re: NaN, im: 0 }
     }
 
     // Аргументы через запятую/точку с запятой — только верхнего уровня скобок
@@ -183,6 +522,11 @@ Singleton {
         }
         out.push(cur)
         return out
+    }
+
+    // Число для подписи: без хвоста двоичной погрешности (0.30000000000000004)
+    function fmtNum(v) {
+        return String(Number(v.toPrecision(6)))
     }
 
     function _plainNum(v) {
