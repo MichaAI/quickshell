@@ -212,7 +212,8 @@ Singleton {
             const done = ok => {
                 if (!ok) failed = true
                 if (--waiting > 0) return
-                const series = failed ? [] : specs.flatMap(s => s.result ?? [])
+                // flatMap в движке QML нет
+                const series = failed ? [] : specs.reduce((a, s) => a.concat(s.result ?? []), [])
                 if (series.length === 0 || series.every(s => s.ys.every(y => !isFinite(y)))) {
                     callback(null)
                     return
