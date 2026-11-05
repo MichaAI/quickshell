@@ -28,8 +28,8 @@
           pname = "mprisext";
           uri = "MichaAI/Mpris";
         };
-        logind = pkgs.callPackage ./nix/qmlplugin.nix {
-          pname = "logind";
+        qs-logind = pkgs.callPackage ./nix/qmlplugin.nix {
+          pname = "qs-logind";
           uri = "MichaAI/Logind";
         };
       });

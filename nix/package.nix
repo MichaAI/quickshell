@@ -24,7 +24,7 @@ let
   plugin = pname: uri: callPackage ./qmlplugin.nix { inherit qt6 pname uri; };
   qml = [
     (plugin "mprisext" "MichaAI/Mpris")
-    (plugin "logind" "MichaAI/Logind")
+    (plugin "qs-logind" "MichaAI/Logind")
   ]
   ++ qml3d;
   plugins = [ qt6.qtimageformats ] ++ qml3d;

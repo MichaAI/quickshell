@@ -96,14 +96,14 @@ impl cxx_qt::Initialize for qobject::Logind {
         self.as_mut().rust_mut().cmds = Some(tx);
         let qt = self.qt_thread();
         let spawned = std::thread::Builder::new()
-            .name("logind".into())
+            .name("qs-logind".into())
             .spawn(move || {
                 if let Err(e) = async_io::block_on(worker(rx, qt)) {
-                    eprintln!("logind: {e}");
+                    eprintln!("qs-logind: {e}");
                 }
             });
         if let Err(e) = spawned {
-            eprintln!("logind: поток не запустился: {e}");
+            eprintln!("qs-logind: поток не запустился: {e}");
         }
     }
 }
@@ -189,7 +189,7 @@ async fn worker(
     let session = match manager.call::<_, _, OwnedObjectPath>("GetSession", &("auto",)).await {
         Ok(path) => Some(proxy(&conn, path.as_str(), SESSION).await?),
         Err(e) => {
-            eprintln!("logind: нет сессии: {e}");
+            eprintln!("qs-logind: нет сессии: {e}");
             None
         }
     };
@@ -271,7 +271,7 @@ async fn proxy<'a>(conn: &zbus::Connection, path: &str, iface: &'static str) -> 
 async fn hint(session: &Option<zbus::Proxy<'_>>, method: &str, on: bool) {
     if let Some(s) = session {
         if let Err(e) = s.call_method(method, &(on,)).await {
-            eprintln!("logind: {method}: {e}");
+            eprintln!("qs-logind: {method}: {e}");
         }
     }
 }
@@ -280,7 +280,7 @@ async fn inhibit(manager: &zbus::Proxy<'_>) -> Option<OwnedFd> {
     manager
         .call::<_, _, OwnedFd>("Inhibit", &("sleep", "quickshell", "Закрыть экран перед сном", "delay"))
         .await
-        .map_err(|e| eprintln!("logind: Inhibit: {e}"))
+        .map_err(|e| eprintln!("qs-logind: Inhibit: {e}"))
         .ok()
 }
 

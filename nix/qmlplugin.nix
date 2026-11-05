@@ -51,7 +51,7 @@ rustPlatform.buildRustPackage {
     mod=$(find target -path '*/qt-build-utils/qml_modules/${uri}/qmldir' -printf '%h\n' | head -1)
     cp $mod/qmldir $mod/plugin.qmltypes $dir/
     plugin=$(sed -n 's/^\(optional \)\?plugin \([^ ]*\).*/\2/p' $dir/qmldir)
-    cp $(find target -name lib${pname}.so -path '*/release/*' | head -1) $dir/lib$plugin.so
+    cp $(find target -name lib${lib.replaceStrings [ "-" ] [ "_" ] pname}.so -path '*/release/*' | head -1) $dir/lib$plugin.so
     runHook postInstall
   '';
 

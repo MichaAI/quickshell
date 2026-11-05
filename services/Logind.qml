@@ -3,7 +3,7 @@ import Quickshell
 import QtQuick
 
 // systemd-logind: блокировки (systemd-inhibit), сон, подсказки сессии.
-// Читает QML-плагин MichaAI.Logind (tools/logind) — по D-Bus из своего
+// Читает QML-плагин MichaAI.Logind (tools/qs-logind) — по D-Bus из своего
 // потока, по сигналам, без процессов и опроса. Без плагина — пусто, и
 // простой работает без оглядки на logind.
 Singleton {

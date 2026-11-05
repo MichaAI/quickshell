@@ -1,5 +1,5 @@
 [package]
-name = "logind"
+name = "qs-logind"
 version = "0.1.0"
 edition = "2021"
 description = "QML-плагин MichaAI.Logind: инхибиторы, сон и подсказки сессии logind по D-Bus"
@@ -7,6 +7,7 @@ license = "MIT"
 
 # Динамический QML-плагин: Qt грузит его сам по qmldir
 [lib]
+name = "qs_logind"
 crate-type = ["cdylib"]
 
 [dependencies]
