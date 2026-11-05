@@ -24,7 +24,7 @@ Item {
         bt:    { icon: "󰂯", color: Theme.blue,     title: "Bluetooth",  hint: "Bluetooth: устройство…   (on / off)" },
         wifi:  { icon: "󰖩", color: Theme.teal,     title: "Wi-Fi",      hint: "Wi-Fi: сеть…   (сеть / пароль, on / off)" },
         media: { icon: "󰝚", color: Theme.pink,     title: "Плеер",      hint: "Плеер: play, next, prev…" },
-        idle:  { icon: "󰅶", color: Theme.peach,    title: "Простой", hint: "Простой: лок и сон / только лок / не засыпать" }
+        idle:  { icon: "󰅶", color: Theme.peach,    title: "Простой", hint: "Простой: не засыпать на час, бессрочно, под музыку" }
     })
 
     readonly property var info: {
@@ -50,7 +50,7 @@ Item {
         case "bt": return !Bt.present ? "нет адаптера" : !Bt.enabled ? "выключен" : Bt.connected.length + " подключено"
         case "wifi": return "сети, подключение, вкл/выкл"
         case "media": return Players.active ? Players.title + (Players.artist ? " — " + Players.artist : "") : "ничего не играет"
-        case "idle": return Idle.modes[Idle.mode].title + " · " + Idle.describe()
+        case "idle": return Idle.status.text
         }
         return ""
     }
@@ -405,24 +405,42 @@ Item {
         return out
     }
 
+    // Сверху — что будет и почему, ниже — что можно сделать
     function idleItems() {
-        return ["auto", "lock", "awake"].map(m => {
-            const cur = m === Idle.mode
+        const st = Idle.status
+        const awake = Idle.awakeUntil
+        const item = (minutes, title) => {
+            const cur = minutes < 0 ? awake < 0 : awake > 0 && minutes > 0
             return {
-                glyph: Idle.modes[m].icon,
+                glyph: "󰅶",
                 glyphColor: cur ? Theme.peach : Theme.overlay1,
-                title: Idle.modes[m].title,
-                sub: cur ? Idle.describe() : "",
-                badge: cur ? "" : "⏎ включить",
-                run: act(() => Idle.setMode(m))
+                title,
+                sub: "",
+                badge: cur ? "⏎ выключить" : "⏎ включить",
+                run: act(() => Idle.stayAwake(cur ? 0 : minutes))
             }
-        }).concat([{
+        }
+        const out = []
+        // Строка состояния — когда ни один пункт ниже его не показывает
+        if (!Idle.caffeine)
+            out.push({
+                glyph: st.icon,
+                glyphColor: st.awake ? Theme.peach : Theme.overlay1,
+                title: st.text,
+                sub: "",
+                badge: "",
+                run: act(() => {})
+            })
+        out.push(item(60, awake > 0 ? "Не засыпать · ещё " + Idle.left(awake - Idle.now) : "Не засыпать час"))
+        out.push(item(-1, "Не засыпать, пока не выключу"))
+        out.push({
             glyph: "󰝚",
             glyphColor: Idle.whilePlaying ? Theme.pink : Theme.overlay1,
-            title: "Не засыпать под музыку   " + (Idle.whilePlaying ? "вкл" : "выкл"),
+            title: "Под музыку не засыпать   " + (Idle.whilePlaying ? "вкл" : "выкл"),
             sub: Idle.whilePlaying ? "пока играет плеер — ни лока, ни сна" : "засыпаю, даже если играет",
             badge: "⏎ переключить   ⇧⏎ и остаться",
             run: act(() => { Idle.whilePlaying = !Idle.whilePlaying })
-        }])
+        })
+        return out
     }
 }

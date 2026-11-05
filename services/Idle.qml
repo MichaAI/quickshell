@@ -1,13 +1,18 @@
 pragma Singleton
 import Quickshell
+import Quickshell.Io
 import Quickshell.Wayland
 import QtQuick
 import "../config"
 
 // Простой: за idleWarnSec до лока — предупреждение (bar/IdleWarning.qml),
-// потом лок, потом сон. Таймауты — Settings.idle*. Не засыпать:
-// caffeine (руками: бар, «q idle», qs ipc call idle toggle), пока играет
-// плеер или пока держит systemd-inhibit (services/Logind.qml).
+// потом лок, потом сон. Таймауты — Settings.idle*.
+//
+// Не засыпать (ни лока, ни сна), если: включено руками на время или
+// бессрочно (бар, «q idle», qs ipc call idle …), играет плеер (тумблер
+// whilePlaying) или держит systemd-inhibit --what=idle
+// (services/Logind.qml); --what=sleep запрещает только сон. Оба тумблера
+// переживают перезапуск: ~/.cache/quickshell-idle.json.
 //
 // Свои запреты выключают мониторы ниже напрямую: niri уважает
 // IdleInhibitor бара, только пока бар отрисован, а под полноэкранным
@@ -22,45 +27,60 @@ import "../config"
 Singleton {
     id: root
 
-    // Режим: auto — лок, потом сон; lock — только лок; awake — ничего
-    property string mode: "auto"
-    readonly property bool caffeine: mode === "awake"
-    // Не засыпать, пока играет плеер (переключается в «q idle»)
+    // Не засыпать руками: 0 — выкл, -1 — пока не выключат, иначе до этого
+    // времени (мс с эпохи)
+    property real awakeUntil: 0
+    readonly property bool caffeine: awakeUntil !== 0
+    // Не засыпать, пока играет плеер
     property bool whilePlaying: Settings.idleWhilePlaying
     readonly property bool playing: whilePlaying && Players.playingList.length > 0
     // Блокирующие инхибиторы logind (systemd-inhibit)
     readonly property bool logindIdle: Logind.blocked.includes("idle")
     readonly property bool logindSleep: Logind.blocked.includes("sleep")
     readonly property bool inhibited: caffeine || playing || logindIdle
-    readonly property var modes: ({
-        auto: { icon: "󰒲", title: "Лок и сон" },
-        lock: { icon: "󰌾", title: "Только лок, без сна" },
-        awake: { icon: "󰅶", title: "Не засыпать" }
-    })
 
     readonly property bool warning: warnMon.isIdle && !lockMon.isIdle
     readonly property int warnSec: Math.min(Settings.idleWarnSec, Math.max(0, Settings.idleLockSec - 1))
 
-    function setMode(m) {
-        if (modes[m]) mode = m
+    // Не засыпать: minutes > 0 — на столько минут, -1 — пока не выключат,
+    // 0 — выключить
+    function stayAwake(minutes) {
+        now = Date.now()
+        awakeUntil = minutes > 0 ? now + minutes * 60000 : minutes < 0 ? -1 : 0
     }
 
-    // Не засыпать ↔ лок и сон
     function toggle() {
-        mode = caffeine ? "auto" : "awake"
+        stayAwake(caffeine ? 0 : -1)
     }
 
-    // «лок через 5 мин, сон через 10» / почему не заснёт
-    function describe() {
-        if (caffeine) return "не засыпаю: включено вручную"
-        if (logindIdle) return "не засыпаю: держит " + holders("idle")
-        if (playing) return "не засыпаю, пока играет " + (Players.title || "плеер")
+    // Что сейчас и почему — одной строкой: для бара, «q idle» и IPC.
+    // awake — что-то держит, icon — что именно
+    readonly property var status: {
+        if (awakeUntil < 0)
+            return { awake: true, icon: "󰅶", text: "Не засыпаю, пока не выключишь" }
+        if (awakeUntil > 0)
+            return { awake: true, icon: "󰅶", text: "Не засыпаю ещё " + left(awakeUntil - now) }
+        if (logindIdle)
+            return { awake: true, icon: "󰒳", text: "Не засыпаю: держит " + holders("idle") }
+        if (playing)
+            return { awake: true, icon: "󰝚", text: "Не засыпаю, пока играет " + (Players.title || "плеер") }
         const fmt = s => s % 60 === 0 ? s / 60 + " мин" : s + " с"
         const parts = []
-        if (Settings.idleLockSec > 0) parts.push("лок через " + fmt(Settings.idleLockSec))
-        if (Settings.idleSuspendSec > 0 && mode === "auto")
+        if (Settings.idleLockSec > 0)
+            parts.push("лок через " + fmt(Settings.idleLockSec))
+        if (Settings.idleSuspendSec > 0)
             parts.push(logindSleep ? "без сна: держит " + holders("sleep") : "сон через " + fmt(Settings.idleSuspendSec))
-        return parts.length ? parts.join(", ") : "простой выключен"
+        const text = parts.join(", ")
+        return { awake: false, icon: "󰒲", text: text ? "Без движения: " + text : "Простой выключен" }
+    }
+
+    // «30 с», «47 мин», «1 ч 05 мин»
+    function left(ms) {
+        const s = Math.max(0, Math.ceil(ms / 1000))
+        if (s < 60)
+            return s + " с"
+        const m = Math.ceil(s / 60)
+        return m < 60 ? m + " мин" : Math.floor(m / 60) + " ч " + String(m % 60).padStart(2, "0") + " мин"
     }
 
     // «make, steam» — кто держит systemd-inhibit
@@ -68,6 +88,47 @@ Singleton {
         const who = Logind.holders(what)
         return who.length ? who.join(", ") : "systemd-inhibit"
     }
+
+    // Часы для «ещё 47 мин» — тикают, только пока идёт отсчёт
+    property real now: Date.now()
+    Timer {
+        running: root.awakeUntil > 0
+        interval: 1000
+        repeat: true
+        triggeredOnStart: true
+        onTriggered: {
+            root.now = Date.now()
+            if (root.now >= root.awakeUntil)
+                root.awakeUntil = 0
+        }
+    }
+
+    // Оба тумблера — в файл, чтобы пережить перезапуск шелла
+    property bool loaded: false
+    onAwakeUntilChanged: save()
+    onWhilePlayingChanged: save()
+    function save() {
+        if (loaded)
+            store.setText(JSON.stringify({ awakeUntil, whilePlaying }) + "\n")
+    }
+
+    FileView {
+        id: store
+        path: Quickshell.env("HOME") + "/.cache/quickshell-idle.json"
+        blockLoading: true
+        printErrors: false
+        onLoaded: {
+            try {
+                const v = JSON.parse(text())
+                // Истёкший таймер не воскрешаем
+                if (typeof v.awakeUntil === "number" && (v.awakeUntil < 0 || v.awakeUntil > Date.now()))
+                    root.awakeUntil = v.awakeUntil
+                if (typeof v.whilePlaying === "boolean")
+                    root.whilePlaying = v.whilePlaying
+            } catch (e) {}
+        }
+    }
+    Component.onCompleted: loaded = true
 
     IdleMonitor {
         id: warnMon
@@ -86,7 +147,7 @@ Singleton {
 
     IdleMonitor {
         id: sleepMon
-        enabled: Settings.idleSuspendSec > 0 && root.mode === "auto" && !root.logindSleep && !root.inhibited
+        enabled: Settings.idleSuspendSec > 0 && !root.logindSleep && !root.inhibited
         timeout: Math.max(1, Settings.idleSuspendSec)
         respectInhibitors: true
         // Без tty systemctl инхибиторы не проверяет, а logind пропускает

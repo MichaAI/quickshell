@@ -48,6 +48,11 @@ Singleton {
     }
 
     Component.onCompleted: {
+        // Тесты (tests/lib.sh): logind общий с живой сессией
+        if (Quickshell.env("QS_NO_LOGIND")) {
+            console.info("Logind: выключен (QS_NO_LOGIND)")
+            return
+        }
         const c = Qt.createComponent("LogindItem.qml")
         if (c.status !== Component.Ready) {
             console.info("Logind: нет плагина MichaAI.Logind — без systemd-inhibit и лока перед сном:", c.errorString())

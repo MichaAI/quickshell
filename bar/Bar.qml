@@ -752,16 +752,20 @@ Scope {
                         }
                     }
 
-                    // Простой не по умолчанию (без сна / не засыпать) —
-                    // клик возвращает «лок и сон»
+                    // Что-то не даёт заснуть (руками, музыка, systemd-inhibit):
+                    // значок — что именно, клик — «q idle» с причиной.
+                    // Музыку не показываем: её и так видно
                     BarPill {
                         id: caffeinePill
                         anchors.verticalCenter: parent.verticalCenter
-                        visible: Idle.mode !== "auto"
-                        onClicked: Idle.setMode("auto")
+                        visible: Idle.caffeine || Idle.logindIdle
+                        onClicked: {
+                            Tools.launcherPreset = "q idle "
+                            Ui.popoutRequested("launcher")
+                        }
 
                         PillText {
-                            text: Idle.modes[Idle.mode].icon
+                            text: Idle.status.icon
                             color: Theme.peach
                         }
                     }

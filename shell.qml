@@ -78,15 +78,16 @@ ShellRoot {
     // niri: `qs ipc call notifs <toggleDnd|clear>`
     IpcHandler {
         target: "idle"
+        // Не засыпать ↔ как обычно
         function toggle(): void {
             Idle.toggle()
         }
-        // auto | lock | awake
-        function set(mode: string): void {
-            Idle.setMode(mode)
+        // Не засыпать: минуты, -1 — пока не выключат, 0 — выключить
+        function awake(minutes: int): void {
+            Idle.stayAwake(minutes)
         }
         function status(): string {
-            return Idle.mode + ": " + Idle.describe()
+            return Idle.status.text
         }
     }
 

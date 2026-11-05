@@ -224,7 +224,9 @@ EOF
 # Запустить шелл с копией конфига внутри niri
 start_shell() {
     alive qs && { stop qs; sleep 0.5; }
-    HOME=$TEST_HOME XDG_CACHE_HOME=$TEST_HOME/.cache WAYLAND_DISPLAY=$NIRI \
+    # QS_NO_LOGIND: logind на системной шине общий с живой сессией —
+    # тестовый шелл не трогает её LockedHint и сон
+    HOME=$TEST_HOME XDG_CACHE_HOME=$TEST_HOME/.cache WAYLAND_DISPLAY=$NIRI QS_NO_LOGIND=1 \
         setsid quickshell -p "$RUN/cfg" > "$RUN/qs.log" 2>&1 < /dev/null &
     echo $! > "$RUN/qs.pid"
     sleep 0.3
