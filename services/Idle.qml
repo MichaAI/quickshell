@@ -8,12 +8,15 @@ import "../config"
 // Простой: за idleWarnSec до лока — предупреждение (bar/IdleWarning.qml),
 // потом лок, потом сон. Таймауты — Settings.idle*. Не засыпать:
 // caffeine (руками: бар, «q idle», qs ipc call idle toggle) или пока
-// играет плеер. Запрет — через IdleInhibitor в окне бара, его уважают и
-// мониторы ниже, и чужие (swayidle). Лок перед сном (before-sleep через
-// logind) остаётся за swayidle: у шелла нет delay-инхибитора logind.
+// играет плеер. Свои запреты выключают мониторы ниже напрямую: niri
+// уважает IdleInhibitor бара, только пока бар отрисован, а под
+// полноэкранным окном его нет (niri#2028). IdleInhibitor в баре остаётся
+// для чужих (swayidle) и чтобы чужие запреты (mpv, браузер) доходили до
+// нас. Включённый заново монитор отсчитывает простой с нуля — снятый
+// запрет не лочит сразу. Лок перед сном (before-sleep через logind)
+// остаётся за swayidle: у шелла нет delay-инхибитора logind.
 // Блокировки logind (systemd-inhibit --what=idle/sleep) мониторы Wayland
-// не видят — их опрашиваем сами: idle держит наш IdleInhibitor, sleep
-// отменяет сон
+// не видят — их опрашиваем сами, и ещё раз перед самым локом
 Singleton {
     id: root
 
@@ -25,6 +28,8 @@ Singleton {
     readonly property bool playing: whilePlaying && Players.playingList.length > 0
     // Блокирующие инхибиторы logind: "idle", "sleep", "shutdown"…
     property var logindBlock: []
+    // Лок ждёт ответа blockProc
+    property bool pendingLock: false
     readonly property bool logindIdle: logindBlock.includes("idle")
     readonly property bool logindSleep: logindBlock.includes("sleep")
     readonly property bool inhibited: caffeine || playing || logindIdle
@@ -61,22 +66,30 @@ Singleton {
 
     IdleMonitor {
         id: warnMon
-        enabled: Settings.idleLockSec > 0 && root.warnSec > 0
+        enabled: Settings.idleLockSec > 0 && root.warnSec > 0 && !root.inhibited
         timeout: Math.max(1, Settings.idleLockSec - root.warnSec)
         respectInhibitors: true
+        // Перепроверить systemd-inhibit заранее — тогда затемнение
+        // исчезнет, не дойдя до лока
+        onIsIdleChanged: if (isIdle) blockProc.running = true
     }
 
     IdleMonitor {
         id: lockMon
-        enabled: Settings.idleLockSec > 0
+        enabled: Settings.idleLockSec > 0 && !root.inhibited
         timeout: Math.max(1, Settings.idleLockSec)
         respectInhibitors: true
-        onIsIdleChanged: if (isIdle) Ui.lockRequested()
+        // Лок — только после свежей проверки systemd-inhibit: опрос раз в
+        // 15 с мог не успеть
+        onIsIdleChanged: {
+            root.pendingLock = isIdle
+            if (isIdle) blockProc.running = true
+        }
     }
 
     IdleMonitor {
         id: sleepMon
-        enabled: Settings.idleSuspendSec > 0 && root.mode === "auto" && !root.logindSleep
+        enabled: Settings.idleSuspendSec > 0 && root.mode === "auto" && !root.logindSleep && !root.inhibited
         timeout: Math.max(1, Settings.idleSuspendSec)
         respectInhibitors: true
         // Без tty systemctl инхибиторы не проверяет, а logind пропускает
@@ -95,6 +108,9 @@ Singleton {
                 const list = m ? m[1].split(":").filter(s => s !== "") : []
                 if (list.join(":") !== root.logindBlock.join(":"))
                     root.logindBlock = list
+                if (root.pendingLock && lockMon.isIdle && !root.inhibited)
+                    Ui.lockRequested()
+                root.pendingLock = false
             }
         }
     }
