@@ -1,8 +1,8 @@
 # quickshell, которому видно всё, что зовёт конфиг: утилиты в PATH,
 # плагины картинок для обоев (webp и т.п.) и, для 3D-авы на локе,
 # QtQuick3D с QtQuick.Timeline и balsam. Сам qs тоже в PATH: конфиг зовёт
-# его через Process. И QML-плагин MichaAI.Mpris (расширение плеера) — тем
-# же Qt, что и quickshell
+# его через Process. И QML-плагины на Rust — MichaAI.Mpris (расширение
+# плеера) и MichaAI.Logind — тем же Qt, что и quickshell
 {
   lib,
   callPackage,
@@ -21,7 +21,12 @@ let
     qt6.qtquick3d
     qt6.qtquicktimeline
   ];
-  qml = [ (callPackage ./mprisext.nix { inherit qt6; }) ] ++ qml3d;
+  plugin = pname: uri: callPackage ./qmlplugin.nix { inherit qt6 pname uri; };
+  qml = [
+    (plugin "mprisext" "MichaAI/Mpris")
+    (plugin "logind" "MichaAI/Logind")
+  ]
+  ++ qml3d;
   plugins = [ qt6.qtimageformats ] ++ qml3d;
 in
 symlinkJoin {

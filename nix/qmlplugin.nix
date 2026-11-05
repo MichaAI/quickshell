@@ -1,33 +1,35 @@
-# QML-плагин MichaAI.Mpris (tools/mprisext): расширение плеера
-# org.mpris.MediaPlayer2.MichaAIext по D-Bus. Кладётся в lib/qt-6/qml —
-# package.nix добавляет его в QML_IMPORT_PATH шелла.
+# QML-плагин на Rust из tools/<pname> (cxx-qt): MichaAI.Mpris — расширение
+# плеера, MichaAI.Logind — logind. Кладётся в lib/qt-6/qml — package.nix
+# добавляет его в QML_IMPORT_PATH шелла.
 #
 # Собирать тем же Qt, что и quickshell: плагин грузится в его процесс
 {
   lib,
   rustPlatform,
   qt6,
+  pname,
+  uri,
 }:
 
 let
   # cxx-qt-build ищет модули Qt через qmake, а в nixpkgs каждый модуль —
   # свой путь в сторе: нужен qmake, который видит и QtQml
-  qt = qt6.env "qt-mprisext-${qt6.qtbase.version}" [ qt6.qtdeclarative ];
-  uri = "MichaAI/Mpris";
+  qt = qt6.env "qt-${pname}-${qt6.qtbase.version}" [ qt6.qtdeclarative ];
+  root = ../tools + "/${pname}";
 in
 rustPlatform.buildRustPackage {
-  pname = "mprisext";
+  inherit pname;
   version = "0.1.0";
   src = lib.fileset.toSource {
-    root = ../tools/mprisext;
+    inherit root;
     fileset = lib.fileset.unions [
-      ../tools/mprisext/Cargo.toml
-      ../tools/mprisext/Cargo.lock
-      ../tools/mprisext/build.rs
-      ../tools/mprisext/src
+      (root + "/Cargo.toml")
+      (root + "/Cargo.lock")
+      (root + "/build.rs")
+      (root + "/src")
     ];
   };
-  cargoLock.lockFile = ../tools/mprisext/Cargo.lock;
+  cargoLock.lockFile = root + "/Cargo.lock";
 
   nativeBuildInputs = [ qt ];
   buildInputs = [
@@ -49,7 +51,7 @@ rustPlatform.buildRustPackage {
     mod=$(find target -path '*/qt-build-utils/qml_modules/${uri}/qmldir' -printf '%h\n' | head -1)
     cp $mod/qmldir $mod/plugin.qmltypes $dir/
     plugin=$(sed -n 's/^\(optional \)\?plugin \([^ ]*\).*/\2/p' $dir/qmldir)
-    cp $(find target -name libmprisext.so -path '*/release/*' | head -1) $dir/lib$plugin.so
+    cp $(find target -name lib${pname}.so -path '*/release/*' | head -1) $dir/lib$plugin.so
     runHook postInstall
   '';
 

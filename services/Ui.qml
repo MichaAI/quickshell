@@ -15,4 +15,6 @@ Singleton {
     signal popoutCloseRequested(string name)
     // Заблокировать экран (lock/Lock.qml). Разблокировки отсюда нет — только паролем
     signal lockRequested()
+    // Экран закрыт локом — композитор подтвердил (пишет lock/Lock.qml)
+    property bool locked: false
 }

@@ -23,8 +23,15 @@
         config = pkgs.callPackage ./nix/config.nix { };
         # демон наушников для Bluetooth-попаута
         budsd = pkgs.callPackage ./nix/budsd.nix { };
-        # QML-плагин расширения плеера (MichaAI.Mpris)
-        mprisext = pkgs.callPackage ./nix/mprisext.nix { };
+        # QML-плагины: расширение плеера (MichaAI.Mpris) и logind
+        mprisext = pkgs.callPackage ./nix/qmlplugin.nix {
+          pname = "mprisext";
+          uri = "MichaAI/Mpris";
+        };
+        logind = pkgs.callPackage ./nix/qmlplugin.nix {
+          pname = "logind";
+          uri = "MichaAI/Logind";
+        };
       });
 
       formatter = forAll (pkgs: pkgs.nixfmt);
