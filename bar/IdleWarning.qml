@@ -36,6 +36,14 @@ Scope {
                         warnWin.startedAt = Date.now()
                         warnWin.left = Idle.warnSec
                     }
+                    // Параметры задаём явно перед запуском: в Behavior
+                    // duration пересчитывался уже после старта анимации, и
+                    // затемнение уходило не за 200 мс, а за все 10 с
+                    fade.stop()
+                    fade.duration = Idle.warning ? Idle.warnSec * 1000 : 200
+                    fade.easing.type = Idle.warning ? Easing.InQuad : Easing.OutCubic
+                    fade.to = Idle.warning ? 0.65 : 0
+                    fade.start()
                 }
             }
             Timer {
@@ -50,13 +58,8 @@ Scope {
                 anchors.fill: parent
                 color: Theme.crust
                 // Темнеет за всё время предупреждения, уходит сразу
-                opacity: Idle.warning ? 0.65 : 0
-                Behavior on opacity {
-                    NumberAnimation {
-                        duration: Idle.warning ? Idle.warnSec * 1000 : 200
-                        easing.type: Idle.warning ? Easing.InQuad : Easing.OutCubic
-                    }
-                }
+                opacity: 0
+                NumberAnimation { id: fade; target: dim; property: "opacity" }
             }
 
             Rectangle {
