@@ -29,6 +29,9 @@ Singleton {
     property bool idle: false
     // Держать delay-инхибитор сна: logind ждёт sleepReady()
     property bool guardSleep: false
+    // Не давать крышке усыплять: на крышке logind блокирующий sleep не
+    // слушает (LidSwitchIgnoreInhibited=yes), слушает только handle-lid-switch
+    property bool guardLid: false
 
     signal prepareForSleep(bool start)
     // loginctl lock-session
@@ -61,7 +64,8 @@ Singleton {
         ext = c.createObject(root, {
             locked: Qt.binding(() => root.locked),
             idle: Qt.binding(() => root.idle),
-            guardSleep: Qt.binding(() => root.guardSleep)
+            guardSleep: Qt.binding(() => root.guardSleep),
+            guardLid: Qt.binding(() => root.guardLid)
         })
     }
 }
