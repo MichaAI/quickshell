@@ -9,6 +9,9 @@
 //!   guardSleep  b     — держать delay-инхибитор сна: logind ждёт
 //!                       sleepReady() (не дольше InhibitDelayMaxSec), прежде
 //!                       чем усыпить
+//!   guardLid    b     — держать block-инхибитор handle-lid-switch: крышка
+//!                       не усыпляет. Блокирующий sleep logind на крышке
+//!                       не слушает (LidSwitchIgnoreInhibited=yes)
 //!   prepareForSleep(start) — сейчас уснём / проснулись
 //!   lockRequested()        — loginctl lock-session
 //!
@@ -31,6 +34,7 @@ pub mod qobject {
         #[qproperty(bool, locked, READ, WRITE = set_locked, NOTIFY)]
         #[qproperty(bool, idle, READ, WRITE = set_idle, NOTIFY)]
         #[qproperty(bool, guard_sleep, cxx_name = "guardSleep", READ, WRITE = set_guard_sleep, NOTIFY)]
+        #[qproperty(bool, guard_lid, cxx_name = "guardLid", READ, WRITE = set_guard_lid, NOTIFY)]
         type Logind = super::LogindRust;
 
         #[cxx_name = "setLocked"]
@@ -41,6 +45,9 @@ pub mod qobject {
 
         #[cxx_name = "setGuardSleep"]
         fn set_guard_sleep(self: Pin<&mut Self>, value: bool);
+
+        #[cxx_name = "setGuardLid"]
+        fn set_guard_lid(self: Pin<&mut Self>, value: bool);
 
         /// Экран закрыт — можно спать
         #[qinvokable]
@@ -75,6 +82,7 @@ enum Cmd {
     Locked(bool),
     Idle(bool),
     Guard(bool),
+    Lid(bool),
     SleepReady,
 }
 
@@ -86,6 +94,7 @@ pub struct LogindRust {
     locked: bool,
     idle: bool,
     guard_sleep: bool,
+    guard_lid: bool,
     // Закрытие канала (элемент удалён) останавливает поток
     cmds: Option<async_channel::Sender<Cmd>>,
 }
@@ -131,6 +140,14 @@ impl qobject::Logind {
             self.as_mut().rust_mut().guard_sleep = value;
             self.as_mut().guard_sleep_changed();
             self.send(Cmd::Guard(value));
+        }
+    }
+
+    pub fn set_guard_lid(mut self: Pin<&mut Self>, value: bool) {
+        if self.guard_lid != value {
+            self.as_mut().rust_mut().guard_lid = value;
+            self.as_mut().guard_lid_changed();
+            self.send(Cmd::Lid(value));
         }
     }
 
@@ -226,6 +243,7 @@ async fn worker(
     let mut guard = false;
     let mut sleeping = false;
     let mut delay: Option<OwnedFd> = None;
+    let mut lid: Option<OwnedFd> = None;
 
     while let Some(ev) = events.next().await {
         match ev {
@@ -238,7 +256,7 @@ async fn worker(
                 sleeping = start;
                 // Проснулись — инхибитор на следующий сон
                 if !start && guard && delay.is_none() {
-                    delay = inhibit(&manager).await;
+                    delay = inhibit(&manager, "sleep", "Закрыть экран перед сном", "delay").await;
                 }
                 let _ = qt.queue(move |o| o.prepare_for_sleep(start));
             }
@@ -248,7 +266,14 @@ async fn worker(
                 if !on {
                     delay = None;
                 } else if !sleeping && delay.is_none() {
-                    delay = inhibit(&manager).await;
+                    delay = inhibit(&manager, "sleep", "Закрыть экран перед сном", "delay").await;
+                }
+            }
+            Ev::Cmd(Cmd::Lid(on)) => {
+                if !on {
+                    lid = None;
+                } else if lid.is_none() {
+                    lid = inhibit(&manager, "handle-lid-switch", "Держат systemd-inhibit — крышка не усыпляет", "block").await;
                 }
             }
             Ev::Cmd(Cmd::Locked(on)) => hint(&session, "SetLockedHint", on).await,
@@ -276,9 +301,9 @@ async fn hint(session: &Option<zbus::Proxy<'_>>, method: &str, on: bool) {
     }
 }
 
-async fn inhibit(manager: &zbus::Proxy<'_>) -> Option<OwnedFd> {
+async fn inhibit(manager: &zbus::Proxy<'_>, what: &str, why: &str, mode: &str) -> Option<OwnedFd> {
     manager
-        .call::<_, _, OwnedFd>("Inhibit", &("sleep", "quickshell", "Закрыть экран перед сном", "delay"))
+        .call::<_, _, OwnedFd>("Inhibit", &(what, "quickshell", why, mode))
         .await
         .map_err(|e| eprintln!("qs-logind: Inhibit: {e}"))
         .ok()

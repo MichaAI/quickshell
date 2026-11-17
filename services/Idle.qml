@@ -11,8 +11,10 @@ import "../config"
 // Не засыпать (ни лока, ни сна), если: включено руками на время или
 // бессрочно (бар, «q idle», qs ipc call idle …), играет плеер (тумблер
 // whilePlaying) или держит systemd-inhibit --what=idle
-// (services/Logind.qml); --what=sleep запрещает только сон. Оба тумблера
-// переживают перезапуск: ~/.cache/quickshell-idle.json.
+// (services/Logind.qml); --what=sleep запрещает только сон, в том числе
+// по крышке: на крышке logind sleep не слушает, и шелл, пока его держат,
+// берёт handle-lid-switch сам. Оба тумблера переживают перезапуск:
+// ~/.cache/quickshell-idle.json.
 //
 // Свои запреты выключают мониторы ниже напрямую: niri уважает
 // IdleInhibitor бара, только пока бар отрисован, а под полноэкранным
@@ -163,6 +165,13 @@ Singleton {
         target: Logind
         property: "guardSleep"
         value: true
+    }
+    // systemd-inhibit на сон держит и крышку: иначе закрыл ноут — уснул,
+    // и ssh в него отвалился
+    Binding {
+        target: Logind
+        property: "guardLid"
+        value: root.logindSleep
     }
     Binding {
         target: Logind
